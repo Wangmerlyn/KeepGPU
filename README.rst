@@ -6,8 +6,8 @@ Keep GPU
 .. image:: https://img.shields.io/pypi/v/keep_gpu.svg
         :target: https://pypi.python.org/pypi/keep_gpu
 
-.. image:: https://img.shields.io/travis/Wangmerlyn/keep_gpu.svg
-        :target: https://travis-ci.com/Wangmerlyn/keep_gpu
+.. image:: https://img.shields.io/travis/Wangmerlyn/KeepGPU.svg
+        :target: https://travis-ci.com/Wangmerlyn/KeepGPU
 
 .. image:: https://readthedocs.org/projects/keep-gpu/badge/?version=latest
         :target: https://keep-gpu.readthedocs.io/en/latest/?version=latest
