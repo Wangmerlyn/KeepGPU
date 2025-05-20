@@ -14,8 +14,8 @@ Keep GPU
         :alt: Documentation Status
 
 
-.. image:: https://pyup.io/repos/github/Wangmerlyn/keep_gpu/shield.svg
-     :target: https://pyup.io/repos/github/Wangmerlyn/keep_gpu/
+.. image:: https://pyup.io/repos/github/Wangmerlyn/keep-gpu/shield.svg
+     :target: https://pyup.io/repos/github/Wangmerlyn/keep-gpu/
      :alt: Updates
 
 
