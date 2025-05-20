@@ -3,8 +3,8 @@ Keep GPU
 ========
 
 
-.. image:: https://img.shields.io/pypi/v/keep_gpu.svg
-        :target: https://pypi.python.org/pypi/keep_gpu
+.. image:: https://img.shields.io/pypi/v/keep-gpu.svg
+        :target: https://pypi.python.org/pypi/keep-gpu
 
 .. image:: https://img.shields.io/travis/Wangmerlyn/KeepGPU.svg
         :target: https://travis-ci.com/Wangmerlyn/KeepGPU
