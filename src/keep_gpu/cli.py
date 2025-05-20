@@ -1,5 +1,6 @@
 """Console script for keep_gpu."""
 import keep_gpu
+from .keep_gpu import run
 
 import typer
 from rich.console import Console
@@ -14,6 +15,7 @@ def main():
     console.print("Replace this message by putting your code into "
                "keep_gpu.cli.main")
     console.print("See Typer documentation at https://typer.tiangolo.com/")
+    run()
     
 
 
