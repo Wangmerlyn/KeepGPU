@@ -30,7 +30,13 @@ Keep GPU is a simple cli app that keep your gpus running
 Features
 --------
 
-* TODO
+TODO
+-----
+
+* [ ] Add more CLI args (e.g. --gpu-id, --gpu-ids, --gpu-keep-threshold, --gpu-keep-time, --gpu-keep-vram-usage)
+* [ ] Add documentation
+* [ ] Add importable Python functions
+
 
 Credits
 -------
