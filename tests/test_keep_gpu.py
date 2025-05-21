@@ -5,7 +5,6 @@
 
 import unittest
 
-from keep_gpu import keep_gpu
 
 
 class TestKeep_gpu(unittest.TestCase):

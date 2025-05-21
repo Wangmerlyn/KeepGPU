@@ -29,7 +29,7 @@ def keep(rank, args):
 
         tic = time.time()
         for _ in range(5000):
-            c = a * b
+            _ = a * b
         torch.cuda.synchronize()
         toc = time.time()
         if rank == 0:

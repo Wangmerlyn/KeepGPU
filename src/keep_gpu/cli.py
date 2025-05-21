@@ -1,5 +1,4 @@
 """Console script for keep_gpu."""
-import keep_gpu
 from .keep_gpu import run
 
 import typer

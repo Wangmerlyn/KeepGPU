@@ -1,6 +1,5 @@
 import subprocess
 import time
-import os
 import torch
 
 from .benchmark import run_benchmark
