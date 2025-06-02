@@ -6,7 +6,6 @@
 import unittest
 
 
-
 class TestKeep_gpu(unittest.TestCase):
     """Tests for `keep_gpu` package."""
 

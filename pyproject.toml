@@ -64,3 +64,21 @@ module = "tests.*"
 allow_untyped_defs = true
 disable_error_code = "attr-defined"
 
+[tool.black]
+line-length = 88
+target-version = ['py38']
+skip-string-normalization = false
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+exclude = ["build", "dist", ".venv"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["llm_chart_extraction"]
+combine-as-imports = true
+force-single-line = false
