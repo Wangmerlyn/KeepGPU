@@ -30,6 +30,8 @@ dev = [
     "mypy",  # linting
     "pytest",  # testing
     "ruff"  # linting
+    "black",  # code formatting
+    "pre-commit",  # linting
 ]
 
 [project.urls]
