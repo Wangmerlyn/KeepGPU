@@ -29,7 +29,7 @@ dev = [
     "coverage",  # testing
     "mypy",  # linting
     "pytest",  # testing
-    "ruff"  # linting
+    "ruff",  # linting
     "black",  # code formatting
     "pre-commit",  # linting
 ]
