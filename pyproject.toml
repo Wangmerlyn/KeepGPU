@@ -18,7 +18,8 @@ classifiers = [
 ]
 license = {text = "MIT license"}
 dependencies = [
-  "typer"
+  "typer",
+  "torch"
 ]
 
 [project.scripts]
