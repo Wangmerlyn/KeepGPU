@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
@@ -65,8 +66,8 @@ def _build_file_handler(
 
 def setup_logger(
     name: str = "keep_gpu",
-    default_console_level: int = logging.INFO,
-    default_file_level: int = logging.DEBUG,
+    default_console_level: Optional[int] = logging.INFO,
+    default_file_level: Optional[int] = None,
 ) -> logging.Logger:
     """
     Set up a logger with configurable console and file handlers.
@@ -82,7 +83,7 @@ def setup_logger(
     logger.setLevel(logging.DEBUG)  # master switch: keep open
 
     # Decide levels or disable
-    console_env = os.getenv("CONSOLE_LOG_LEVEL", "INFO")
+    console_env = os.getenv("CONSOLE_LOG_LEVEL")
     file_env = os.getenv("FILE_LOG_LEVEL")
     console_level = _parse_log_level(console_env, default_console_level)
     file_level = _parse_log_level(file_env, default_file_level)
