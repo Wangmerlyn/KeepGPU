@@ -4,22 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "keep_gpu"
-version = "0.1.0.post3"
-description = "Keep GPU is a simple cli app that keep your gpus running"
+dynamic = ["version"]  # Let setuptools read the version dynamically
+description = "Keep GPU is a simple CLI app that keeps your GPUs running"
 readme = {file = "README.md", content-type = "text/markdown"}
-authors = [
-  {name = "Siyuan Wang", email = "sywang0227@gmail.com"}
-]
-maintainers = [
-  {name = "Siyuan Wang", email = "sywang0227@gmail.com"}
-]
-classifiers = [
-
-]
+authors = [{name = "Siyuan Wang", email = "sywang0227@gmail.com"}]
+maintainers = [{name = "Siyuan Wang", email = "sywang0227@gmail.com"}]
+classifiers = []
 license = {text = "MIT license"}
 dependencies = [
   "typer",
-  "torch"
+  "torch",
 ]
 
 [project.scripts]
@@ -27,16 +21,16 @@ keep-gpu = "keep_gpu.cli:main"
 
 [project.optional-dependencies]
 dev = [
-    "coverage",  # testing
-    "mypy",  # linting
-    "pytest",  # testing
-    "ruff",  # linting
-    "black",  # code formatting
-    "pre-commit",  # linting
+  "coverage",       # Testing
+  "mypy",           # Type checking
+  "pytest",         # Testing
+  "ruff",           # Linting
+  "black",          # Formatting
+  "pre-commit",     # Git hooks
+  "bump2version",   # Version management
 ]
 
 [project.urls]
-
 bugs = "https://github.com/Wangmerlyn/KeepGPU/issues"
 changelog = "https://github.com/Wangmerlyn/KeepGPU/blob/master/changelog.md"
 homepage = "https://github.com/Wangmerlyn/KeepGPU"
@@ -47,31 +41,48 @@ package-dir = {"" = "src"}
 [tool.setuptools.package-data]
 "*" = ["*.*"]
 
+# Dynamic version source: reads __version__ from keep_gpu package
+[tool.setuptools.dynamic]
+version = {attr = "keep_gpu.__version__"}
 
+# -----------------------------
+# bump2version configuration
+[tool.bumpversion]
+current_version = "0.1.0.post3"
+commit = true
+tag = true
+tag_name = "v{new_version}"
+allow_dirty = true  # Allow committing with uncommitted changes (optional)
 
+# Files to update when bumping the version
+[[tool.bumpversion.files]]
+filename = "src/keep_gpu/__init__.py"
 
-# Mypy
-# ----
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'current_version = "{current_version}"'
+replace = 'current_version = "{new_version}"'
 
+# -----------------------------
+# Mypy type checking
 [tool.mypy]
 files = "."
-
-# Use strict defaults
 strict = true
 warn_unreachable = true
 warn_no_return = true
 
 [[tool.mypy.overrides]]
-# Don't require test functions to include types
 module = "tests.*"
 allow_untyped_defs = true
 disable_error_code = "attr-defined"
 
+# Black formatter
 [tool.black]
 line-length = 88
 target-version = ['py38']
 skip-string-normalization = false
 
+# Ruff linter
 [tool.ruff]
 line-length = 88
 target-version = "py38"
@@ -82,6 +93,6 @@ ignore = ["E501"]
 exclude = ["build", "dist", ".venv"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["llm_chart_extraction"]
+known-first-party = ["keep_gpu"]
 combine-as-imports = true
 force-single-line = false
