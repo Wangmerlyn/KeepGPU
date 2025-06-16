@@ -76,6 +76,8 @@ replace = 'current_version = "{new_version}"'
 # Mypy type checking
 [tool.mypy]
 files = "."
+
+# Use strict defaults
 strict = true
 warn_unreachable = true
 warn_no_return = true
