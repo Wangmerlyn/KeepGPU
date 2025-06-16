@@ -31,6 +31,24 @@
 ```bash
 pip install keep-gpu
 ```
+
+## Usage
+
+
+```bash
+keep-gpu
+```
+
+Specify the interval in microseconds between GPU usage checks (default is 300 seconds):
+```bash
+keep-gpu --interval 100
+```
+
+Specify GPU IDs to run on (default is all available GPUs):
+```bash
+keep-gpu --gpu-ids 0,1,2
+```
+
 ## Credits
 
 This package was created with [Cookiecutter](https://github.com/audreyr/cookiecutter) and the [audreyr/cookiecutter-pypackage](https://github.com/audreyr/cookiecutter-pypackage) project template.
