@@ -3,6 +3,9 @@ import time
 import torch
 
 from .benchmark import run_benchmark
+from keep_gpu.utilities.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 def check_gpu_usage():
@@ -18,7 +21,7 @@ def check_gpu_usage():
 def run():
     idle_count = 0
     gpu_count = torch.cuda.device_count()
-    print(f"GPU count: {gpu_count}")
+    logger.info(f"GPU count: {gpu_count}")
     while True:
         if not check_gpu_usage():
             idle_count += 1
