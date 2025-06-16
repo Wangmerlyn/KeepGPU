@@ -43,7 +43,7 @@ def keep(rank, args):
         b = torch.rand((4096, 8192*n)).cuda()
 
         tic = time.time()
-        for _ in range(config.matmul_iterations):
+        for _ in range(args.matmul_iterations):
             _ = torch.matmul(a,b)
         torch.cuda.synchronize()
         toc = time.time()
