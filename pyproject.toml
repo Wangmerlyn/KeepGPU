@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "argparse", "colorlog"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,9 +7,18 @@ name = "keep_gpu"
 dynamic = ["version"]  # Let setuptools read the version dynamically
 description = "Keep GPU is a simple CLI app that keeps your GPUs running"
 readme = {file = "README.md", content-type = "text/markdown"}
-authors = [{name = "Siyuan Wang", email = "sywang0227@gmail.com"}]
-maintainers = [{name = "Siyuan Wang", email = "sywang0227@gmail.com"}]
-classifiers = []
+
+authors = [
+  {name = "Siyuan Wang", email = "sywang0227@gmail.com"},
+  {name = "Yaorui Shi", email = "yaoruishi@gmail.com"}
+]
+maintainers = [
+  {name = "Siyuan Wang", email = "sywang0227@gmail.com"},
+  {name = "Yaorui Shi", email = "yaoruishi@gmail.com"}
+]
+classifiers = [
+
+]
 license = {text = "MIT license"}
 dependencies = [
   "typer",
