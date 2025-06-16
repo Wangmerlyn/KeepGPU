@@ -11,9 +11,21 @@ logger = setup_logger(__name__)
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="GPU Idle Monitor and Benchmark Trigger")
-    parser.add_argument("--interval", type=int, default=300, help="Interval in seconds between GPU usage checks")
-    parser.add_argument("--gpu-ids", type=str, default=None, help="Comma-separated list of GPU IDs to monitor and benchmark on (default: all)")
+    parser = argparse.ArgumentParser(
+        description="GPU Idle Monitor and Benchmark Trigger"
+    )
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=300,
+        help="Interval in seconds between GPU usage checks",
+    )
+    parser.add_argument(
+        "--gpu-ids",
+        type=str,
+        default=None,
+        help="Comma-separated list of GPU IDs to monitor and benchmark on (default: all)",
+    )
     return parser.parse_args()
 
 
