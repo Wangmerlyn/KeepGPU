@@ -51,7 +51,7 @@ def keep(rank, args):
         logger.info(
             f"benchmark {rank} matmul: time span: {(toc - tic) * 1000 / 5000:.2f}ms"
         )
-
+        #add for pre-commit test
         time.sleep(args.interval)
         while get_gpu_util(rank) > 10:
             logger.warning(f"rank {rank}: GPU busy, sleeping...")
