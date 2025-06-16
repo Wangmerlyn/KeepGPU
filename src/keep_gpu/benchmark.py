@@ -15,7 +15,7 @@ logger = setup_logger(__name__)
 class BenchmarkConfig:
     gpus: int
     interval: int
-    matmul_iterations: int = 5000  #let us matmul
+    matmul_iterations: int = 5000  # let us matmul
 
 
 def get_gpu_util(rank):
@@ -40,18 +40,18 @@ def keep(rank, args):
     while True:
         n = random.randint(5, 9)
         a = torch.rand((8192 * n, 4096)).cuda()
-        b = torch.rand((4096, 8192*n)).cuda()
+        b = torch.rand((4096, 8192 * n)).cuda()
 
         tic = time.time()
         for _ in range(args.matmul_iterations):
-            _ = torch.matmul(a,b)
+            _ = torch.matmul(a, b)
         torch.cuda.synchronize()
         toc = time.time()
 
         logger.info(
             f"benchmark {rank} matmul: time span: {(toc - tic) * 1000 / 5000:.2f}ms"
         )
-        #add for pre-commit test
+        # add for pre-commit test
         time.sleep(args.interval)
         while get_gpu_util(rank) > 10:
             logger.warning(f"rank {rank}: GPU busy, sleeping...")
