@@ -15,7 +15,7 @@ logger = setup_logger(__name__)
 class BenchmarkConfig:
     gpus: int
     interval: int
-    matmul_iterations: int = 5000  # let us matmul
+    matmul_iterations: int = 5000  # number of matmul calculations per loop
 
 
 def get_gpu_util(rank):
