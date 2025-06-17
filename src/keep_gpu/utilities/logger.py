@@ -11,7 +11,7 @@ except ImportError:
     ColoredFormatter = None  # fallback if colorlog not available
 
 
-def _parse_log_level(env_value: str | None, default: int) -> int | None:
+def _parse_log_level(env_value: Optional[str], default: int) -> int | None:
     """
     Parse log level from string. Return None if disabled.
 
