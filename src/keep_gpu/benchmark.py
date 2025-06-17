@@ -15,7 +15,7 @@ logger = setup_logger(__name__)
 class BenchmarkConfig:
     gpus: int
     interval: int
-    matmul_iterations: int = 5000  #let us matmul
+    matmul_iterations: int = 5000  # number of matmul calculations per loop
 
 
 def get_gpu_util(rank):
@@ -37,26 +37,47 @@ def get_gpu_util(rank):
 def keep(rank, args):
     torch.cuda.set_device(rank)
     logger.info(f"rank {rank}: benchmarking {args.gpus} gpus...")
+
     while True:
-        n = random.randint(5, 9)
-        a = torch.rand((8192 * n, 4096)).cuda()
-        b = torch.rand((4096, 8192*n)).cuda()
+        try:
+            n = random.randint(5, 9)
+            a = torch.rand((8192 * n, 4096), device="cuda")
+            b = torch.rand((4096, 8192 * 5), device="cuda")
 
-        tic = time.time()
-        for _ in range(config.matmul_iterations):
-            _ = torch.matmul(a,b)
-        torch.cuda.synchronize()
-        toc = time.time()
+            tic = time.time()
+            for _ in range(args.matmul_iterations):
+                _ = torch.matmul(a, b)
+            torch.cuda.synchronize()
+            toc = time.time()
 
-        logger.info(
-            f"benchmark {rank} matmul: time span: {(toc - tic) * 1000 / 5000:.2f}ms"
-        )
+            logger.info(
+                f"benchmark {rank} matmul: time span: {(toc - tic) * 1000 / 5000:.2f}ms"
+            )
 
-        time.sleep(args.interval)
-        while get_gpu_util(rank) > 10:
-            logger.warning(f"rank {rank}: GPU busy, sleeping...")
             time.sleep(args.interval)
-        logger.info(f"rank {rank} resumes")
+
+            while get_gpu_util(rank) > 10:
+                logger.warning(f"rank {rank}: GPU busy, sleeping...")
+                time.sleep(args.interval)
+
+            logger.info(f"rank {rank} resumes")
+
+        except RuntimeError as e:
+            logger.error(f"rank {rank}: RuntimeError encountered: {e}")
+            if "out of memory" in str(e).lower():
+                logger.warning(
+                    f"rank {rank}: CUDA OOM — clearing cache and sleeping..."
+                )
+                torch.cuda.empty_cache()
+            time.sleep(args.interval)
+
+        except KeyboardInterrupt:
+            logger.info(f"rank {rank}: Interrupted by user. Exiting keep loop.")
+            break
+
+        except Exception as e:
+            logger.exception(f"rank {rank}: Unexpected error: {e}")
+            time.sleep(args.interval)
 
 
 def run_benchmark(gpus=1, interval=100):
