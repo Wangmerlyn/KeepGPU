@@ -63,7 +63,7 @@ version = {attr = "keep_gpu.__version__"}
 # -----------------------------
 # bump-my-version configuration
 [tool.bumpversion]
-current_version = "0.1.0.post3"
+current_version = "0.2.0"
 commit          = true
 tag             = true
 tag_name        = "v{new_version}"
