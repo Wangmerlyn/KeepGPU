@@ -1,0 +1,28 @@
+site_name: KeepGPU
+site_url: https://keepgpu.readthedocs.io
+repo_url: https://github.com/Wangmerlyn/KeepGPU
+repo_name: Wangmerlyn/KeepGPU
+edit_uri: blob/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - content.code.copy
+    - navigation.tabs
+
+nav:
+  - Home: index.md
+  - Usage: usage.md
+  - API: api.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
