@@ -43,10 +43,6 @@ dev = [
   "black",          # Formatting
   "pre-commit",    # Git hooks
   "bump-my-version",   # Version management
-  # Documentation
-  "mkdocs",
-  "mkdocs-material",
-  "mkdocstrings[python]",
 ]
 
 [project.urls]
