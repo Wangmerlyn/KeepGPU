@@ -26,3 +26,8 @@ mkdocs:
 # python:
 #    install:
 #    - requirements: docs/requirements.txt
+
+# test local
+# python -m pip install --upgrade --no-cache-dir mkdocs
+# python -m pip install --exists-action=w --no-cache-dir -r docs/requirements.txt
+# python -m mkdocs build --clean --config-file mkdocs.yml
