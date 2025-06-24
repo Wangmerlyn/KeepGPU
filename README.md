@@ -1,7 +1,7 @@
 # Keep GPU
 
 [![PyPI Version](https://img.shields.io/pypi/v/keep-gpu.svg)](https://pypi.python.org/pypi/keep-gpu)
-[![Docs Status](https://readthedocs.org/projects/keep-gpu/badge/?version=latest)](https://keep-gpu.readthedocs.io/en/latest/?version=latest)
+[![Docs Status](https://readthedocs.org/projects/keepgpu/badge/?version=latest)](https://keepgpu.readthedocs.io/en/latest/?version=latest)
 
 **Keep GPU** is a simple CLI app that keeps your GPUs running.
 
