@@ -6,7 +6,7 @@
 **Keep GPU** is a simple CLI app that keeps your GPUs running.
 
 - 🧾 License: MIT
-- 📚 Documentation: https://keep-gpu.readthedocs.io
+- 📚 Documentation: https://keepgpu.readthedocs.io
 
 ---
 
