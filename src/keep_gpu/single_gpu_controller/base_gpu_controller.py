@@ -1,4 +1,3 @@
-
 class BaseGPUController:
     def __init__(self, vram_to_keep: int, interval: float):
         """
