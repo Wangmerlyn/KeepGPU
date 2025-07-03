@@ -11,6 +11,9 @@ class ComputingPlatform(Enum):
 
 
 def _check_cuda():
+    # NOTE: This function checks for CUDA availability by trying to import pynvml.
+    # See https://github.com/vllm-project/vllm/blob/536fd330036b0406786c847f68e4f67cba06f421/vllm/platforms/__init__.py#L58
+    # for related discussion.
     try:
         import pynvml
 
