@@ -1,9 +1,9 @@
 import threading
 import time
-import random
 import torch
 import subprocess
 import re
+from typing import Optional
 
 from keep_gpu.single_gpu_controller.base_gpu_controller import BaseGPUController
 from keep_gpu.utilities.logger import setup_logger
@@ -64,8 +64,8 @@ class CudaGPUController(BaseGPUController):
         self.busy_threshold = busy_threshold
         self.platform = ComputingPlatform.CUDA
 
-        self._stop_evt: threading.Event | None = None
-        self._thread: threading.Thread | None = None
+        self._stop_evt: Optional[threading.Event] = None
+        self._thread: Optional[threading.Thread] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -80,7 +80,7 @@ class CudaGPUController(BaseGPUController):
         self._thread = threading.Thread(
             target=self._keep_loop,
             name=f"gpu-keeper-{self.rank}",
-            daemon=True,           # daemon so program can exit cleanly
+            daemon=True,  # daemon so program can exit cleanly
         )
         self._thread.start()
         logger.info("rank %s: keep thread started", self.rank)
@@ -101,7 +101,7 @@ class CudaGPUController(BaseGPUController):
 
     # Context-manager helpers -------------------------------------------------
     def __enter__(self):
-        self.start()
+        self.keep()
         return self
 
     def __exit__(self, exc_type, exc, tb):
