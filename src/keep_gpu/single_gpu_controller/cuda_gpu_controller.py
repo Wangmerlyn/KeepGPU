@@ -116,7 +116,7 @@ class CudaGPUController(BaseGPUController):
 
         while not self._stop_evt.is_set():
             try:
-                self._run_matmul_batch()
+                self._run_mat_batch()
                 time.sleep(self.interval)
             except RuntimeError as e:
                 # Handle OOM by clearing cache; then sleep and continue
@@ -131,12 +131,9 @@ class CudaGPUController(BaseGPUController):
     # ------------------------------------------------------------------
     # Workload implementation
     # ------------------------------------------------------------------
-    def _run_matmul_batch(self) -> None:
+    def _run_mat_batch(self) -> None:
         """Run a batch of dummy matmuls to keep GPU busy."""
         matrix = torch.rand(self.vram_to_keep, device=self.device)
-        # n = random.randint(5, 9)
-        # a = torch.rand((8192 * n, 4096), device=self.device)
-        # b = torch.rand((4096, 8192 * 5), device=self.device)
 
         tic = time.time()
         for _ in range(self.matmul_iterations):
@@ -145,7 +142,7 @@ class CudaGPUController(BaseGPUController):
         toc = time.time()
 
         logger.debug(
-            "rank %s: matmul batch done – avg %.2f ms",
+            "rank %s: mat ops batch done – avg %.2f ms",
             self.rank,
             (toc - tic) * 1000 / self.matmul_iterations,
         )
