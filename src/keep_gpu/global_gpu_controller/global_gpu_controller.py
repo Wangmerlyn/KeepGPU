@@ -14,14 +14,17 @@ class GlobalGPUController:
         vram_to_keep: int = 10 * (2**30),
     ):
         self.computing_platform = get_platform()
-        if gpu_ids is None:
-            self.gpu_ids = list(range(torch.cuda.device_count()))
         self.interval = interval
         self.vram_to_keep = vram_to_keep
         if self.computing_platform == ComputingPlatform.CUDA:
             from keep_gpu.single_gpu_controller.cuda_gpu_controller import (
                 CudaGPUController,
             )
+
+            if gpu_ids is None:
+                self.gpu_ids = list(range(torch.cuda.device_count()))
+            else:
+                self.gpu_ids = gpu_ids
 
             self.controllers = [
                 CudaGPUController(rank=i, interval=interval, vram_to_keep=vram_to_keep)
