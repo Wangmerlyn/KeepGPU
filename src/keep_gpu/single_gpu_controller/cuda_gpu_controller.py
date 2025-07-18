@@ -12,6 +12,22 @@ from keep_gpu.utilities.platform_manager import ComputingPlatform
 logger = setup_logger(__name__)
 
 
+_UNITS = {
+    "KB": 1000,
+    "MB": 1000**2,
+    "GB": 1000**3,
+    "Kb": 1000 / 8,
+    "Mb": 1000**2 / 8,
+    "Gb": 1000**3 / 8,
+    "KIB": 1024,
+    "MIB": 1024**2,
+    "GIB": 1024**3,
+    "KIb": 1024 / 8,
+    "MIb": 1024**2 / 8,
+    "GIb": 1024**3 / 8,
+}
+
+
 class CudaGPUController(BaseGPUController):
     """
     Keep a single CUDA GPU busy by repeatedly running lightweight
@@ -38,7 +54,7 @@ class CudaGPUController(BaseGPUController):
         rank: int,
         interval: float = 1.0,
         matmul_iterations: int = 5000,
-        vram_to_keep: int = 0,
+        vram_to_keep: str | int = "1000 MB",
         busy_threshold: int = 10,
     ):
         """
@@ -50,12 +66,21 @@ class CudaGPUController(BaseGPUController):
             Sleep time (seconds) between workload batches.
         matmul_iterations : int, optional
             Number of matmul ops per batch.
-        vram_to_keep : int, optional
-            Reserved free VRAM in MB (currently unused, placeholder for future logic).
+        vram_to_keep : str | int, optional
+            Amount of VRAM to keep busy, e.g. "1000 MB", "20 GB" or 1000 * 1000.
+            This is the total size of the matrix allocated to keep the GPU busy.
         busy_threshold : int, optional
             If current utilisation (%) exceeds this value, the worker will
             insert extra sleeps to avoid hogging the GPU.
         """
+        if isinstance(vram_to_keep, str):
+            vram_to_keep = self.parse_size(vram_to_keep)
+        elif isinstance(vram_to_keep, int):
+            vram_to_keep = vram_to_keep
+        else:
+            raise TypeError(
+                f"vram_to_keep must be str or int, got {type(vram_to_keep)}"
+            )
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
@@ -67,9 +92,24 @@ class CudaGPUController(BaseGPUController):
         self._stop_evt: Optional[threading.Event] = None
         self._thread: Optional[threading.Thread] = None
 
+    @staticmethod
+    def parse_size(text: str) -> int:
+        text = text.strip().replace(" ", "")
+        m = re.fullmatch(r"([0-9]*\.?[0-9]+)([A-Za-z]*)", text)
+        if not m:
+            raise ValueError(f"invalid format: {text}, should be like '1000 MB'")
+        value, unit = m.groups()
+        unit = unit or "GB"
+        if len(unit) > 1:
+            unit = unit[:-1].upper() + unit[-1]
+        if unit not in _UNITS:
+            raise ValueError(f"unknown unit: {unit}, should be one of {_UNITS.keys()}")
+        return int(float(value) * _UNITS[unit] / 4)
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
     def keep(self) -> None:
         """Launch the background thread that keeps the GPU busy."""
         if self._thread and self._thread.is_alive():
@@ -117,7 +157,10 @@ class CudaGPUController(BaseGPUController):
         while not self._stop_evt.is_set():
             try:
                 matrix = torch.rand(
-                    self.vram_to_keep, device=self.device, dtype=torch.float32
+                    self.vram_to_keep,
+                    device=self.device,
+                    dtype=torch.float32,
+                    requires_grad=False,
                 )
                 break
             except RuntimeError as e:
@@ -149,7 +192,9 @@ class CudaGPUController(BaseGPUController):
 
         tic = time.time()
         for _ in range(self.matmul_iterations):
-            torch.relu(matrix)
+            torch.relu_(matrix)
+            if self._stop_evt.is_set():
+                break
         torch.cuda.synchronize()
         toc = time.time()
 
