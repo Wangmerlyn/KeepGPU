@@ -177,7 +177,7 @@ class CudaGPUController(BaseGPUController):
         tic = time.time()
         for _ in range(self.matmul_iterations):
             torch.relu(matrix)
-            if self._stop_evt.wait(self.interval):
+            if self._stop_evt.is_set():
                 break
         torch.cuda.synchronize()
         toc = time.time()
