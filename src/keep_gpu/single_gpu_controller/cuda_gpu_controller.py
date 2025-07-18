@@ -51,12 +51,12 @@ class CudaGPUController(BaseGPUController):
         matmul_iterations : int, optional
             Number of matmul ops per batch.
         vram_to_keep : int, optional
-            Reserved free VRAM in MB (currently unused, placeholder for future logic).
+            Reserved free VRAM in GB (currently unused, placeholder for future logic).
         busy_threshold : int, optional
             If current utilisation (%) exceeds this value, the worker will
             insert extra sleeps to avoid hogging the GPU.
         """
-        super().__init__(vram_to_keep=vram_to_keep, interval=interval)
+        super().__init__(vram_to_keep=vram_to_keep*(2**28), interval=interval) #GB to float32(4bytes)= 2^30/4
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
         self.interval = interval
@@ -113,13 +113,13 @@ class CudaGPUController(BaseGPUController):
     def _keep_loop(self) -> None:
         """Internal: run workloads until stop event is set."""
         torch.cuda.set_device(self.rank)
-        while True and not self._stop_evt.is_set():
+        while not self._stop_evt.is_set():
             try:
                 matrix = torch.rand(
                     self.vram_to_keep, device=self.device, dtype=torch.float32
                 )
                 break
-            except Exception as e:
+            except RuntimeError as e:
                 logger.error("rank %s: failed to allocate matrix: %s", self.rank, e)
                 time.sleep(self.interval)
 
@@ -141,7 +141,7 @@ class CudaGPUController(BaseGPUController):
     # Workload implementation
     # ------------------------------------------------------------------
     @torch.no_grad()
-    def _run_mat_batch(self, matrix) -> None:
+    def _run_mat_batch(self, matrix: torch.Tensor) -> None:
         """Run a batch of dummy matmuls to keep GPU busy."""
 
         tic = time.time()
