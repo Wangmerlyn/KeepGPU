@@ -9,7 +9,9 @@ from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
     reason="Only run CUDA tests when CUDA is available",
 )
 def test_cuda_controller_basic():
-    ctrl = CudaGPUController(rank=2, interval=10, vram_to_keep="100MB")
+    ctrl = CudaGPUController(
+        rank=torch.cuda.device_count() - 1, interval=10, vram_to_keep="100MB"
+    )
     ctrl.keep()
     print("GPU kept busy for 10 seconds.")
 
