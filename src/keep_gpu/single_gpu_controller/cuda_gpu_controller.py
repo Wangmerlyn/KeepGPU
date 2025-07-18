@@ -104,7 +104,7 @@ class CudaGPUController(BaseGPUController):
             unit = unit[:-1].upper() + unit[-1]
         if unit not in _UNITS:
             raise ValueError(f"unknown unit: {unit}, should be one of {_UNITS.keys()}")
-        return int(float(value) * _UNITS[unit] / 8)
+        return int(float(value) * _UNITS[unit] / 4)
 
     # ------------------------------------------------------------------
     # Public API
@@ -157,7 +157,10 @@ class CudaGPUController(BaseGPUController):
         while not self._stop_evt.is_set():
             try:
                 matrix = torch.rand(
-                    self.vram_to_keep, device=self.device, dtype=torch.float32
+                    self.vram_to_keep,
+                    device=self.device,
+                    dtype=torch.float32,
+                    requires_grad=False,
                 )
                 break
             except RuntimeError as e:
@@ -189,7 +192,7 @@ class CudaGPUController(BaseGPUController):
 
         tic = time.time()
         for _ in range(self.matmul_iterations):
-            torch.relu(matrix)
+            torch.relu_(matrix)
             if self._stop_evt.is_set():
                 break
         torch.cuda.synchronize()
