@@ -1,7 +1,7 @@
 import time
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 
-ctrl = CudaGPUController(rank=1, interval=10, vram_to_keep=20)
+ctrl = CudaGPUController(rank=1, interval=1, vram_to_keep="20480MiB")
 
 with ctrl:
     print("GPU kept busy for 10 seconds.")
