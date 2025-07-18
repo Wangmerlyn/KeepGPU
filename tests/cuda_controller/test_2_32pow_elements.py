@@ -21,6 +21,6 @@ def test_large_vram_allocation():
     try:
         controller.keep()
         time.sleep(2)  # Give thread time to start and allocate
-        # A full test would assert on thread status or logs.
+        assert controller._thread is not None and controller._thread.is_alive()
     finally:
         controller.release()
