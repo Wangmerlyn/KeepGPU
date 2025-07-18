@@ -15,3 +15,7 @@ def test_global_controller():
     time.sleep(10)
     controller.release()
     print("done")
+
+
+if __name__ == "__main__":
+    test_global_controller()
