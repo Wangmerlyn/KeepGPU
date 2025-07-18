@@ -113,10 +113,22 @@ class CudaGPUController(BaseGPUController):
     def _keep_loop(self) -> None:
         """Internal: run workloads until stop event is set."""
         torch.cuda.set_device(self.rank)
-
+        matrix = None
         while not self._stop_evt.is_set():
             try:
-                self._run_mat_batch()
+                matrix = torch.rand(
+                    self.vram_to_keep, device=self.device, dtype=torch.float32
+                )
+                break
+            except RuntimeError as e:
+                logger.error("rank %s: failed to allocate matrix: %s", self.rank, e)
+                time.sleep(self.interval)
+        if matrix is None:
+            logger.error("rank %s: failed to allocate matrix, exiting loop", self.rank)
+            raise RuntimeError("Failed to allocate matrix for GPU keeping")
+        while not self._stop_evt.is_set():
+            try:
+                self._run_mat_batch(matrix)
                 time.sleep(self.interval)
             except RuntimeError as e:
                 # Handle OOM by clearing cache; then sleep and continue
@@ -131,9 +143,9 @@ class CudaGPUController(BaseGPUController):
     # ------------------------------------------------------------------
     # Workload implementation
     # ------------------------------------------------------------------
-    def _run_mat_batch(self) -> None:
+    @torch.no_grad()
+    def _run_mat_batch(self, matrix: torch.Tensor) -> None:
         """Run a batch of dummy matmuls to keep GPU busy."""
-        matrix = torch.rand(self.vram_to_keep, device=self.device)
 
         tic = time.time()
         for _ in range(self.matmul_iterations):
