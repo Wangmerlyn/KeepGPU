@@ -144,17 +144,6 @@ class CudaGPUController(BaseGPUController):
         torch.cuda.set_device(self.rank)
         while not self._stop_evt.is_set():
             try:
-                matrix = torch.rand(
-                    self.vram_to_keep, device=self.device, dtype=torch.float32
-                )
-                # print(matrix.shape)
-                break
-            except RuntimeError as e:
-                logger.error("rank %s: failed to allocate matrix: %s", self.rank, e)
-                time.sleep(self.interval)
-
-        while not self._stop_evt.is_set():
-            try:
                 self._run_mat_batch()
                 time.sleep(self.interval)
             except RuntimeError as e:
@@ -170,7 +159,6 @@ class CudaGPUController(BaseGPUController):
     # ------------------------------------------------------------------
     # Workload implementation
     # ------------------------------------------------------------------
-    @torch.no_grad()
     def _run_mat_batch(self) -> None:
         """Run a batch of dummy matmuls to keep GPU busy."""
         matrix = torch.rand(self.vram_to_keep, device=self.device)
