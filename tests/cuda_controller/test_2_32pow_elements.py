@@ -12,7 +12,7 @@ def test_large_vram_allocation():
     # torch has some indexing issues on very large tensors
     # e.g. tensors with more than 2**32-1 elements may cause issues
     # just a test to see if it is real.
-    vram_elements = 2**32  # Allocates 1GB, more reasonable for a standard test
+    vram_elements = 2**32  # Allocates 16GiB to test large tensor handling
     controller = CudaGPUController(
         rank=0,
         interval=0.5,
