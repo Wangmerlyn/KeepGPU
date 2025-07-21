@@ -3,6 +3,7 @@ repos:
     rev: v1.2.5
     hooks:
       - id: check-google-doc-style
+      - id: markdown-toc
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: v0.4.4
     hooks:
