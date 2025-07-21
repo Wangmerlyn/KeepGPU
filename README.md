@@ -54,7 +54,7 @@ keep-gpu --gpu-ids 0,1,2
 
 Non-blocking gpu keeping logic with `CudaGPUController`:
 ```python
-from keep_gpu.single_gpu_controller.base_gpu_controller import CudaGPUController
+from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 ctrl = CudaGPUController(rank=0, interval=0.5)
 # occupy GPU while you do CPU-only work
 # this is non-blocking
