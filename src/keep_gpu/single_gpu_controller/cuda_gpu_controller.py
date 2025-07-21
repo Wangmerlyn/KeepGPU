@@ -33,7 +33,7 @@ class CudaGPUController(BaseGPUController):
     Keep a single CUDA GPU busy by repeatedly running lightweight
     matrix-multiplication workloads in a background thread.
 
-    Typical usage::
+    Typical usage:
 
     ```python
     ctrl = CudaGPUController(rank=0, interval=0.5)
@@ -43,11 +43,11 @@ class CudaGPUController(BaseGPUController):
     model.train_start()   # now run real GPU training
     ```
 
-    Or as a context manager::
+    Or as a context manager:
 
     ```python
     with CudaGPUController(rank=0, interval=0.5):
-            dataset.process()  # GPU occupied inside this block
+        dataset.process()  # GPU occupied inside this block
     model.train_start()    # GPU free after exiting block
     ```
     """
