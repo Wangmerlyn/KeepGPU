@@ -171,7 +171,15 @@ class CudaGPUController(BaseGPUController):
             raise RuntimeError("Failed to allocate matrix for GPU keeping")
         while not self._stop_evt.is_set():
             try:
-                self._run_mat_batch(matrix)
+                gpu_utilization = self._monitor_utilization(self.rank)
+                if gpu_utilization > self.busy_threshold:
+                    logger.debug(
+                        "rank %s: GPU busy (%d%%), sleeping longer",
+                        self.rank,
+                        gpu_utilization,
+                    )
+                else:
+                    self._run_mat_batch(matrix)
                 time.sleep(self.interval)
             except RuntimeError as e:
                 # Handle OOM by clearing cache; then sleep and continue
