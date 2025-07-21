@@ -56,5 +56,5 @@ This package was created with [Cookiecutter](https://github.com/audreyr/cookiecu
 ## Contributors
 
 <a href="https://github.com/Wangmerlyn/KeepGPU/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Wangmerlyn/KeepGPU" />
+  <img src="https://contrib.rocks/image?repository=Wangmerlyn/KeepGPU" />
 </a>

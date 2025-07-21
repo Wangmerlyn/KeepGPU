@@ -1,4 +1,8 @@
 repos:
+  - repo: https://github.com/google/pre-commit-tool-hooks
+    rev: v1.2.5
+    hooks:
+      - id: check-google-doc-style
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: v0.4.4
     hooks:
