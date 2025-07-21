@@ -10,19 +10,19 @@
 
 ---
 
+Contributions Welcome!
+
+If you have ideas for new features or improvements, feel free to open an issue or submit a pull request.
+
+This project does not yet fully support ROCm GPUs, so any contributions, suggestions, or testing help in that area are especially welcome!
+
+---
+
 ## Features
 
 - Simple command-line interface
 - Uses PyTorch and `nvidia-smi` to monitor and load GPUs
 - Easy to extend for your own keep-alive logic
-
----
-
-## TODO ✅
-
-- [ ] Add more CLI args (e.g. `--gpu-id`, `--gpu-ids`, `--gpu-keep-threshold`, `--gpu-keep-time`, `--gpu-keep-vram-usage`)
-- [ ] Add documentation
-- [ ] Add importable Python functions
 
 ---
 
@@ -52,3 +52,9 @@ keep-gpu --gpu-ids 0,1,2
 ## Credits
 
 This package was created with [Cookiecutter](https://github.com/audreyr/cookiecutter) and the [audreyr/cookiecutter-pypackage](https://github.com/audreyr/cookiecutter-pypackage) project template.
+
+## Contributors
+
+<a href="https://github.com/Wangmerlyn/KeepGPU/graphs/contributors">
+  <img src="https://contrib.rocks/image?repository=Wangmerlyn/KeepGPU" />
+</a>

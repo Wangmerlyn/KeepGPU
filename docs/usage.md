@@ -6,7 +6,7 @@ This page provides instructions on how to install, configure, and use KeepGPU.
 
 ## 🔧 Installation
 
-You can install KeepGPU via pip:
+You can install KeepGPU by way of pip:
 
 ```bash
 pip install keep-gpu
