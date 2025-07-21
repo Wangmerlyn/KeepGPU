@@ -58,7 +58,7 @@ from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 ctrl = CudaGPUController(rank=0, interval=0.5)
 # occupy GPU while you do CPU-only work
 # this is non-blocking
-ctrl.start()
+ctrl.keep()
 dataset.process()
 ctrl.release()        # give GPU memory back
 model.train_start()   # now run real GPU training
