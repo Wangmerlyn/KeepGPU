@@ -66,7 +66,7 @@ model.train_start()   # now run real GPU training
 
 Use `CudaGPUController` as a context manager:
 ```python
-from keep_gpu.single_gpu_controller.base_gpu_controller import CudaGPUController
+from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 with CudaGPUController(rank=0, interval=0.5):
     dataset.process()  # GPU occupied inside this block
 model.train_start()    # GPU free after exiting block
