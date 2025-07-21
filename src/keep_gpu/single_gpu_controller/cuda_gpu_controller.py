@@ -37,7 +37,7 @@ class CudaGPUController(BaseGPUController):
 
     ```python
     ctrl = CudaGPUController(rank=0, interval=0.5)
-    ctrl.start()          # occupy GPU while you do CPU-only work
+    ctrl.keep()          # occupy GPU while you do CPU-only work
     dataset.process()
     ctrl.release()        # give GPU memory back
     model.train_start()   # now run real GPU training
