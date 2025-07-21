@@ -62,20 +62,19 @@ class CudaGPUController(BaseGPUController):
         busy_threshold: int = 10,
     ):
         """
-        Parameters
-        ----------
-        rank : int
-                Local CUDA device index to occupy.
-        interval : float, optional
-                Sleep time (seconds) between workload batches.
-        matmul_iterations : int, optional
-                Number of matmul ops per batch.
-        vram_to_keep : str | int, optional
-                Amount of VRAM to keep busy, e.g. "1000 MB", "20 GB" or 1000 * 1000.
-                This is the total size of the matrix allocated to keep the GPU busy.
-        busy_threshold : int, optional
-                If current utilisation (%) exceeds this value, the worker will
-                insert extra sleeps to avoid hogging the GPU.
+        Args:
+            rank (int): Local CUDA device index to occupy.
+            interval (float, optional): Sleep time (seconds) between workload
+                batches. Defaults to 0.5.
+            matmul_iterations (int, optional): Number of matmul ops per batch.
+            vram_to_keep (int or str, optional): Amount of VRAM to keep busy,
+                e.g. `"1000 MB"`, `"20 GB"`, or an integer like `1000 * 1000`.
+                This represents the total size of the matrix allocated to
+                occupy the GPU.
+            busy_threshold (int, optional): If current utilisation (%) exceeds
+                this threshold, the worker will insert extra sleeps to avoid
+                hogging the GPU.
+
         """
         if isinstance(vram_to_keep, str):
             vram_to_keep = self.parse_size(vram_to_keep)
