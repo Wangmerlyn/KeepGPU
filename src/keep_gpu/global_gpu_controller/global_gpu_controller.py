@@ -20,11 +20,11 @@ class GlobalGPUController:
         self.vram_to_keep = vram_to_keep
         if isinstance(self.vram_to_keep, str):
             try:
-                self.parse_size(self.vram_to_keep)
-            except Exception:
+                self.vram_to_keep = parse_size(self.vram_to_keep)
+            except ValueError as e:
                 raise ValueError(
                     f"Invalid vram_to_keep value: {self.vram_to_keep}. Must be an integer (bytes) or a string like '1GiB', '2MiB' etc."
-                )
+                ) from e
         if self.computing_platform == ComputingPlatform.CUDA:
             from keep_gpu.single_gpu_controller.cuda_gpu_controller import (
                 CudaGPUController,
