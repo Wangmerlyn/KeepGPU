@@ -33,7 +33,7 @@ dependencies = [
 ]
 
 [project.scripts]
-keep-gpu = "keep_gpu.cli:main"
+keep-gpu = "keep_gpu.cli:app"
 
 [project.optional-dependencies]
 dev = [
