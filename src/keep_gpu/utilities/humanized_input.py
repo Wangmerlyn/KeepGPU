@@ -27,4 +27,4 @@ def parse_size(text: str) -> int:
         unit = unit[:-1].upper() + unit[-1]
     if unit not in _UNITS:
         raise ValueError(f"unknown unit: {unit}, should be one of {_UNITS.keys()}")
-    return int(float(value) * _UNITS[unit] / 4)
+    return int(float(value) * _UNITS[unit] / 4)  # float32 takes 4 bytes
