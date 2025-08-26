@@ -42,7 +42,9 @@ def main(
         try:
             gpu_id_list = [int(i.strip()) for i in gpu_ids.split(",")]
         except ValueError:
-            console.print(f"[bold red]Error: Invalid characters in --gpu-ids '{gpu_ids}'. Please use comma-separated integers.[/bold red]")
+            console.print(
+                f"[bold red]Error: Invalid characters in --gpu-ids '{gpu_ids}'. Please use comma-separated integers.[/bold red]"
+            )
             raise typer.Exit(code=1)
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_id_list))
         logger.info(f"Using specified GPUs: {gpu_id_list}")
