@@ -9,7 +9,7 @@ from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUContro
     reason="Only run CUDA tests when CUDA is available",
 )
 def test_global_controller():
-    controller = GlobalGPUController(interval=10, vram_to_keep=2000)
+    controller = GlobalGPUController(interval=10, vram_to_keep=2000, busy_threshold=10)
     controller.keep()
 
     time.sleep(10)
