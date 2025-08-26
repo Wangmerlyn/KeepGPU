@@ -64,6 +64,10 @@ def run():
         vram_to_keep=args.vram,
         busy_threshold=args.threshold,
     )
-    global_controller.keep()
-    while True:
-        time.sleep(1)
+    with global_controller:
+        logger.info("Keeping GPUs awake. Press Ctrl+C to exit.")
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            logger.info("Interruption received. Releasing GPUs...")
