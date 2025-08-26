@@ -1,10 +1,10 @@
 import argparse
 import os
-import subprocess
 import time
+
 import torch
 
-from .benchmark import run_benchmark
+from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
 from keep_gpu.utilities.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -26,22 +26,19 @@ def parse_args():
         default=None,
         help="Comma-separated list of GPU IDs to monitor and benchmark on (default: all)",
     )
-    return parser.parse_args()
-
-
-def check_gpu_usage(gpu_ids=None):
-    result = subprocess.run(
-        ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
-        capture_output=True,
-        text=True,
+    parser.add_argument(
+        "--vram",
+        type=str,
+        default="1GiB",
+        help="Amount of VRAM to keep occupied (e.g., '500MB', '1GiB', or integer in bytes)",
     )
-    usage_lines = result.stdout.strip().split("\n")
-    usages = [int(line.strip()) for line in usage_lines]
-
-    if gpu_ids is not None:
-        usages = [usages[i] for i in gpu_ids if i < len(usages)]
-
-    return any(usage > 0 for usage in usages)
+    parser.add_argument(
+        "--threshold",
+        type=int,
+        default=-1,
+        help="Max gpu utilization threshold to trigger keeping GPU awake",
+    )
+    return parser.parse_args()
 
 
 def run():
@@ -57,16 +54,16 @@ def run():
         gpu_count = torch.cuda.device_count()
         logger.info("Using all available GPUs")
 
-    idle_count = 0
     logger.info(f"GPU count: {gpu_count}")
+    logger.info(f"VRAM to keep occupied: {args.vram}")
+    logger.info(f"Check interval: {args.interval} seconds")
+    logger.info(f"Busy threshold {args.threshold}%")
+    global_controller = GlobalGPUController(
+        gpu_ids=gpu_ids,
+        interval=args.interval,
+        vram_to_keep=args.vram,
+        busy_threshold=args.threshold,
+    )
+    global_controller.keep()
     while True:
-        if not check_gpu_usage(gpu_ids):
-            idle_count += 1
-        else:
-            idle_count = 0
-
-        if idle_count >= 1:
-            run_benchmark(gpu_count)
-            idle_count = 0
-
-        time.sleep(args.interval)
+        time.sleep(1)
