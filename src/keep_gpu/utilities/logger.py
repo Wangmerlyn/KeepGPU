@@ -1,9 +1,9 @@
 import logging
 import os
 import sys
-from typing import Optional
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Optional
 
 try:
     from colorlog import ColoredFormatter
@@ -11,7 +11,7 @@ except ImportError:
     ColoredFormatter = None  # fallback if colorlog not available
 
 
-def _parse_log_level(env_value: Optional[str], default: int) -> Optional[int]:
+def _parse_log_level(env_value: Optional[str], default: Optional[int]) -> Optional[int]:
     """
     Parse log level from string. Return None if disabled.
 
