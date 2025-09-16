@@ -2,6 +2,7 @@
 
 [![PyPI Version](https://img.shields.io/pypi/v/keep-gpu.svg)](https://pypi.python.org/pypi/keep-gpu)
 [![Docs Status](https://readthedocs.org/projects/keepgpu/badge/?version=latest)](https://keepgpu.readthedocs.io/en/latest/?version=latest)
+[![DOI](https://zenodo.org/badge/987167271.svg)](https://doi.org/10.5281/zenodo.17129114)
 
 **Keep GPU** is a simple CLI app that keeps your GPUs running.
 
@@ -83,3 +84,19 @@ This package was created with [Cookiecutter](https://github.com/audreyr/cookiecu
   <img src="https://contrib.rocks/image?repo=Wangmerlyn/KeepGPU" />
 </a>
 <!-- google-doc-style-resume -->
+
+## 📖 Citation
+
+If you find **KeepGPU** useful in your research or work, please cite it as:
+
+```bibtex
+@software{Wangmerlyn_KeepGPU_2025,
+  author       = {Wang, Siyuan and Shi, Yaorui and Liu, Yida and Yin, Yuqi},
+  title        = {KeepGPU: a simple CLI app that keeps your GPUs running},
+  year         = {2025},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.17129115},
+  url          = {https://github.com/Wangmerlyn/KeepGPU},
+  note         = {GitHub repository},
+  keywords     = {ai, hpc, gpu, cluster, cuda, torch, debug}
+}
