@@ -95,7 +95,7 @@ If you find **KeepGPU** useful in your research or work, please cite it as:
   title        = {KeepGPU: a simple CLI app that keeps your GPUs running},
   year         = {2025},
   publisher    = {Zenodo},
-  doi          = {10.5281/zenodo.17129115},
+  doi          = {10.5281/zenodo.17129114},
   url          = {https://github.com/Wangmerlyn/KeepGPU},
   note         = {GitHub repository},
   keywords     = {ai, hpc, gpu, cluster, cuda, torch, debug}
