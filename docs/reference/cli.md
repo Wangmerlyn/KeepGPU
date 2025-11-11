@@ -18,7 +18,7 @@ controller, clears the CUDA cache, and exits with status `0`.
 | Option | Type | Description |
 | --- | --- | --- |
 | `--interval INTEGER` | seconds | Sleep duration between utilization checks and keep-alive batches. Lower values keep the GPU hotter; higher values save power. Default: `300`. |
-| `--gpu-ids TEXT` | comma-separated ints | Subset of GPUs to guard (e.g., `0,2`). If omitted, KeepGPU enumerates `torch.cuda.device_count()` and protects every visible device. |
+| `--gpu-ids TEXT` | comma-separated ints | Subset of GPUs to guard (for example, `0,2`). If omitted, KeepGPU enumerates `torch.cuda.device_count()` and protects every visible device. |
 | `--vram TEXT` | human size or bytes | Amount of memory each GPU controller allocates. Accept formats like `512MB`, `1GiB`, or `1073741824`. Default: `1GiB`. |
 | `--threshold INTEGER` | percent | Upper bound on observed utilization. When `nvidia-smi` reports a higher number, the controller adds extra sleeps so it will not interfere with legitimate workloads. Default: `-1` (never throttle). |
 | `--help` | flag | Show Typer-generated help and exit. |
@@ -47,7 +47,7 @@ CONSOLE_LOG_LEVEL=DEBUG FILE_LOG_LEVEL=INFO keep-gpu --interval 30
 | Code | Meaning |
 | --- | --- |
 | `0` | Normal completion or user-triggered `Ctrl+C`. |
-| `1` | Input validation error (e.g., malformed `--gpu-ids`). |
+| `1` | Input validation error (for example, malformed `--gpu-ids`). |
 | `>1` | Unhandled exception. Check the Rich traceback or log files. |
 
 Need more detail on the Python API and controllers backing the CLI? See the

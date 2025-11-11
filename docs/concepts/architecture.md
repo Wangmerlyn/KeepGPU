@@ -24,9 +24,9 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
 
 1. The CLI (or your Python code) instantiates `GlobalGPUController`.
 2. During `keep()` / `__enter__`, each Cuda worker:
-   - Allocates a tensor sized via `vram_to_keep`.
+   - Allocates a tensor sized by way of `vram_to_keep`.
    - Starts a daemon thread that performs `matmul_iterations` fused activations.
-   - Calls `_monitor_utilization` (via `nvidia-smi`) to detect real activity.
+   - Calls `_monitor_utilization` (by way of `nvidia-smi`) to detect real activity.
 3. If utilization exceeds `busy_threshold`, the worker just sleeps for one more
    `interval`. Otherwise it runs a new batch of ops.
 4. When you call `release()` (or exit the context), every worker sets a stop
@@ -44,7 +44,7 @@ Matrix multiplies:
 ## Threading & responsiveness
 
 - The keep-alive loop runs on daemon threads so the main process can exit fast.
-- `GlobalGPUController.release()` stops workers concurrently via threads, keeping
+- `GlobalGPUController.release()` stops workers concurrently by way of threads, keeping
   shutdown time bounded even with many GPUs.
 - Errors inside a worker are logged but do not bring the whole process down;
   the loop retries after clearing the CUDA cache.

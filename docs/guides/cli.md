@@ -60,14 +60,14 @@ keep-gpu --gpu-ids 0,1 --interval 90 --threshold 35
 - Prefix with `!` (Jupyter) or use the integrated terminal.
 - Stop with `Ctrl+C` when you are ready to start the actual CUDA workload.
 
-### 5. Background job via scheduler
+### 5. Background job by way of scheduler
 
 ```bash
 nohup keep-gpu --interval 300 --gpu-ids 0 --vram 1GiB > keepgpu.log 2>&1 &
 ```
 
 - `nohup` keeps the process alive after you disconnect.
-- Combine with your cluster’s reservation commands (e.g., `srun`, `bsub`, `qsub`).
+- Combine with your cluster’s reservation commands (for example, `srun`, `bsub`, `qsub`).
 
 ## Observability and safety
 
@@ -77,7 +77,7 @@ nohup keep-gpu --interval 300 --gpu-ids 0 --vram 1GiB > keepgpu.log 2>&1 &
   use,” so going below 500 MB may not fool them.
 - **Graceful exit** – Use `Ctrl+C`; KeepGPU releases tensors and clears the CUDA
   cache so the next job starts with a clean slate.
-- **Failure recovery** – If allocation fails (e.g., VRAM already full), the CLI
+- **Failure recovery** – If allocation fails (for example, VRAM already full), the CLI
   retries after `--interval` and logs the error. Adjust `--vram` downwards or
   free memory manually.
 
