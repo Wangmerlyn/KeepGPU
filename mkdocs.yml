@@ -12,9 +12,17 @@ theme:
     - navigation.tabs
 
 nav:
-  - Home: index.md
-  - Usage: usage.md
-  - API: api.md
+  - Overview:
+      - Welcome: index.md
+      - Getting Started: getting-started.md
+  - Guides:
+      - CLI Playbook: guides/cli.md
+      - Python API Recipes: guides/python.md
+  - Concepts:
+      - How KeepGPU Works: concepts/architecture.md
+  - Reference:
+      - CLI Reference: reference/cli.md
+      - API Reference: reference/api.md
 
 plugins:
   - search
