@@ -67,7 +67,7 @@ class NVMLMonitor:
             handle = self._nvml.nvmlDeviceGetHandleByIndex(index)
             rates = self._nvml.nvmlDeviceGetUtilizationRates(handle)
             return int(rates.gpu)
-        except Exception as exc:
+        except self._nvml.NVMLError as exc:
             logger.debug("NVML query failed for GPU %s: %s", index, exc)
             return None
 
