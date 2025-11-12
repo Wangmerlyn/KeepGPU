@@ -28,7 +28,7 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
 2. During `keep()` / `__enter__`, each Cuda worker:
    - Allocates a tensor sized by way of `vram_to_keep`.
    - Starts a daemon thread that performs `matmul_iterations` fused activations.
-   - Calls `_monitor_utilization` (via NVML) to detect real activity.
+   - Calls `_monitor_utilization` (by way of NVML) to detect real activity.
 3. If utilization exceeds `busy_threshold`, the worker just sleeps for one more
    `interval`. Otherwise it runs a new batch of ops.
 4. When you call `release()` (or exit the context), every worker sets a stop
