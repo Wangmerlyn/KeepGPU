@@ -2,7 +2,7 @@
 
 import os
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 import typer
@@ -11,9 +11,29 @@ from rich.console import Console
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
 from keep_gpu.utilities.logger import setup_logger
 
-app = typer.Typer()
+app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 console = Console()
 logger = setup_logger(__name__)
+
+
+def _apply_legacy_threshold(
+    vram_value: str, legacy_threshold: Optional[str], busy_threshold: int
+) -> Tuple[str, int, Optional[str]]:
+    """
+    Interpret the deprecated --threshold flag:
+    - If it parses as int, treat it as busy-threshold override.
+    - Otherwise treat it as a VRAM override.
+    Returns (vram, busy_threshold, mode) where mode is 'busy', 'vram', or None.
+    """
+    if legacy_threshold is None:
+        return vram_value, busy_threshold, None
+
+    try:
+        parsed_threshold = int(legacy_threshold)
+    except ValueError:
+        return legacy_threshold, busy_threshold, "vram"
+    else:
+        return vram_value, parsed_threshold, "busy"
 
 
 @app.command()
@@ -27,16 +47,40 @@ def main(
     ),
     vram: str = typer.Option(
         "1GiB",
-        help="Amount of VRAM to keep occupied (e.g., '500MB', '1GiB', or integer in bytes)",
+        "--vram",
+        help=(
+            "Amount of VRAM to keep occupied (e.g., '500MB', '1GiB', or integer in bytes). "
+            "Legacy flag '--threshold' remains supported as an alias."
+        ),
     ),
-    threshold: int = typer.Option(
+    legacy_threshold: Optional[str] = typer.Option(
+        None,
+        "--threshold",
+        hidden=True,
+        help="Deprecated alias. If numeric, overrides --busy-threshold; otherwise overrides --vram.",
+    ),
+    busy_threshold: int = typer.Option(
         -1,
+        "--busy-threshold",
+        "--util-threshold",
         help="Max GPU utilization threshold to trigger keeping GPU awake",
     ),
 ):
     """
     Keep specified GPUs awake by allocating VRAM and monitoring usage.
     """
+    vram, busy_threshold, legacy_mode = _apply_legacy_threshold(
+        vram, legacy_threshold, busy_threshold
+    )
+    if legacy_mode == "vram":
+        console.print(
+            "[yellow]`--threshold` for VRAM is deprecated; please use `--vram` going forward.[/yellow]"
+        )
+    elif legacy_mode == "busy":
+        console.print(
+            "[yellow]`--threshold` for utilization is deprecated; please use `--busy-threshold`.[/yellow]"
+        )
+
     # Process GPU IDs
     if gpu_ids:
         try:
@@ -58,14 +102,14 @@ def main(
     logger.info(f"GPU count: {gpu_count}")
     logger.info(f"VRAM to keep occupied: {vram}")
     logger.info(f"Check interval: {interval} seconds")
-    logger.info(f"Busy threshold: {threshold}%")
+    logger.info(f"Busy threshold: {busy_threshold}%")
 
     # Create and start Global GPU Controller
     global_controller = GlobalGPUController(
         gpu_ids=gpu_id_list,
         interval=interval,
         vram_to_keep=vram,
-        busy_threshold=threshold,
+        busy_threshold=busy_threshold,
     )
 
     with global_controller:

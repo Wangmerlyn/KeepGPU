@@ -1,5 +1,3 @@
-import re
-import subprocess
 import threading
 import time
 from typing import Optional
@@ -7,6 +5,7 @@ from typing import Optional
 import torch
 
 from keep_gpu.single_gpu_controller.base_gpu_controller import BaseGPUController
+from keep_gpu.utilities.gpu_monitor import get_gpu_utilization
 from keep_gpu.utilities.humanized_input import parse_size
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.platform_manager import ComputingPlatform
@@ -192,25 +191,13 @@ class CudaGPUController(BaseGPUController):
         )
 
     # ------------------------------------------------------------------
-    # Optional: simple nvidia-smi monitor (not used in thread version)
+    # Utilization monitor
     # ------------------------------------------------------------------
     @staticmethod
     def _monitor_utilization(rank: int) -> int:
         """
-        Return current GPU utilization (%) for `rank`
-        by parsing `nvidia-smi` output. Can be plugged into
-        `_keep_loop` if you want adaptive sleeping.
+        Return current GPU utilization (%) for `rank`.
+        Falls back to 0 when NVML is unavailable.
         """
-        proc = subprocess.Popen(
-            ["nvidia-smi", "-i", str(rank)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        stdout, _ = proc.communicate()
-        for line in stdout.decode().split("\n")[::-1]:
-            if "Default" in line:
-                try:
-                    return int(re.findall(r"\d+", line)[-1])
-                except (IndexError, ValueError):
-                    break
-        return 0
+        utilization = get_gpu_utilization(rank)
+        return utilization if utilization is not None else 0
