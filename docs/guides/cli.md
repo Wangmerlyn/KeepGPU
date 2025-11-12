@@ -6,7 +6,7 @@ Jupyter environments.
 ## Command anatomy
 
 ```bash
-keep-gpu --interval 120 --gpu-ids 0,1 --vram 2GiB --threshold 25
+keep-gpu --interval 120 --gpu-ids 0,1 --vram 2GiB --busy-threshold 25
 ```
 
 | Flag | Meaning | Default |
@@ -14,13 +14,18 @@ keep-gpu --interval 120 --gpu-ids 0,1 --vram 2GiB --threshold 25
 | `--interval` | Sleep between keep-alive cycles (seconds). Lower = tighter lock. | `300` |
 | `--gpu-ids` | Comma-separated visible IDs. Leave unset to keep every detected GPU busy. | all |
 | `--vram` | Amount of memory each controller allocates. Accepts `800MB`, `1GiB`, `1073741824`, etc. | `1GiB` |
-| `--threshold` | Skip work when utilization is already above this percentage. | `-1` (never skip) |
+| `--busy-threshold` | Skip work when utilization is already above this percentage (`--threshold` still works for legacy scripts). | `-1` (never skip) |
+
+!!! note "Still using `--threshold`?"
+    Values passed to `--threshold` are auto-detected: numbers override
+    `--busy-threshold`, while strings such as `1GiB` override `--vram`. Prefer the explicit
+    flags going forward, but old commands continue to run.
 
 !!! info "What happens under the hood?"
     Each GPU gets a `CudaGPUController` that allocates one tensor sized by
     `--vram` and runs a lightweight matmul loop. Controllers use NVML
     (`nvidia-ml-py` / `pynvml` module) to read utilization so they back off when a device is already
-    busy (see `--threshold`).
+    busy (see `--busy-threshold`).
 
 ## Scenarios
 
@@ -46,7 +51,7 @@ keep-gpu --interval 180 --vram 512MB
 ### 3. Share the node without starving teammates
 
 ```bash
-keep-gpu --gpu-ids 0,1 --interval 90 --threshold 35
+keep-gpu --gpu-ids 0,1 --interval 90 --busy-threshold 35
 ```
 
 - Controllers pause their work whenever utilization exceeds 35%.
@@ -55,7 +60,7 @@ keep-gpu --gpu-ids 0,1 --interval 90 --threshold 35
 ### 4. Run from Jupyter or VS Code terminal
 
 ```bash
-!keep-gpu --interval 45 --vram 768MB --threshold 50
+!keep-gpu --interval 45 --vram 768MB --busy-threshold 50
 ```
 
 - Prefix with `!` (Jupyter) or use the integrated terminal.
