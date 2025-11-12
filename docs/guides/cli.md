@@ -18,8 +18,9 @@ keep-gpu --interval 120 --gpu-ids 0,1 --vram 2GiB --threshold 25
 
 !!! info "What happens under the hood?"
     Each GPU gets a `CudaGPUController` that allocates one tensor sized by
-    `--vram` and runs a lightweight matmul loop. Controllers watch `nvidia-smi`
-    to avoid hogging a device that is already busy (see `--threshold`).
+    `--vram` and runs a lightweight matmul loop. Controllers use NVML
+    (`pynvml`) to read utilization so they back off when a device is already
+    busy (see `--threshold`).
 
 ## Scenarios
 

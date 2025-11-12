@@ -11,7 +11,9 @@ schedulers that the GPU is still busy, without burning a full training workload.
    instantiates one single-GPU controller per selected device.
 3. **`CudaGPUController`** – Owns the background thread, VRAM allocation, and small
    matmul loops that tick every `interval` seconds.
-4. **Utilities** – `parse_size` turns strings like `1GiB` into bytes, while
+4. **GPU monitor (NVML)** – Wraps `pynvml` so controllers can read utilization
+   data without shelling out to `nvidia-smi`.
+5. **Utilities** – `parse_size` turns strings like `1GiB` into bytes, while
    `setup_logger` wires both console and file logging with optional colors.
 
 ```text
@@ -26,7 +28,7 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
 2. During `keep()` / `__enter__`, each Cuda worker:
    - Allocates a tensor sized by way of `vram_to_keep`.
    - Starts a daemon thread that performs `matmul_iterations` fused activations.
-   - Calls `_monitor_utilization` (by way of `nvidia-smi`) to detect real activity.
+   - Calls `_monitor_utilization` (via NVML) to detect real activity.
 3. If utilization exceeds `busy_threshold`, the worker just sleeps for one more
    `interval`. Otherwise it runs a new batch of ops.
 4. When you call `release()` (or exit the context), every worker sets a stop
