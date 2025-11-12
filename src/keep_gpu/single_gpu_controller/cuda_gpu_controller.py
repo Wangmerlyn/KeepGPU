@@ -191,7 +191,7 @@ class CudaGPUController(BaseGPUController):
         )
 
     # ------------------------------------------------------------------
-    # Optional: simple nvidia-smi monitor (not used in thread version)
+    # Utilization monitor
     # ------------------------------------------------------------------
     @staticmethod
     def _monitor_utilization(rank: int) -> int:
