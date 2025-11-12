@@ -11,6 +11,7 @@ from keep_gpu.utilities.logger import setup_logger
 logger = setup_logger(__name__)
 
 try:  # pragma: no cover - import guard
+    # Provided by the maintained `nvidia-ml-py` package.
     import pynvml  # type: ignore
 except Exception:  # pragma: no cover - env without NVML
     pynvml = None

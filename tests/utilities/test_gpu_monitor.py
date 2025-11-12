@@ -4,7 +4,7 @@ from keep_gpu.utilities.gpu_monitor import NVMLMonitor
 
 
 class DummyNVML:
-    """Minimal stand-in for pynvml module used in tests."""
+    """Minimal stand-in for the NVML module used in tests."""
 
     class NVMLError(Exception):
         pass
