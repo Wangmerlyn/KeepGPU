@@ -10,7 +10,7 @@ from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 )
 def test_cuda_controller_basic():
     ctrl = CudaGPUController(
-        rank=min(0, torch.cuda.device_count() - 1),
+        rank=0,
         interval=0.05,
         vram_to_keep="8MB",
         matmul_iterations=64,
