@@ -1,6 +1,5 @@
 import os
 from enum import Enum
-import warnings
 from typing import Callable, List, Tuple
 
 import torch
@@ -24,21 +23,20 @@ def _check_cuda():
     - Fall back to torch reporting CUDA with no ROCm build.
     """
     try:
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=FutureWarning, module="pynvml")
-            import pynvml
-
-        pynvml.nvmlInit()
-        return True
-    except Exception as exc:
-        logger.debug("NVML unavailable: %s", exc)
-
-    try:
         # ROCm builds set torch.version.hip; treat those as non-CUDA.
         if torch.cuda.is_available() and torch.version.hip is None:
             return True
     except Exception as exc:  # pragma: no cover - torch edge cases
         logger.debug("torch.cuda.is_available() failed: %s", exc)
+
+    try:
+        import pynvml  # provided by nvidia-ml-py
+
+        pynvml.nvmlInit()
+        return True
+    except Exception as exc:
+        logger.debug("NVML unavailable: %s", exc)
+        return False
 
     return False
 
