@@ -31,17 +31,17 @@ keep-gpu --gpu-ids 0 --vram 1GiB --busy-threshold 25 --interval 60
 
 ### Platform installs at a glance
 
-- **CUDA (example: cu121)**  
+- **CUDA (example: cu121)**
   ```bash
   pip install --index-url https://download.pytorch.org/whl/cu121 torch
   pip install keep-gpu
   ```
-- **ROCm (example: rocm6.1)**  
+- **ROCm (example: rocm6.1)**
   ```bash
   pip install --index-url https://download.pytorch.org/whl/rocm6.1 torch
   pip install keep-gpu[rocm]
   ```
-- **CPU-only**  
+- **CPU-only**
   ```bash
   pip install torch
   pip install keep-gpu
@@ -77,7 +77,7 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 ## What you get
 
 - Battle-tested keep-alive loop built on PyTorch.
-- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support via `pip install keep-gpu[rocm]`.
+- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`.
 - CLI + API parity: same controllers power both code paths.
 - Continuous docs + CI: mkdocs + mkdocstrings build in CI to keep guidance up to date.
 
