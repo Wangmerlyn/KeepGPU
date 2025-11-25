@@ -17,6 +17,7 @@ On many clusters, idle GPUs are reaped or silently shared after a short grace pe
 - **Polite** – Uses NVML to read utilization and backs off when the GPU is busy.
 - **Portable** – Typer/Rich CLI for humans; Python API for orchestrators and notebooks.
 - **Observable** – Structured logging and optional file logs for auditing what kept the GPU alive.
+- **Power-aware** – Uses intervalled elementwise ops instead of heavy matmul floods to present “busy” utilization while keeping power and thermals lower (see `CudaGPUController._run_mat_batch` for the loop).
 
 ## Quick start (CLI)
 
