@@ -77,7 +77,7 @@ def test_rocm_detects_hip(monkeypatch):
     assert pm._check_rocm() is True
 
 
-def test_cuda_prefers_nvml(monkeypatch):
+def test_cuda_detection_falls_back_to_nvml(monkeypatch):
     _reset_cache(monkeypatch)
     # Force torch to look like ROCm build to ensure NVML takes precedence
     monkeypatch.setattr(pm.torch.cuda, "is_available", lambda: True)
