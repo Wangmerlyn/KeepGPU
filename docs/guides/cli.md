@@ -89,3 +89,12 @@ nohup keep-gpu --interval 300 --gpu-ids 0 --vram 1GiB > keepgpu.log 2>&1 &
 
 Ready to embed this behavior inside your training scripts? Head to the
 [Python API Recipes](python.md) next.
+
+## FAQ
+
+- **NVML not available?** KeepGPU falls back to assuming 0% utilization. Install
+  `nvidia-ml-py` (provides `pynvml`), ensure `nvidia-smi` works, and rerun. On
+  managed clusters, load the CUDA/NVML module first.
+- **Running under a scheduler?** Use the background recipe above (`nohup ... &`)
+  or wrap `keep-gpu` in your scheduler’s job script so it stays tied to the
+  reservation. Increase `--interval` if you want lower background load.

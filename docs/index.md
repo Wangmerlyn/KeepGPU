@@ -22,6 +22,7 @@ during longer CPU-bound sections of your workflow.
 - `GlobalGPUController` that spins up a keep-alive worker per GPU.
 - `CudaGPUController` context manager for fine-grained orchestration inside scripts.
 - Helpers for parsing human VRAM sizes (`1GiB`, `850MB`, etc.) and platform detection.
+- Power-aware keep-alive loop: intervalled elementwise ops to signal “busy” without flooding matmuls or spiking thermals.
 
 ## Where to go next
 
