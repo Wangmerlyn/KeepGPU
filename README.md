@@ -29,6 +29,24 @@ pip install keep-gpu
 keep-gpu --gpu-ids 0 --vram 1GiB --busy-threshold 25 --interval 60
 ```
 
+### Platform installs at a glance
+
+- **CUDA (example: cu121)**  
+  ```bash
+  pip install --index-url https://download.pytorch.org/whl/cu121 torch
+  pip install keep-gpu
+  ```
+- **ROCm (example: rocm6.1)**  
+  ```bash
+  pip install --index-url https://download.pytorch.org/whl/rocm6.1 torch
+  pip install keep-gpu[rocm]
+  ```
+- **CPU-only**  
+  ```bash
+  pip install torch
+  pip install keep-gpu
+  ```
+
 Flags that matter:
 
 - `--vram` (`1GiB`, `750MB`, or bytes): how much memory to pin.

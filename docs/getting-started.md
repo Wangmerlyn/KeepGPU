@@ -20,11 +20,24 @@ understand the minimum knobs you need to keep a GPU occupied.
     pip install keep-gpu
     ```
 
-=== "ROCm extra (utilities for ROCm telemetry)"
+=== "CUDA (example: cu121)"
     ```bash
+    pip install --index-url https://download.pytorch.org/whl/cu121 torch
+    pip install keep-gpu
+    ```
+
+=== "ROCm (example: rocm6.1)"
+    ```bash
+    pip install --index-url https://download.pytorch.org/whl/rocm6.1 torch
     pip install keep-gpu[rocm]
     ```
-    Install your ROCm-compatible PyTorch build separately (per upstream instructions).
+    Install the ROCm-compatible PyTorch build that matches your runtime.
+
+=== "CPU-only"
+    ```bash
+    pip install torch
+    pip install keep-gpu
+    ```
 
 === "Editable dev install"
     ```bash
