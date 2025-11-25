@@ -63,7 +63,7 @@ def test_cached_result_reused(monkeypatch):
     assert calls["count"] == 1
 
 
-def test_cuda_prefers_torch_over_hip(monkeypatch):
+def test_cuda_detected_via_torch_non_hip_build(monkeypatch):
     _reset_cache(monkeypatch)
     monkeypatch.setattr(pm.torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(pm.torch, "version", type("v", (), {"hip": None}))
