@@ -1,4 +1,9 @@
+import os
 from enum import Enum
+from typing import Callable, List, Tuple
+
+import torch
+
 from keep_gpu.utilities.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -11,18 +16,21 @@ class ComputingPlatform(Enum):
 
 
 def _check_cuda():
-    # NOTE: This function checks for CUDA availability by trying to import pynvml
-    # from nvidia-ml-py (the maintained NVML bindings).
-    # See https://github.com/vllm-project/vllm/blob/536fd330036b0406786c847f68e4f67cba06f421/vllm/platforms/__init__.py#L58
-    # for related discussion.
+    """Return True if CUDA appears available (torch or NVML)."""
+    try:
+        if torch.cuda.is_available():
+            return True
+    except Exception as exc:  # pragma: no cover - torch edge cases
+        logger.debug("torch.cuda.is_available() failed: %s", exc)
+
     try:
         import pynvml
 
         pynvml.nvmlInit()
-        return ComputingPlatform.CUDA
-    except Exception as e:
-        logger.debug(f"CUDA not available: {e}")
-        return None
+        return True
+    except Exception as exc:
+        logger.debug("NVML unavailable: %s", exc)
+        return False
 
 
 def _check_rocm():
@@ -30,33 +38,58 @@ def _check_rocm():
         import rocm_smi
 
         rocm_smi.rocm_smi_init()
-        return ComputingPlatform.ROCM
-    except Exception as e:
-        logger.debug(f"ROCM not available: {e}")
-        return None
+        return True
+    except Exception as exc:
+        logger.debug("ROCm SMI unavailable: %s", exc)
+        return False
 
 
 def _check_cpu():
-    return ComputingPlatform.CPU
+    return True
 
 
-platform_check_funcs = {
-    ComputingPlatform.CUDA: _check_cuda,
-    ComputingPlatform.ROCM: _check_rocm,
-    ComputingPlatform.CPU: _check_cpu,
-}
+_PLATFORM_CHECKS: List[Tuple[ComputingPlatform, Callable[[], bool]]] = [
+    (ComputingPlatform.CUDA, _check_cuda),
+    (ComputingPlatform.ROCM, _check_rocm),
+    (ComputingPlatform.CPU, _check_cpu),
+]
+
+_cached_platform: ComputingPlatform | None = None
 
 
 def get_platform():
     """
     Return the current computing platform.
     """
-    for platform, check_func in platform_check_funcs.items():
-        if check_func() is not None:
-            logger.info(f"Detected computing platform: {platform.value}")
+    global _cached_platform
+
+    if _cached_platform is not None:
+        return _cached_platform
+
+    override = os.getenv("KEEP_GPU_PLATFORM")
+    if override:
+        try:
+            platform = ComputingPlatform(override.lower())
+            logger.info("Using KEEP_GPU_PLATFORM=%s override", platform.value)
+            _cached_platform = platform
             return platform
-    logger.info("No specific computing platform detected, defaulting to CPU.")
-    return ComputingPlatform.CPU  # Default to CPU if no other platform is available
+        except ValueError:
+            logger.warning(
+                "Invalid KEEP_GPU_PLATFORM=%s; falling back to auto-detect", override
+            )
+
+    for platform, check_func in _PLATFORM_CHECKS:
+        try:
+            if check_func():
+                logger.info("Detected computing platform: %s", platform.value)
+                _cached_platform = platform
+                return platform
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("Platform check %s failed: %s", platform.value, exc)
+
+    logger.info("No specific platform detected, defaulting to CPU.")
+    _cached_platform = ComputingPlatform.CPU
+    return _cached_platform  # Default to CPU if no other platform is available
 
 
 if __name__ == "__main__":
