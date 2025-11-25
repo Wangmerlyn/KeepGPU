@@ -10,28 +10,28 @@ from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 )
 def test_cuda_controller_basic():
     ctrl = CudaGPUController(
-        rank=torch.cuda.device_count() - 1, interval=10, vram_to_keep="100MB"
+        rank=0,
+        interval=0.05,
+        vram_to_keep="8MB",
+        matmul_iterations=64,
     )
     ctrl.keep()
-    print("GPU kept busy for 10 seconds.")
+    time.sleep(0.2)
+    assert ctrl._thread and ctrl._thread.is_alive()
 
-    time.sleep(10)
     ctrl.release()
-    print("GPU released.")
+    assert not (ctrl._thread and ctrl._thread.is_alive())
 
-    print("test for 2nd time")
     ctrl.keep()
-    print("GPU kept busy for another 10 seconds.")
-    time.sleep(10)
+    time.sleep(0.2)
+    assert ctrl._thread and ctrl._thread.is_alive()
     ctrl.release()
-    print("GPU released again.")
-    print("test for 3rd time")
+    assert not (ctrl._thread and ctrl._thread.is_alive())
+
     with ctrl:
-        print("GPU kept busy in context manager for 10 seconds.")
-        time.sleep(10)
-    print("GPU released after context manager.")
-    print("Test completed successfully.")
-    # This code snippet is for testing the CudaGPUController functionality.
+        assert ctrl._thread and ctrl._thread.is_alive()
+        time.sleep(0.2)
+    assert not (ctrl._thread and ctrl._thread.is_alive())
 
 
 if __name__ == "__main__":
