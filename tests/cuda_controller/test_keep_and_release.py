@@ -24,7 +24,9 @@ def test_cuda_controller_basic():
 
     ctrl.keep()
     time.sleep(0.2)
+    assert ctrl._thread and ctrl._thread.is_alive()
     ctrl.release()
+    assert not (ctrl._thread and ctrl._thread.is_alive())
 
     with ctrl:
         assert ctrl._thread and ctrl._thread.is_alive()
