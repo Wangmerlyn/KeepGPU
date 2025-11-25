@@ -18,6 +18,7 @@ On many clusters, idle GPUs are reaped or silently shared after a short grace pe
 - **Portable** – Typer/Rich CLI for humans; Python API for orchestrators and notebooks.
 - **Observable** – Structured logging and optional file logs for auditing what kept the GPU alive.
 - **Power-aware** – Uses intervalled elementwise ops instead of heavy matmul floods to present “busy” utilization while keeping power and thermals lower (see `CudaGPUController._run_mat_batch` for the loop).
+- **NVML-backed** – GPU telemetry comes from `nvidia-ml-py` (the `pynvml` module), with optional `rocm-smi` support when you install the `rocm` extra.
 
 ## Quick start (CLI)
 
@@ -27,6 +28,24 @@ pip install keep-gpu
 # Hold GPU 0 with 1 GiB VRAM and throttle if utilization exceeds 25%
 keep-gpu --gpu-ids 0 --vram 1GiB --busy-threshold 25 --interval 60
 ```
+
+### Platform installs at a glance
+
+- **CUDA (example: cu121)**
+  ```bash
+  pip install --index-url https://download.pytorch.org/whl/cu121 torch
+  pip install keep-gpu
+  ```
+- **ROCm (example: rocm6.1)**
+  ```bash
+  pip install --index-url https://download.pytorch.org/whl/rocm6.1 torch
+  pip install keep-gpu[rocm]
+  ```
+- **CPU-only**
+  ```bash
+  pip install torch
+  pip install keep-gpu
+  ```
 
 Flags that matter:
 
@@ -58,7 +77,7 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 ## What you get
 
 - Battle-tested keep-alive loop built on PyTorch.
-- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs.
+- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`.
 - CLI + API parity: same controllers power both code paths.
 - Continuous docs + CI: mkdocs + mkdocstrings build in CI to keep guidance up to date.
 

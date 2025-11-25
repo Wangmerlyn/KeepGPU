@@ -45,6 +45,9 @@ dev = [
   "pre-commit",    # Git hooks
   "bump-my-version",   # Version management
 ]
+rocm = [
+  "rocm-smi",
+]
 
 [project.urls]
 bugs = "https://github.com/Wangmerlyn/KeepGPU/issues"

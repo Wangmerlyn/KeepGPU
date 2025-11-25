@@ -7,7 +7,7 @@ understand the minimum knobs you need to keep a GPU occupied.
 
 - NVIDIA drivers + CUDA runtime visible to PyTorch.
 - Python 3.9+ (matching the version in your environment/cluster image).
-- Optional but recommended: `nvidia-smi` in `PATH` for utilization monitoring.
+- Optional but recommended: `nvidia-smi` in `PATH` for utilization monitoring (CUDA) or `rocm-smi` if you install the `rocm` extra.
 
 !!! warning "ROCm & multi-tenant clusters"
     The current release focuses on CUDA devices. ROCm/AMD support is experimental;
@@ -17,6 +17,25 @@ understand the minimum knobs you need to keep a GPU occupied.
 
 === "Stable release (PyPI)"
     ```bash
+    pip install keep-gpu
+    ```
+
+=== "CUDA (example: cu121)"
+    ```bash
+    pip install --index-url https://download.pytorch.org/whl/cu121 torch
+    pip install keep-gpu
+    ```
+
+=== "ROCm (example: rocm6.1)"
+    ```bash
+    pip install --index-url https://download.pytorch.org/whl/rocm6.1 torch
+    pip install keep-gpu[rocm]
+    ```
+    Install the ROCm-compatible PyTorch build that matches your runtime.
+
+=== "CPU-only"
+    ```bash
+    pip install torch
     pip install keep-gpu
     ```
 
