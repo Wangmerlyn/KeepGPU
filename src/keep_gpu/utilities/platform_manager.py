@@ -19,8 +19,8 @@ def _check_cuda():
     """
     Return True if CUDA appears available.
 
-    - Prefer NVML availability (matches vLLM approach).
-    - Fall back to torch reporting CUDA with no ROCm build.
+    - Prefer torch reporting CUDA with no ROCm build.
+    - Fall back to NVML availability.
     """
     try:
         # ROCm builds set torch.version.hip; treat those as non-CUDA.
