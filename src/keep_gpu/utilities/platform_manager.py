@@ -38,8 +38,6 @@ def _check_cuda():
         logger.debug("NVML unavailable: %s", exc)
         return False
 
-    return False
-
 
 def _check_rocm():
     try:
