@@ -1,3 +1,5 @@
+import sys
+
 from keep_gpu.utilities import platform_manager as pm
 
 
@@ -73,3 +75,18 @@ def test_rocm_detects_hip(monkeypatch):
     monkeypatch.setattr(pm.torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(pm.torch, "version", type("v", (), {"hip": "6.0"}))
     assert pm._check_rocm() is True
+
+
+def test_cuda_prefers_nvml(monkeypatch):
+    _reset_cache(monkeypatch)
+    # Force torch to look like ROCm build to ensure NVML takes precedence
+    monkeypatch.setattr(pm.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(pm.torch, "version", type("v", (), {"hip": "6.0"}))
+
+    class DummyNVML:
+        @staticmethod
+        def nvmlInit():
+            return None
+
+    monkeypatch.setitem(sys.modules, "pynvml", DummyNVML)
+    assert pm._check_cuda() is True

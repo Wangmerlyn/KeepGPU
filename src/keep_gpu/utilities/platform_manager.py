@@ -20,16 +20,9 @@ def _check_cuda():
     """
     Return True if CUDA appears available.
 
-    - Prefer torch reporting CUDA with no ROCm build.
-    - Fall back to NVML availability.
+    - Prefer NVML availability (matches vLLM approach).
+    - Fall back to torch reporting CUDA with no ROCm build.
     """
-    try:
-        # ROCm builds set torch.version.hip; treat those as non-CUDA.
-        if torch.cuda.is_available() and torch.version.hip is None:
-            return True
-    except Exception as exc:  # pragma: no cover - torch edge cases
-        logger.debug("torch.cuda.is_available() failed: %s", exc)
-
     try:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=FutureWarning, module="pynvml")
@@ -39,7 +32,15 @@ def _check_cuda():
         return True
     except Exception as exc:
         logger.debug("NVML unavailable: %s", exc)
-        return False
+
+    try:
+        # ROCm builds set torch.version.hip; treat those as non-CUDA.
+        if torch.cuda.is_available() and torch.version.hip is None:
+            return True
+    except Exception as exc:  # pragma: no cover - torch edge cases
+        logger.debug("torch.cuda.is_available() failed: %s", exc)
+
+    return False
 
 
 def _check_rocm():
