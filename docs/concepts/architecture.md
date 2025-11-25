@@ -11,8 +11,8 @@ schedulers that the GPU is still busy, without burning a full training workload.
    instantiates one single-GPU controller per selected device.
 3. **`CudaGPUController`** – Owns the background thread, VRAM allocation, and small
    matmul loops that tick every `interval` seconds.
-4. **GPU monitor (NVML)** – Wraps `nvidia-ml-py` (the `pynvml` module) so controllers
-   can read utilization data without shelling out to `nvidia-smi`.
+4. **GPU monitor (NVML/ROCm)** – Wraps `nvidia-ml-py` (the `pynvml` module) for CUDA
+   telemetry and optionally `rocm-smi` when installed via the `rocm` extra.
 5. **Utilities** – `parse_size` turns strings like `1GiB` into bytes, while
    `setup_logger` wires both console and file logging with optional colors.
 
