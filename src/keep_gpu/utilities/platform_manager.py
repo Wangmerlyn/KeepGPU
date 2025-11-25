@@ -1,5 +1,6 @@
 import os
 from enum import Enum
+import warnings
 from typing import Callable, List, Tuple
 
 import torch
@@ -16,15 +17,23 @@ class ComputingPlatform(Enum):
 
 
 def _check_cuda():
-    """Return True if CUDA appears available (torch or NVML)."""
+    """
+    Return True if CUDA appears available.
+
+    - Prefer torch reporting CUDA with no ROCm build.
+    - Fall back to NVML availability.
+    """
     try:
-        if torch.cuda.is_available():
+        # ROCm builds set torch.version.hip; treat those as non-CUDA.
+        if torch.cuda.is_available() and torch.version.hip is None:
             return True
     except Exception as exc:  # pragma: no cover - torch edge cases
         logger.debug("torch.cuda.is_available() failed: %s", exc)
 
     try:
-        import pynvml
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=FutureWarning, module="pynvml")
+            import pynvml
 
         pynvml.nvmlInit()
         return True
@@ -34,6 +43,12 @@ def _check_cuda():
 
 
 def _check_rocm():
+    try:
+        if torch.cuda.is_available() and torch.version.hip:
+            return True
+    except Exception as exc:  # pragma: no cover - torch edge cases
+        logger.debug("torch ROCm detection failed: %s", exc)
+
     try:
         import rocm_smi
 
