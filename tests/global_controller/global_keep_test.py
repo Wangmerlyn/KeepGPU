@@ -18,6 +18,8 @@ def test_global_controller():
     controller.keep()
 
     time.sleep(0.3)
+    for ctrl in controller.controllers:
+        assert ctrl._thread and ctrl._thread.is_alive()
     controller.release()
     for ctrl in controller.controllers:
         assert not (ctrl._thread and ctrl._thread.is_alive())
