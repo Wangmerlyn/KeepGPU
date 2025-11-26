@@ -44,6 +44,25 @@ class GlobalGPUController:
                 )
                 for i in self.gpu_ids
             ]
+        elif self.computing_platform == ComputingPlatform.ROCM:
+            from keep_gpu.single_gpu_controller.rocm_gpu_controller import (
+                RocmGPUController,
+            )
+
+            if gpu_ids is None:
+                self.gpu_ids = list(range(torch.cuda.device_count()))
+            else:
+                self.gpu_ids = gpu_ids
+
+            self.controllers = [
+                RocmGPUController(
+                    rank=i,
+                    interval=interval,
+                    vram_to_keep=vram_to_keep,
+                    busy_threshold=busy_threshold,
+                )
+                for i in self.gpu_ids
+            ]
         else:
             raise NotImplementedError(
                 f"GlobalGPUController not implemented for platform {self.computing_platform}"
