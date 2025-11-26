@@ -5,34 +5,15 @@ from typing import Optional
 import torch
 
 from keep_gpu.single_gpu_controller.base_gpu_controller import BaseGPUController
-from keep_gpu.utilities.humanized_input import parse_size
 from keep_gpu.utilities.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
-def _query_rocm_utilization(index: int) -> Optional[int]:
-    """
-    Best-effort utilization query via rocm-smi.
-    Returns None if rocm-smi is unavailable or fails.
-    """
-    try:
-        import rocm_smi  # type: ignore
-
-        rocm_smi.rsmi_init()
-        # rsmi_dev_busy_percent_get returns percent (0-100)
-        util = rocm_smi.rsmi_dev_busy_percent_get(index)
-        rocm_smi.rsmi_shut_down()
-        return int(util)
-    except Exception as exc:  # pragma: no cover - depends on ROCm availability
-        logger.debug("ROCm utilization query failed: %s", exc)
-        return None
-
-
 class RocmGPUController(BaseGPUController):
     """
     Keep a single ROCm GPU busy by running lightweight elementwise ops
-    in a background thread.
+    in a background thread. Requires a ROCm-enabled torch build.
     """
 
     def __init__(
@@ -44,30 +25,32 @@ class RocmGPUController(BaseGPUController):
         busy_threshold: int = 10,
         iterations: int = 5000,
     ):
-        if isinstance(vram_to_keep, str):
-            vram_to_keep = self.parse_size(vram_to_keep)
-        elif not isinstance(vram_to_keep, int):
-            raise TypeError(
-                f"vram_to_keep must be str or int, got {type(vram_to_keep)}"
-            )
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
-        self.interval = interval
         self.busy_threshold = busy_threshold
         self.iterations = iterations
-
         self._stop_evt: Optional[threading.Event] = None
         self._thread: Optional[threading.Thread] = None
 
-    @staticmethod
-    def parse_size(text: str) -> int:
-        return parse_size(text)
+        # Lazy rocm_smi import; keep handle for reuse
+        try:
+            import rocm_smi  # type: ignore
+
+            self._rocm_smi = rocm_smi
+        except Exception as exc:  # pragma: no cover - env-specific
+            logger.debug("rocm_smi not available: %s", exc)
+            self._rocm_smi = None
 
     def keep(self) -> None:
         if self._thread and self._thread.is_alive():
             logger.warning("rank %s: keep thread already running", self.rank)
             return
+        if self._rocm_smi:
+            try:
+                self._rocm_smi.rsmi_init()
+            except Exception as exc:  # pragma: no cover - env-specific
+                logger.debug("rsmi_init failed: %s", exc)
 
         self._stop_evt = threading.Event()
         self._thread = threading.Thread(
@@ -85,6 +68,11 @@ class RocmGPUController(BaseGPUController):
         self._stop_evt.set()
         self._thread.join()
         torch.cuda.empty_cache()
+        if self._rocm_smi:
+            try:
+                self._rocm_smi.rsmi_shut_down()
+            except Exception as exc:  # pragma: no cover - best effort
+                logger.debug("rsmi_shut_down failed: %s", exc)
         logger.info("rank %s: keep thread stopped & cache cleared", self.rank)
 
     def __enter__(self):
@@ -93,6 +81,16 @@ class RocmGPUController(BaseGPUController):
 
     def __exit__(self, exc_type, exc, tb):
         self.release()
+
+    def _query_utilization(self) -> Optional[int]:
+        if not self._rocm_smi:
+            return None
+        try:
+            util = self._rocm_smi.rsmi_dev_busy_percent_get(self.rank)
+            return int(util)
+        except Exception as exc:  # pragma: no cover - env-specific
+            logger.debug("ROCm utilization query failed: %s", exc)
+            return None
 
     def _keep_loop(self) -> None:
         torch.cuda.set_device(self.rank)
@@ -115,7 +113,7 @@ class RocmGPUController(BaseGPUController):
 
         while not self._stop_evt.is_set():
             try:
-                util = _query_rocm_utilization(self.rank)
+                util = self._query_utilization()
                 if util is not None and util > self.busy_threshold:
                     logger.debug("rank %s: GPU busy (%d%%), sleeping", self.rank, util)
                 else:

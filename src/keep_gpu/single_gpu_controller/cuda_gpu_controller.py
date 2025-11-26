@@ -61,14 +61,6 @@ class CudaGPUController(BaseGPUController):
                 hogging the GPU.
 
         """
-        if isinstance(vram_to_keep, str):
-            vram_to_keep = self.parse_size(vram_to_keep)
-        elif isinstance(vram_to_keep, int):
-            vram_to_keep = vram_to_keep
-        else:
-            raise TypeError(
-                f"vram_to_keep must be str or int, got {type(vram_to_keep)}"
-            )
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
