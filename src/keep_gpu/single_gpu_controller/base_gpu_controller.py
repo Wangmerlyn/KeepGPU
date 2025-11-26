@@ -10,7 +10,8 @@ class BaseGPUController:
 
         Args:
             vram_to_keep (int or str): Amount of VRAM to keep busy. Accepts integers
-                (bytes) or human strings like "1GiB".
+                (tensor element count) or human strings like "1GiB" (converted to
+                element count for float32 tensors).
             interval (float): Time interval (in seconds) between keep-alive cycles.
         """
         if isinstance(vram_to_keep, str):

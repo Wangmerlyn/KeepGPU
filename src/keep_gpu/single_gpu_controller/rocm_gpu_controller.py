@@ -104,8 +104,8 @@ class RocmGPUController(BaseGPUController):
                     requires_grad=False,
                 )
                 break
-            except RuntimeError as exc:
-                logger.error("rank %s: failed to allocate tensor: %s", self.rank, exc)
+            except RuntimeError:
+                logger.exception("rank %s: failed to allocate tensor", self.rank)
                 time.sleep(self.interval)
         if tensor is None:
             logger.error("rank %s: failed to allocate tensor, exiting loop", self.rank)
@@ -137,7 +137,7 @@ class RocmGPUController(BaseGPUController):
         torch.cuda.synchronize()
         toc = time.time()
         logger.debug(
-            "rank %s: elementwise batch done – avg %.2f ms",
+            "rank %s: elementwise batch done - avg %.2f ms",
             self.rank,
             (toc - tic) * 1000 / max(1, self.iterations),
         )

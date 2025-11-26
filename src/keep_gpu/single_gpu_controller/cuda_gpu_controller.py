@@ -177,7 +177,7 @@ class CudaGPUController(BaseGPUController):
         toc = time.time()
 
         logger.debug(
-            "rank %s: mat ops batch done – avg %.2f ms",
+            "rank %s: mat ops batch done - avg %.2f ms",
             self.rank,
             (toc - tic) * 1000 / self.matmul_iterations,
         )
