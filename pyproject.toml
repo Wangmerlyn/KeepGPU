@@ -139,3 +139,9 @@ exclude = ["build", "dist", ".venv"]
 known-first-party = ["keep_gpu"]
 combine-as-imports = true
 force-single-line = false
+
+[tool.pytest.ini_options]
+markers = [
+  "rocm: tests that require ROCm stack",
+  "large_memory: tests that use large VRAM",
+]

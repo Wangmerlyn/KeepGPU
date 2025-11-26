@@ -1,9 +1,15 @@
 import sys
 
+import pytest
+
 from keep_gpu.single_gpu_controller import rocm_gpu_controller as rgc
 
 
-def test_query_rocm_utilization_with_mock(monkeypatch):
+@pytest.mark.rocm
+def test_query_rocm_utilization_with_mock(monkeypatch, rocm_available):
+    if not rocm_available:
+        pytest.skip("ROCm stack not available")
+
     class DummyRocmSMI:
         calls = 0
 
