@@ -61,14 +61,6 @@ class CudaGPUController(BaseGPUController):
                 hogging the GPU.
 
         """
-        if isinstance(vram_to_keep, str):
-            vram_to_keep = self.parse_size(vram_to_keep)
-        elif isinstance(vram_to_keep, int):
-            vram_to_keep = vram_to_keep
-        else:
-            raise TypeError(
-                f"vram_to_keep must be str or int, got {type(vram_to_keep)}"
-            )
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
@@ -185,7 +177,7 @@ class CudaGPUController(BaseGPUController):
         toc = time.time()
 
         logger.debug(
-            "rank %s: mat ops batch done – avg %.2f ms",
+            "rank %s: mat ops batch done - avg %.2f ms",
             self.rank,
             (toc - tic) * 1000 / self.matmul_iterations,
         )

@@ -39,6 +39,12 @@ understand the minimum knobs you need to keep a GPU occupied.
     pip install keep-gpu
     ```
 
+## For contributors
+
+- Install dev extras: `pip install -e ".[dev]"` (append `.[rocm]` if you need ROCm SMI).
+- Fast CUDA checks: `pytest tests/cuda_controller tests/global_controller tests/utilities/test_platform_manager.py tests/test_cli_thresholds.py`
+- ROCm-only tests are marked `rocm`; run with `pytest --run-rocm tests/rocm_controller`.
+
 === "Editable dev install"
     ```bash
     git clone https://github.com/Wangmerlyn/KeepGPU.git
