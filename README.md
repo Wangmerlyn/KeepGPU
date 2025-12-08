@@ -4,6 +4,7 @@
 [![Docs Status](https://readthedocs.org/projects/keepgpu/badge/?version=latest)](https://keepgpu.readthedocs.io/en/latest/?version=latest)
 [![DOI](https://zenodo.org/badge/987167271.svg)](https://doi.org/10.5281/zenodo.17129114)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Wangmerlyn/KeepGPU)
+[![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/Wangmerlyn/KeepGPU)](https://coderabbit.ai/dashboard/gh/Wangmerlyn/KeepGPU)
 
 **Keep GPU** keeps shared GPUs from being reclaimed while you prep data, debug, or coordinate multi-stage pipelines. It allocates just enough VRAM and issues lightweight CUDA work so schedulers observe an “active” device—without running a full training job.
 
