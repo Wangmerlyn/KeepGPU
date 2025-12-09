@@ -77,6 +77,16 @@ servers:
 Tools exposed: `start_keep`, `stop_keep`, `status`, `list_gpus`. Each request is
 a single JSON line; see above for an example payload.
 
+### HTTP transport
+
+Prefer TCP instead of stdio? Run:
+
+```bash
+keep-gpu-mcp-server --mode http --host 0.0.0.0 --port 8765
+```
+
+And point your MCP client at `http://127.0.0.1:8765/` (JSON-RPC 2.0 over POST).
+
 === "Editable dev install"
     ```bash
     git clone https://github.com/Wangmerlyn/KeepGPU.git

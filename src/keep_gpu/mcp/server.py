@@ -1,11 +1,12 @@
 """
 Minimal MCP-style JSON-RPC server for KeepGPU.
 
-The server reads JSON lines from stdin and writes JSON responses to stdout.
+Run over stdin/stdout (default) or a lightweight HTTP server.
 Supported methods:
   - start_keep(gpu_ids, vram, interval, busy_threshold, job_id)
   - stop_keep(job_id=None)  # None stops all
   - status(job_id=None)     # None lists all
+  - list_gpus()
 """
 
 from __future__ import annotations
@@ -14,6 +15,10 @@ import atexit
 import json
 import sys
 import uuid
+import argparse
+import threading
+from http.server import BaseHTTPRequestHandler
+from socketserver import TCPServer
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
@@ -70,12 +75,15 @@ class KeepGPUServer:
         logger.info("Started keep session %s on GPUs %s", job_id, gpu_ids)
         return {"job_id": job_id}
 
-    def stop_keep(self, job_id: Optional[str] = None) -> Dict[str, Any]:
+    def stop_keep(
+        self, job_id: Optional[str] = None, quiet: bool = False
+    ) -> Dict[str, Any]:
         if job_id:
             session = self._sessions.pop(job_id, None)
             if session:
                 session.controller.release()
-                logger.info("Stopped keep session %s", job_id)
+                if not quiet:
+                    logger.info("Stopped keep session %s", job_id)
                 return {"stopped": [job_id]}
             return {"stopped": [], "message": "job_id not found"}
 
@@ -83,7 +91,7 @@ class KeepGPUServer:
         for job_id in stopped_ids:
             session = self._sessions.pop(job_id)
             session.controller.release()
-        if stopped_ids:
+        if stopped_ids and not quiet:
             logger.info("Stopped sessions: %s", stopped_ids)
         return {"stopped": stopped_ids}
 
@@ -111,7 +119,7 @@ class KeepGPUServer:
 
     def shutdown(self) -> None:
         try:
-            self.stop_keep(None)
+            self.stop_keep(None, quiet=True)
         except Exception:  # pragma: no cover - defensive
             # Avoid noisy errors during interpreter teardown
             return
@@ -138,8 +146,31 @@ def _handle_request(server: KeepGPUServer, payload: Dict[str, Any]) -> Dict[str,
         return {"id": req_id, "error": {"message": str(exc)}}
 
 
-def main() -> None:
-    server = KeepGPUServer()
+class _JSONRPCHandler(BaseHTTPRequestHandler):
+    server_version = "KeepGPU-MCP/0.1"
+
+    def do_POST(self):  # noqa: N802
+        length = int(self.headers.get("content-length", "0"))
+        body = self.rfile.read(length).decode()
+        try:
+            payload = json.loads(body)
+            response = _handle_request(self.server.keepgpu_server, payload)  # type: ignore[attr-defined]
+            status = 200
+        except Exception as exc:  # pragma: no cover - defensive
+            response = {"error": {"message": str(exc)}}
+            status = 400
+        data = json.dumps(response).encode()
+        self.send_response(status)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def log_message(self, format, *args):  # noqa: A003
+        return
+
+
+def run_stdio(server: KeepGPUServer) -> None:
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -151,6 +182,50 @@ def main() -> None:
             response = {"error": {"message": str(exc)}}
         sys.stdout.write(json.dumps(response) + "\n")
         sys.stdout.flush()
+
+
+def run_http(server: KeepGPUServer, host: str = "127.0.0.1", port: int = 8765) -> None:
+    class _Server(TCPServer):
+        allow_reuse_address = True
+
+    httpd = _Server((host, port), _JSONRPCHandler)
+    httpd.keepgpu_server = server  # type: ignore[attr-defined]
+
+    def _serve():
+        httpd.serve_forever()
+
+    thread = threading.Thread(target=_serve, daemon=True)
+    thread.start()
+    logger.info(
+        "MCP HTTP server listening on http://%s:%s", host, httpd.server_address[1]
+    )
+    try:
+        thread.join()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="KeepGPU MCP server")
+    parser.add_argument(
+        "--mode",
+        choices=["stdio", "http"],
+        default="stdio",
+        help="Transport mode (default: stdio)",
+    )
+    parser.add_argument("--host", default="127.0.0.1", help="HTTP host (http mode)")
+    parser.add_argument("--port", type=int, default=8765, help="HTTP port (http mode)")
+    args = parser.parse_args()
+
+    server = KeepGPUServer()
+    if args.mode == "stdio":
+        run_stdio(server)
+    else:
+        run_http(server, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
