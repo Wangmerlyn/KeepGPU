@@ -92,9 +92,13 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 
 ### MCP endpoint (experimental)
 
-- Start a simple JSON-RPC server on stdin/stdout:
+- Start a simple JSON-RPC server on stdin/stdout (default):
   ```bash
   keep-gpu-mcp-server
+  ```
+- Or expose it over HTTP (JSON-RPC 2.0 by way of POST):
+  ```bash
+  keep-gpu-mcp-server --mode http --host 0.0.0.0 --port 8765
   ```
 - Example request (one per line):
   ```json
@@ -107,6 +111,13 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
     keepgpu:
       command: ["keep-gpu-mcp-server"]
       adapter: stdio
+  ```
+- Minimal client config (HTTP MCP):
+  ```yaml
+  servers:
+    keepgpu:
+      url: http://127.0.0.1:8765/
+      adapter: http
   ```
 
 ## Contributing

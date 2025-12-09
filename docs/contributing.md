@@ -42,6 +42,7 @@ expectations so you can get productive quickly and avoid surprises in CI.
 ## MCP server (experimental)
 
 - Start: `keep-gpu-mcp-server` (stdin/stdout JSON-RPC)
+- HTTP option: `keep-gpu-mcp-server --mode http --host 0.0.0.0 --port 8765`
 - Methods: `start_keep`, `stop_keep`, `status`, `list_gpus`
 - Example request:
   ```json
