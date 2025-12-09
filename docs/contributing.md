@@ -39,6 +39,17 @@ expectations so you can get productive quickly and avoid surprises in CI.
   pre-commit run --all-files
   ```
 
+## Docs
+
+- Live preview:
+  ```bash
+  mkdocs serve
+  ```
+- Build the static site:
+  ```bash
+  mkdocs build
+  ```
+
 ## MCP server (experimental)
 
 - Start: `keep-gpu-mcp-server` (stdin/stdout JSON-RPC)

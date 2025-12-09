@@ -136,7 +136,7 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 ## Contributing
 
 Contributions are welcome—especially around ROCm support, platform fallbacks, and scheduler-specific recipes. Open an issue or PR if you hit edge cases on your cluster.
-See `docs/contributing.md` for dev setup, test commands, and PR tips.
+See [docs/contributing.md](docs/contributing.md) for dev setup, test commands, and PR tips.
 
 ## Credits
 
