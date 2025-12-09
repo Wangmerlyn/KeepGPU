@@ -103,6 +103,18 @@ class KeepGPUServer:
             ]
         }
 
+    def list_gpus(self) -> Dict[str, Any]:
+        """Return basic GPU info using torch (count + names)."""
+        try:
+            import torch
+
+            count = torch.cuda.device_count()
+            names = [torch.cuda.get_device_name(i) for i in range(count)]
+            return {"count": count, "names": names}
+        except Exception as exc:  # pragma: no cover - env-specific
+            logger.debug("list_gpus failed: %s", exc)
+            return {"count": 0, "names": [], "error": str(exc)}
+
     def shutdown(self) -> None:
         try:
             self.stop_keep(None)
@@ -122,6 +134,8 @@ def _handle_request(server: KeepGPUServer, payload: Dict[str, Any]) -> Dict[str,
             result = server.stop_keep(**params)
         elif method == "status":
             result = server.status(**params)
+        elif method == "list_gpus":
+            result = server.list_gpus()
         else:
             raise ValueError(f"Unknown method: {method}")
         return {"id": req_id, "result": result}

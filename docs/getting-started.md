@@ -60,6 +60,7 @@ Supported methods:
 - `start_keep(gpu_ids?, vram?, interval?, busy_threshold?, job_id?)`
 - `status(job_id?)`
 - `stop_keep(job_id?)` (no job_id stops all)
+- `list_gpus()` (basic info)
 
 === "Editable dev install"
     ```bash

@@ -48,3 +48,9 @@ def test_stop_all():
     assert server.status(job_a)["active"] is False
     assert server.status(job_b)["active"] is False
 
+
+def test_list_gpus():
+    server = KeepGPUServer(controller_factory=dummy_factory)
+    info = server.list_gpus()
+    assert "count" in info
+    assert "names" in info
