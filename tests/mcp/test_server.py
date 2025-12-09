@@ -1,4 +1,4 @@
-from keep_gpu.mcp.server import KeepGPUServer
+from keep_gpu.mcp.server import KeepGPUServer, _handle_request
 
 
 class DummyController:
@@ -53,3 +53,26 @@ def test_list_gpus():
     server = KeepGPUServer(controller_factory=dummy_factory)
     info = server.list_gpus()
     assert "gpus" in info
+
+
+def test_end_to_end_jsonrpc():
+    server = KeepGPUServer(controller_factory=dummy_factory)
+    # start_keep
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"gpu_ids": [0], "vram": "256MB", "interval": 1, "busy_threshold": 5},
+    }
+    resp = _handle_request(server, req)
+    assert "result" in resp and "job_id" in resp["result"]
+    job_id = resp["result"]["job_id"]
+
+    # status
+    status_req = {"id": 2, "method": "status", "params": {"job_id": job_id}}
+    status_resp = _handle_request(server, status_req)
+    assert status_resp["result"]["active"] is True
+
+    # stop_keep
+    stop_req = {"id": 3, "method": "stop_keep", "params": {"job_id": job_id}}
+    stop_resp = _handle_request(server, stop_req)
+    assert job_id in stop_resp["result"]["stopped"]

@@ -1,5 +1,7 @@
 import sys
 
+import pytest
+
 from keep_gpu.utilities import gpu_info
 
 
@@ -14,6 +16,10 @@ class DummyNVMLUtil:
         self.gpu = gpu
 
 
+@pytest.mark.skipif(
+    not hasattr(gpu_info, "torch") or not gpu_info.torch.cuda.is_available(),
+    reason="CUDA not available for NVML path",
+)
 def test_get_gpu_info_nvml(monkeypatch):
     class DummyNVML:
         def __init__(self):
@@ -59,6 +65,7 @@ def test_get_gpu_info_nvml(monkeypatch):
     assert info["utilization"] == 55
 
 
+@pytest.mark.rocm
 def test_get_gpu_info_rocm(monkeypatch):
     # remove nvml so ROCm path is used
     monkeypatch.setitem(sys.modules, "pynvml", None)
