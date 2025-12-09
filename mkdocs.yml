@@ -35,6 +35,8 @@ plugins:
 markdown_extensions:
   - admonition
   - codehilite
+  - pymdownx.tabbed:
+      alternate_style: true
   - toc:
       permalink: true
   - pymdownx.emoji:
