@@ -15,7 +15,9 @@ orchestrators can start/stop keep-alive jobs and inspect GPU state.
     ```bash
     keep-gpu-mcp-server
     ```
+
     Send one JSON request per line:
+
     ```bash
     echo '{"id":1,"method":"start_keep","params":{"gpu_ids":[0],"vram":"512MB","interval":60,"busy_threshold":20}}' | keep-gpu-mcp-server
     ```
@@ -23,6 +25,11 @@ orchestrators can start/stop keep-alive jobs and inspect GPU state.
 === "HTTP"
     ```bash
     keep-gpu-mcp-server --mode http --host 0.0.0.0 --port 8765
+    ```
+
+    Query it over HTTP:
+
+    ```bash
     curl -X POST http://127.0.0.1:8765/ \
       -H "content-type: application/json" \
       -d '{"id":1,"method":"status"}'
