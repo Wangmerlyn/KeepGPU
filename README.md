@@ -119,6 +119,19 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
       url: http://127.0.0.1:8765/
       adapter: http
   ```
+- Remote/SSH tunnel example (HTTP):
+  ```bash
+  keep-gpu-mcp-server --mode http --host 0.0.0.0 --port 8765
+  ```
+  Client config (replace hostname/tunnel as needed):
+  ```yaml
+  servers:
+    keepgpu:
+      url: http://gpu-box.example.com:8765/
+      adapter: http
+  ```
+  For untrusted networks, put the server behind your own auth/reverse-proxy or
+  tunnel by way of SSH (for example, `ssh -L 8765:localhost:8765 gpu-box`).
 
 ## Contributing
 

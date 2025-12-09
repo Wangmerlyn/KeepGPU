@@ -87,6 +87,26 @@ keep-gpu-mcp-server --mode http --host 0.0.0.0 --port 8765
 
 And point your MCP client at `http://127.0.0.1:8765/` (JSON-RPC 2.0 over POST).
 
+### Remote/cluster usage
+
+- Start on the GPU host:
+  ```bash
+  keep-gpu-mcp-server --mode http --host 0.0.0.0 --port 8765
+  ```
+- Point your agent at the host:
+  ```yaml
+  servers:
+    keepgpu:
+      url: http://gpu-box.example.com:8765/
+      adapter: http
+  ```
+- If the host is not on a trusted network, tunnel instead of exposing the port:
+  ```bash
+  ssh -L 8765:localhost:8765 gpu-box.example.com
+  ```
+  Then use `http://127.0.0.1:8765/` in your MCP config. For multi-user clusters,
+  consider fronting the service with your own auth/reverse-proxy.
+
 === "Editable dev install"
     ```bash
     git clone https://github.com/Wangmerlyn/KeepGPU.git

@@ -48,6 +48,9 @@ expectations so you can get productive quickly and avoid surprises in CI.
   ```json
   {"id":1,"method":"start_keep","params":{"gpu_ids":[0],"vram":"512MB","interval":60,"busy_threshold":20}}
   ```
+- Remote tip: for shared clusters, prefer HTTP behind your own auth/reverse-proxy
+  or tunnel with SSH (`ssh -L 8765:localhost:8765 gpu-box`), then point your MCP
+  client at `http://127.0.0.1:8765/`.
 
 ## Pull requests
 
