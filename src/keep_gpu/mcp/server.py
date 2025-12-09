@@ -79,14 +79,13 @@ class KeepGPUServer:
                 return {"stopped": [job_id]}
             return {"stopped": [], "message": "job_id not found"}
 
-        stopped: List[str] = []
-        for jid, session in list(self._sessions.items()):
+        stopped_ids = list(self._sessions.keys())
+        for job_id in stopped_ids:
+            session = self._sessions.pop(job_id)
             session.controller.release()
-            stopped.append(jid)
-            del self._sessions[jid]
-        if stopped:
-            logger.info("Stopped sessions: %s", stopped)
-        return {"stopped": stopped}
+        if stopped_ids:
+            logger.info("Stopped sessions: %s", stopped_ids)
+        return {"stopped": stopped_ids}
 
     def status(self, job_id: Optional[str] = None) -> Dict[str, Any]:
         if job_id:
@@ -100,7 +99,7 @@ class KeepGPUServer:
             }
         return {
             "active_jobs": [
-                {"job_id": jid, **asdict(sess)} for jid, sess in self._sessions.items()
+                {"job_id": jid, "params": sess.params} for jid, sess in self._sessions.items()
             ]
         }
 
