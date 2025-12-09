@@ -52,7 +52,22 @@ class KeepGPUServer:
         busy_threshold: int = -1,
         job_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Start a keep-alive session for one or more GPUs."""
+        """
+        Start a KeepGPU session that reserves VRAM on one or more GPUs.
+
+        Args:
+            gpu_ids: GPU indices to target; None uses all available GPUs.
+            vram: Human-readable VRAM size to keep (for example, "1GiB").
+            interval: Seconds between controller checks/actions.
+            busy_threshold: Utilization above which the controller backs off.
+            job_id: Optional session identifier; a UUID is generated if omitted.
+
+        Returns:
+            Dict with the started session's job_id, e.g. ``{"job_id": "<id>"}``.
+
+        Raises:
+            ValueError: If the provided job_id already exists.
+        """
         job_id = job_id or str(uuid.uuid4())
         if job_id in self._sessions:
             raise ValueError(f"job_id {job_id} already exists")
@@ -79,7 +94,20 @@ class KeepGPUServer:
     def stop_keep(
         self, job_id: Optional[str] = None, quiet: bool = False
     ) -> Dict[str, Any]:
-        """Stop one or all active keep sessions."""
+        """
+        Stop one or all active keep sessions.
+
+        If job_id is supplied, only that session is stopped; otherwise all active
+        sessions are released. When quiet=True, informational logging is skipped.
+
+        Args:
+            job_id: Session identifier to stop; None stops every session.
+            quiet: Suppress informational logs about stopped sessions.
+
+        Returns:
+            Dict with a "stopped" list of job ids. If a specific job_id was not
+            found, a "message" field explains the miss.
+        """
         if job_id:
             session = self._sessions.pop(job_id, None)
             if session:
@@ -120,7 +148,7 @@ class KeepGPUServer:
         return {"gpus": infos}
 
     def shutdown(self) -> None:
-        """Stop all sessions quietly and ignore teardown errors."""
+        """Stop all sessions quietly; ignore errors during interpreter teardown."""
         try:
             self.stop_keep(None, quiet=True)
         except Exception:  # pragma: no cover - defensive
@@ -129,7 +157,16 @@ class KeepGPUServer:
 
 
 def _handle_request(server: KeepGPUServer, payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Dispatch a JSON-RPC payload to the server and return a response dict."""
+    """
+    Dispatch a JSON-RPC payload to the server and return a response dict.
+
+    Args:
+        server: Target KeepGPUServer.
+        payload: Dict with "method", optional "params", and optional "id".
+
+    Returns:
+        JSON-RPC-style dict containing either "result" or "error" plus "id".
+    """
     method = payload.get("method")
     params = payload.get("params", {}) or {}
     req_id = payload.get("id")
@@ -154,7 +191,12 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
     server_version = "KeepGPU-MCP/0.1"
 
     def do_POST(self):  # noqa: N802
-        """Handle an HTTP JSON-RPC request and write a JSON response."""
+        """
+        Handle an HTTP JSON-RPC request and write a JSON response.
+
+        Expects application/json bodies containing {"method", "params", "id"}.
+        Returns 400 with an error object if parsing fails.
+        """
         try:
             length = int(self.headers.get("content-length", "0"))
             body = self.rfile.read(length).decode("utf-8")
