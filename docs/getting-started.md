@@ -62,6 +62,21 @@ Supported methods:
 - `stop_keep(job_id?)` (no job_id stops all)
 - `list_gpus()` (basic info)
 
+### Example MCP client config (stdio)
+
+If your agent expects an MCP server definition, a minimal stdio config looks like:
+
+```yaml
+servers:
+  keepgpu:
+    description: "KeepGPU MCP server"
+    command: ["keep-gpu-mcp-server"]
+    adapter: stdio
+```
+
+Tools exposed: `start_keep`, `stop_keep`, `status`, `list_gpus`. Each request is
+a single JSON line; see above for an example payload.
+
 === "Editable dev install"
     ```bash
     git clone https://github.com/Wangmerlyn/KeepGPU.git

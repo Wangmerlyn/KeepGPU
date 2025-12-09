@@ -51,7 +51,7 @@ expectations so you can get productive quickly and avoid surprises in CI.
 ## Pull requests
 
 - Keep changesets focused; small commits are welcome.
-- Add/adjust tests for new behavior; skip GPU-specific tests in CI via markers.
+- Add/adjust tests for new behavior; skip GPU-specific tests in CI by way of markers.
 - Update docs/README when behavior or interfaces change.
 - Stick to the existing style (Typer CLI, Rich logging) and keep code paths
   simple—avoid over-engineering.
