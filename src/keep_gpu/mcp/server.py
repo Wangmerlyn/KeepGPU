@@ -150,14 +150,14 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
     server_version = "KeepGPU-MCP/0.1"
 
     def do_POST(self):  # noqa: N802
-        length = int(self.headers.get("content-length", "0"))
-        body = self.rfile.read(length).decode()
         try:
+            length = int(self.headers.get("content-length", "0"))
+            body = self.rfile.read(length).decode("utf-8")
             payload = json.loads(body)
             response = _handle_request(self.server.keepgpu_server, payload)  # type: ignore[attr-defined]
             status = 200
-        except Exception as exc:  # pragma: no cover - defensive
-            response = {"error": {"message": str(exc)}}
+        except (json.JSONDecodeError, ValueError, UnicodeDecodeError) as exc:
+            response = {"error": {"message": f"Bad request: {exc}"}}
             status = 400
         data = json.dumps(response).encode()
         self.send_response(status)
@@ -194,7 +194,7 @@ def run_http(server: KeepGPUServer, host: str = "127.0.0.1", port: int = 8765) -
     def _serve():
         httpd.serve_forever()
 
-    thread = threading.Thread(target=_serve, daemon=True)
+    thread = threading.Thread(target=_serve)
     thread.start()
     logger.info(
         "MCP HTTP server listening on http://%s:%s", host, httpd.server_address[1]
