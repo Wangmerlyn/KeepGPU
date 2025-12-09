@@ -54,17 +54,17 @@ class KeepGPUServer:
     ) -> Dict[str, Any]:
         """
         Start a KeepGPU session that periodically reserves the specified amount of VRAM on one or more GPUs.
-        
+
         Parameters:
             gpu_ids (Optional[List[int]]): List of GPU indices to target; if `None`, all available GPUs may be considered.
             vram (str): Amount of VRAM to reserve (human-readable, e.g. "1GiB").
             interval (int): Time in seconds between controller checks/actions.
             busy_threshold (int): Numeric threshold controlling what the controller treats as "busy" (semantics provided by the controller).
             job_id (Optional[str]): Identifier for the session; when `None`, a new UUID is generated.
-        
+
         Returns:
             dict: A dictionary with the started session's `job_id`, e.g. `{"job_id": "<id>"}`.
-        
+
         Raises:
             ValueError: If `job_id` is provided and already exists.
         """
@@ -96,13 +96,13 @@ class KeepGPUServer:
     ) -> Dict[str, Any]:
         """
         Stop one or all active keep sessions.
-        
+
         If `job_id` is provided, stops and removes that session if it exists; otherwise stops and removes all sessions. When `quiet` is True, informational logging about stopped sessions is suppressed.
-        
+
         Parameters:
             job_id (Optional[str]): Identifier of the session to stop. If omitted, all sessions are stopped.
             quiet (bool): If True, do not emit informational logs about stopped sessions.
-        
+
         Returns:
             result (Dict[str, Any]): A dictionary with a "stopped" key listing stopped job IDs. If a specific
             `job_id` was requested but not found, the dictionary also includes a "message" explaining that.
@@ -149,7 +149,7 @@ class KeepGPUServer:
     def shutdown(self) -> None:
         """
         Stop all active sessions and release resources, suppressing any errors that occur during interpreter teardown.
-        
+
         This attempts to stop every session (quietly) and ignores exceptions to avoid noisy errors when the interpreter is shutting down.
         """
         try:
@@ -162,14 +162,14 @@ class KeepGPUServer:
 def _handle_request(server: KeepGPUServer, payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Dispatches a JSON-RPC-like request payload to the corresponding KeepGPUServer method and returns a JSON-RPC response object.
-    
+
     Parameters:
         server (KeepGPUServer): The server instance whose methods will be invoked.
         payload (dict): The incoming request object; expected keys:
             - "method" (str): RPC method name ("start_keep", "stop_keep", "status", "list_gpus").
             - "params" (dict, optional): Keyword arguments for the method.
             - "id" (any, optional): Caller-provided request identifier preserved in the response.
-    
+
     Returns:
         dict: A JSON-RPC-style response containing:
             - "id": the original request id (or None if not provided).
@@ -202,7 +202,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         """
         Handle HTTP POST requests containing a JSON-RPC payload and send a JSON response.
-        
+
         Reads the request body using the Content-Length header, parses it as JSON, dispatches the payload to the internal JSON-RPC dispatcher, and writes the dispatcher result as an application/json response. If the request body cannot be decoded or parsed, responds with HTTP 400 and a JSON error object describing the parsing error.
         """
         try:
@@ -224,7 +224,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):  # noqa: A003
         """
         Suppress the BaseHTTPRequestHandler's default request logging by overriding log_message to do nothing.
-        
+
         Parameters:
             format (str): The format string provided by BaseHTTPRequestHandler.
             *args: Values to interpolate into `format`.
@@ -235,10 +235,10 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
 def run_stdio(server: KeepGPUServer) -> None:
     """
     Read line-delimited JSON-RPC requests from stdin, dispatch each request to the server, and write the JSON response to stdout.
-    
+
     Parameters:
         server (KeepGPUServer): Server instance used to handle JSON-RPC requests.
-    
+
     Description:
         - Processes each non-empty line from stdin as a JSON payload.
         - On successful handling, writes the JSON-RPC response followed by a newline to stdout and flushes.
@@ -260,14 +260,15 @@ def run_stdio(server: KeepGPUServer) -> None:
 def run_http(server: KeepGPUServer, host: str = "127.0.0.1", port: int = 8765) -> None:
     """
     Start a lightweight HTTP JSON-RPC server that exposes the given KeepGPUServer on the specified host and port.
-    
+
     Starts a TCP HTTP server serving _JSONRPCHandler in a background thread, logs the listening address, waits for the thread to finish, and on interruption or shutdown performs a clean shutdown of the HTTP server and calls server.shutdown() to release resources.
-    
+
     Parameters:
         server (KeepGPUServer): The KeepGPUServer instance whose RPC methods will be exposed over HTTP.
         host (str): Host address to bind the HTTP server to.
         port (int): TCP port to bind the HTTP server to.
     """
+
     class _Server(TCPServer):
         allow_reuse_address = True
 
@@ -277,7 +278,7 @@ def run_http(server: KeepGPUServer, host: str = "127.0.0.1", port: int = 8765) -
     def _serve():
         """
         Run the HTTP server's request loop until the server is shut down.
-        
+
         Blocks the current thread and processes incoming HTTP requests for the
         server instance until the server is stopped.
         """
@@ -301,7 +302,7 @@ def run_http(server: KeepGPUServer, host: str = "127.0.0.1", port: int = 8765) -
 def main() -> None:
     """
     Entry point for the KeepGPU MCP server that parses command-line arguments and starts the chosen transport.
-    
+
     Parses --mode (stdio or http), --host and --port (for http mode), instantiates a KeepGPUServer, and runs either the stdio loop or the HTTP server based on the selected mode.
     """
     parser = argparse.ArgumentParser(description="KeepGPU MCP server")
