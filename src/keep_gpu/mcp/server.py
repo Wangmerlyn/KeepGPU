@@ -18,6 +18,7 @@ from dataclasses import dataclass, asdict
 from typing import Any, Callable, Dict, List, Optional
 
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
+from keep_gpu.utilities.gpu_info import get_gpu_info
 from keep_gpu.utilities.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -104,16 +105,9 @@ class KeepGPUServer:
         }
 
     def list_gpus(self) -> Dict[str, Any]:
-        """Return basic GPU info using torch (count + names)."""
-        try:
-            import torch
-
-            count = torch.cuda.device_count()
-            names = [torch.cuda.get_device_name(i) for i in range(count)]
-            return {"count": count, "names": names}
-        except Exception as exc:  # pragma: no cover - env-specific
-            logger.debug("list_gpus failed: %s", exc)
-            return {"count": 0, "names": [], "error": str(exc)}
+        """Return detailed GPU info (id, name, memory, utilization)."""
+        infos = get_gpu_info()
+        return {"gpus": infos}
 
     def shutdown(self) -> None:
         try:

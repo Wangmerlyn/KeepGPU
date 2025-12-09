@@ -52,5 +52,4 @@ def test_stop_all():
 def test_list_gpus():
     server = KeepGPUServer(controller_factory=dummy_factory)
     info = server.list_gpus()
-    assert "count" in info
-    assert "names" in info
+    assert "gpus" in info
