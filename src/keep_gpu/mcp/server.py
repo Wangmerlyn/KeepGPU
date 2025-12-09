@@ -14,7 +14,7 @@ import atexit
 import json
 import sys
 import uuid
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
