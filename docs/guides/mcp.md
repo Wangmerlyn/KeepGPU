@@ -7,7 +7,7 @@ orchestrators can start/stop keep-alive jobs and inspect GPU state.
 
 - You run KeepGPU from an agent (LangChain, custom orchestrator, etc.) instead of a shell.
 - You want to keep GPUs alive on a remote box over TCP rather than stdio.
-- You need a quick way to list GPU utilization/memory via the same interface.
+- You need a quick way to list GPU utilization/memory by way of the same interface.
 
 ## Quick start
 
@@ -33,7 +33,7 @@ Supported methods:
 - `start_keep(gpu_ids?, vram?, interval?, busy_threshold?, job_id?)`
 - `stop_keep(job_id?)` (omit `job_id` to stop all)
 - `status(job_id?)` (omit `job_id` to list active jobs)
-- `list_gpus()` (detailed info via NVML/ROCm SMI/torch)
+- `list_gpus()` (detailed info by way of NVML/ROCm SMI/torch)
 
 ## Client configs (MCP-style)
 
