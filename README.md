@@ -90,6 +90,18 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 - ROCm-only tests carry `@pytest.mark.rocm`; run with `pytest --run-rocm tests/rocm_controller`.
 - Markers: `rocm` (needs ROCm stack) and `large_memory` (opt-in locally).
 
+### MCP endpoint (experimental)
+
+- Start a simple JSON-RPC server on stdin/stdout:
+  ```bash
+  keep-gpu-mcp-server
+  ```
+- Example request (one per line):
+  ```json
+  {"id": 1, "method": "start_keep", "params": {"gpu_ids": [0], "vram": "512MB", "interval": 60, "busy_threshold": 20}}
+  ```
+- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`).
+
 ## Contributing
 
 Contributions are welcome—especially around ROCm support, platform fallbacks, and scheduler-specific recipes. Open an issue or PR if you hit edge cases on your cluster.

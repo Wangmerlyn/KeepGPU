@@ -45,6 +45,22 @@ understand the minimum knobs you need to keep a GPU occupied.
 - Fast CUDA checks: `pytest tests/cuda_controller tests/global_controller tests/utilities/test_platform_manager.py tests/test_cli_thresholds.py`
 - ROCm-only tests are marked `rocm`; run with `pytest --run-rocm tests/rocm_controller`.
 
+## MCP endpoint (experimental)
+
+For automation clients that speak JSON-RPC (MCP-style), KeepGPU ships a tiny
+stdin/stdout server:
+
+```bash
+keep-gpu-mcp-server
+# each request is a single JSON line; example:
+echo '{"id":1,"method":"start_keep","params":{"gpu_ids":[0],"vram":"512MB","interval":60,"busy_threshold":20}}' | keep-gpu-mcp-server
+```
+
+Supported methods:
+- `start_keep(gpu_ids?, vram?, interval?, busy_threshold?, job_id?)`
+- `status(job_id?)`
+- `stop_keep(job_id?)` (no job_id stops all)
+
 === "Editable dev install"
     ```bash
     git clone https://github.com/Wangmerlyn/KeepGPU.git
