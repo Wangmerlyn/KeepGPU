@@ -9,9 +9,10 @@ understand the minimum knobs you need to keep a GPU occupied.
 - Python 3.9+ (matching the version in your environment/cluster image).
 - Optional but recommended: `nvidia-smi` in `PATH` for utilization monitoring (CUDA) or `rocm-smi` if you install the `rocm` extra.
 
-!!! warning "ROCm & multi-tenant clusters"
-    The current release focuses on CUDA devices. ROCm/AMD support is experimental;
-    controllers will raise `NotImplementedError` if CUDA is unavailable.
+!!! info "Platforms"
+    CUDA is the primary path; ROCm is supported by way of the `rocm` extra
+    (requires a ROCm-enabled PyTorch build). CPU-only environments can import
+    the package but controllers will not start.
 
 ## Install
 
@@ -39,50 +40,18 @@ understand the minimum knobs you need to keep a GPU occupied.
     pip install keep-gpu
     ```
 
-## For contributors
-
-- Install dev extras: `pip install -e ".[dev]"` (append `.[rocm]` if you need ROCm SMI).
-- Fast CUDA checks: `pytest tests/cuda_controller tests/global_controller tests/utilities/test_platform_manager.py tests/test_cli_thresholds.py`
-- ROCm-only tests are marked `rocm`; run with `pytest --run-rocm tests/rocm_controller`.
-
-## MCP endpoint (experimental)
-
-For automation clients that speak JSON-RPC (MCP-style), KeepGPU ships a tiny
-stdin/stdout server:
-
-```bash
-keep-gpu-mcp-server
-# each request is a single JSON line; example:
-echo '{"id":1,"method":"start_keep","params":{"gpu_ids":[0],"vram":"512MB","interval":60,"busy_threshold":20}}' | keep-gpu-mcp-server
-```
-
-Supported methods:
-- `start_keep(gpu_ids?, vram?, interval?, busy_threshold?, job_id?)`
-- `status(job_id?)`
-- `stop_keep(job_id?)` (no job_id stops all)
-- `list_gpus()` (basic info)
-
-### Example MCP client config (stdio)
-
-If your agent expects an MCP server definition, a minimal stdio config looks like:
-
-```yaml
-servers:
-  keepgpu:
-    description: "KeepGPU MCP server"
-    command: ["keep-gpu-mcp-server"]
-    adapter: stdio
-```
-
-Tools exposed: `start_keep`, `stop_keep`, `status`, `list_gpus`. Each request is
-a single JSON line; see above for an example payload.
-
 === "Editable dev install"
     ```bash
     git clone https://github.com/Wangmerlyn/KeepGPU.git
     cd KeepGPU
     pip install -e .[dev]
     ```
+
+## Pick your interface
+
+- **CLI** – fastest way to reserve GPUs from a shell; see [CLI Playbook](guides/cli.md).
+- **Python module** – embed keep-alive loops inside orchestration code; see [Python API Recipes](guides/python.md).
+- **MCP server** – expose KeepGPU over JSON-RPC (stdio or HTTP) for agents; see [MCP Server](guides/mcp.md).
 
 ## Sanity check
 
@@ -119,7 +88,8 @@ ready to hand the GPU back, hit `Ctrl+C`—controllers will release VRAM and exi
 
 ## KeepGPU inside Python
 
-The CLI wraps the same controllers you can import directly:
+Prefer code-level control? Import the controllers directly (full recipes in
+[Python API Recipes](guides/python.md)):
 
 ```python
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
@@ -141,3 +111,8 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=60):
 
 From here, jump to the CLI Playbook for scenario-driven guidance or the API
 recipes if you need to embed KeepGPU in orchestration scripts.
+
+## For contributors
+
+Developing locally? See [Contributing](contributing.md) for dev install, test
+commands (including CUDA/ROCm markers), and PR tips.

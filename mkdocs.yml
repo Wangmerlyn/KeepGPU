@@ -15,9 +15,10 @@ nav:
   - Overview:
       - Welcome: index.md
       - Getting Started: getting-started.md
-  - Guides:
+  - Usage:
       - CLI Playbook: guides/cli.md
       - Python API Recipes: guides/python.md
+      - MCP Server: guides/mcp.md
   - Concepts:
       - How KeepGPU Works: concepts/architecture.md
   - Reference:
@@ -34,6 +35,8 @@ plugins:
 markdown_extensions:
   - admonition
   - codehilite
+  - pymdownx.tabbed:
+      alternate_style: true
   - toc:
       permalink: true
   - pymdownx.emoji:

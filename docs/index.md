@@ -32,11 +32,13 @@ during longer CPU-bound sections of your workflow.
   for pinning cards on clusters, workstations, or Jupyter.
 - :material-code-tags: **[Python API Recipes](guides/python.md)** – Drop-in snippets
   for wrapping preprocessing stages or orchestration scripts.
+- :material-lan: **[MCP Server](guides/mcp.md)** – Expose KeepGPU by way of JSON-RPC
+  (stdio/HTTP) for agents and remote orchestration.
 - :material-diagram-project: **[How KeepGPU Works](concepts/architecture.md)** –
   Learn how controllers allocate VRAM and throttle themselves.
 - :material-book-open-outline: **[Reference](reference/cli.md)** – Full option list
   plus mkdocstrings API reference.
 
 !!! tip "Prefer a fast skim?"
-    The left sidebar mirrors the lifecycle: overview → guides → concepts →
+    The left sidebar mirrors the lifecycle: overview → usage → concepts →
     references. Jump straight to what you need; sections stand on their own.
