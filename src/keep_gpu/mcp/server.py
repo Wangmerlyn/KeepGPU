@@ -14,7 +14,7 @@ import atexit
 import json
 import sys
 import uuid
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
@@ -99,7 +99,8 @@ class KeepGPUServer:
             }
         return {
             "active_jobs": [
-                {"job_id": jid, "params": sess.params} for jid, sess in self._sessions.items()
+                {"job_id": jid, "params": sess.params}
+                for jid, sess in self._sessions.items()
             ]
         }
 
