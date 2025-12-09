@@ -11,11 +11,6 @@ def pytest_addoption(parser):
     )
 
 
-def pytest_configure(config):
-    config.addinivalue_line("markers", "rocm: tests that require ROCm stack")
-    config.addinivalue_line("markers", "large_memory: tests that use large VRAM")
-
-
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--run-rocm"):
         return
