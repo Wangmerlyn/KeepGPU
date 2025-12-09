@@ -14,7 +14,7 @@ import atexit
 import json
 import sys
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Any, Callable, Dict, List, Optional
 
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
@@ -70,26 +70,22 @@ class KeepGPUServer:
         logger.info("Started keep session %s on GPUs %s", job_id, gpu_ids)
         return {"job_id": job_id}
 
-    def stop_keep(
-        self, job_id: Optional[str] = None, *, quiet: bool = False
-    ) -> Dict[str, Any]:
+    def stop_keep(self, job_id: Optional[str] = None) -> Dict[str, Any]:
         if job_id:
             session = self._sessions.pop(job_id, None)
             if session:
                 session.controller.release()
-                if not quiet:
-                    logger.info("Stopped keep session %s", job_id)
+                logger.info("Stopped keep session %s", job_id)
                 return {"stopped": [job_id]}
             return {"stopped": [], "message": "job_id not found"}
 
-        stopped: List[str] = []
-        for jid, session in list(self._sessions.items()):
+        stopped_ids = list(self._sessions.keys())
+        for job_id in stopped_ids:
+            session = self._sessions.pop(job_id)
             session.controller.release()
-            stopped.append(jid)
-            del self._sessions[jid]
-        if stopped and not quiet:
-            logger.info("Stopped sessions: %s", stopped)
-        return {"stopped": stopped}
+        if stopped_ids:
+            logger.info("Stopped sessions: %s", stopped_ids)
+        return {"stopped": stopped_ids}
 
     def status(self, job_id: Optional[str] = None) -> Dict[str, Any]:
         if job_id:
@@ -103,8 +99,7 @@ class KeepGPUServer:
             }
         return {
             "active_jobs": [
-                {"job_id": jid, "params": sess.params}
-                for jid, sess in self._sessions.items()
+                {"job_id": jid, "params": sess.params} for jid, sess in self._sessions.items()
             ]
         }
 
@@ -115,7 +110,7 @@ class KeepGPUServer:
 
     def shutdown(self) -> None:
         try:
-            self.stop_keep(None, quiet=True)
+            self.stop_keep(None)
         except Exception:  # pragma: no cover - defensive
             # Avoid noisy errors during interpreter teardown
             return
