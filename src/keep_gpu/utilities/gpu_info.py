@@ -49,8 +49,11 @@ def _query_rocm() -> List[Dict[str, Any]]:
         return []
 
     infos: List[Dict[str, Any]] = []
+    current_device = None
     try:
         rocm_smi.rsmi_init()
+        if torch.cuda.is_available():
+            current_device = torch.cuda.current_device()
         # Use torch to enumerate devices for names/memory
         count = torch.cuda.device_count() if torch.cuda.is_available() else 0
         for idx in range(count):
@@ -83,6 +86,11 @@ def _query_rocm() -> List[Dict[str, Any]]:
                 }
             )
     finally:
+        if current_device is not None:
+            try:
+                torch.cuda.set_device(current_device)
+            except Exception:
+                pass
         try:
             rocm_smi.rsmi_shut_down()
         except Exception:
@@ -94,6 +102,7 @@ def _query_torch() -> List[Dict[str, Any]]:
     infos: List[Dict[str, Any]] = []
     if not torch.cuda.is_available():
         return infos
+    current_device = torch.cuda.current_device()
     try:
         count = torch.cuda.device_count()
         for idx in range(count):
@@ -119,6 +128,11 @@ def _query_torch() -> List[Dict[str, Any]]:
             )
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug("Torch GPU info failed: %s", exc)
+    finally:
+        try:
+            torch.cuda.set_device(current_device)
+        except Exception:
+            pass
     return infos
 
 

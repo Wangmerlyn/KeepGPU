@@ -76,3 +76,20 @@ def test_end_to_end_jsonrpc():
     stop_req = {"id": 3, "method": "stop_keep", "params": {"job_id": job_id}}
     stop_resp = _handle_request(server, stop_req)
     assert job_id in stop_resp["result"]["stopped"]
+
+
+def test_status_all():
+    server = KeepGPUServer(controller_factory=dummy_factory)
+    job_a = server.start_keep(gpu_ids=[0])["job_id"]
+    job_b = server.start_keep(gpu_ids=[1])["job_id"]
+
+    status = server.status()
+    assert "active_jobs" in status
+    assert len(status["active_jobs"]) == 2
+
+    job_statuses = {job["job_id"]: job for job in status["active_jobs"]}
+    assert job_a in job_statuses
+    assert job_b in job_statuses
+    assert job_statuses[job_a]["params"]["gpu_ids"] == [0]
+    assert job_statuses[job_b]["params"]["gpu_ids"] == [1]
+    assert "controller" not in job_statuses[job_a]
