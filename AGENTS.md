@@ -31,7 +31,7 @@ This file defines how coding agents should work in this repository.
 ### Documentation Updates
 
 - When adding user-visible features, update the user documentation with usage guidance alongside the code changes.
-- For complex features, bug investigations, or refactorings that require detailed documentation (e.g., plans, testing guides, summaries), create a dedicated subfolder under `docs/` with a descriptive name (e.g., `docs/opencode-poll-loop-refactor/`). Place all related documentation files in that subfolder.
+- For complex features, bug investigations, or refactorings that require detailed documentation (for example, plans, testing guides, summaries), create a dedicated subfolder under `docs/` with a descriptive name (for example, `docs/opencode-poll-loop-refactor/`). Place all related documentation files in that subfolder.
 - Do NOT place project-specific documentation in the root directory. Keep the root clean.
 
 ### Quality Bar
@@ -46,13 +46,13 @@ This file defines how coding agents should work in this repository.
 - Commit messages: use `type(scope): summary`.
 - PR titles: format `[modules] type: description` (modules comma-separated, single type).
 - Never commit secrets (tokens, credentials files).
-- Avoid destructive git operations unless explicitly requested (e.g., `reset --hard`, force-push).
+- Avoid destructive git operations unless explicitly requested (for example, `reset --hard`, force-push).
 
 ## 2) Project-Specific (KeepGPU)
 
 ### Product Surface (Keep These in Sync)
 
-- This repo has three first-class interfaces:
+- This repository has three first-class interfaces:
   - CLI: `keep-gpu` (`src/keep_gpu/cli.py`)
   - Python API/controllers (`src/keep_gpu/single_gpu_controller/`, `src/keep_gpu/global_gpu_controller/`)
   - MCP server: `keep-gpu-mcp-server` (`src/keep_gpu/mcp/server.py`)
@@ -71,7 +71,7 @@ This file defines how coding agents should work in this repository.
 - ROCm support is optional and should remain guarded (`rocm-smi` in extras). Imports must fail gracefully on non-ROCm machines.
 - CI runners generally do not have GPUs. GPU-dependent logic must have safe fallbacks and tests must avoid hard-failing in no-GPU environments.
 
-### Testing Expectations in This Repo
+### Testing Expectations in This Repository
 
 - Before pushing, run targeted tests relevant to changed modules first, then broader checks.
 - Common targeted commands:
