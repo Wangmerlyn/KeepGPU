@@ -21,7 +21,7 @@ def test_large_vram_allocation():
     controller = CudaGPUController(
         rank=0,
         interval=0.5,
-        matmul_iterations=100,
+        relu_iterations=100,
         vram_to_keep=vram_elements,
         busy_threshold=10,
     )

@@ -14,7 +14,7 @@ def test_cuda_controller_context_manager():
         rank=torch.cuda.device_count() - 1,
         interval=0.05,
         vram_to_keep="8MB",
-        matmul_iterations=64,
+        relu_iterations=64,
     )
 
     torch.cuda.set_device(ctrl.rank)
@@ -25,6 +25,4 @@ def test_cuda_controller_context_manager():
         during_reserved = torch.cuda.memory_reserved(ctrl.rank)
         assert during_reserved >= before_reserved
 
-    if ctrl._thread:
-        ctrl._thread.join(timeout=2)
     assert not (ctrl._thread and ctrl._thread.is_alive())

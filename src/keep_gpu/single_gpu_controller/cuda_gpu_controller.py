@@ -16,7 +16,7 @@ logger = setup_logger(__name__)
 class CudaGPUController(BaseGPUController):
     """CudaGPUController
     Keep a single CUDA GPU busy by repeatedly running lightweight
-    matrix-multiplication workloads in a background thread.
+    elementwise workloads in a background thread.
 
     Typical usage:
 
@@ -42,7 +42,8 @@ class CudaGPUController(BaseGPUController):
         *,
         rank: int,
         interval: float = 1.0,
-        matmul_iterations: int = 5000,
+        relu_iterations: int = 5000,
+        matmul_iterations: Optional[int] = None,
         vram_to_keep: str | int = "1000 MB",
         busy_threshold: int = 10,
     ):
@@ -51,7 +52,10 @@ class CudaGPUController(BaseGPUController):
             rank (int): Local CUDA device index to occupy.
             interval (float, optional): Sleep time (seconds) between workload
                 batches. Defaults to 1.0.
-            matmul_iterations (int, optional): Number of matmul ops per batch.
+            relu_iterations (int, optional): Number of in-place ReLU ops per
+                batch.
+            matmul_iterations (int, optional): Legacy alias for
+                `relu_iterations`. When set, it overrides `relu_iterations`.
             vram_to_keep (int or str, optional): Amount of VRAM to keep busy,
                 e.g. `"1000 MB"`, `"20 GB"`, or an integer like `1000 * 1000`.
                 This represents the total size of the matrix allocated to
@@ -65,12 +69,15 @@ class CudaGPUController(BaseGPUController):
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
         self.interval = interval
-        self.matmul_iterations = matmul_iterations
+        if matmul_iterations is not None:
+            relu_iterations = matmul_iterations
+        self.relu_iterations = relu_iterations
         self.busy_threshold = busy_threshold
         self.platform = ComputingPlatform.CUDA
 
         self._stop_evt: Optional[threading.Event] = None
         self._thread: Optional[threading.Thread] = None
+        self._num_elements: Optional[int] = None
 
     @staticmethod
     def parse_size(text: str) -> int:
@@ -85,6 +92,10 @@ class CudaGPUController(BaseGPUController):
         if self._thread and self._thread.is_alive():
             logger.warning("rank %s: keep thread already running", self.rank)
             return
+
+        self._num_elements = int(self.vram_to_keep)
+        if self._num_elements <= 0:
+            raise ValueError("vram_to_keep must be positive")
 
         self._stop_evt = threading.Event()
         self._thread = threading.Thread(
@@ -123,12 +134,15 @@ class CudaGPUController(BaseGPUController):
     def _keep_loop(self) -> None:
         """Internal: run workloads until stop event is set."""
         torch.cuda.set_device(self.rank)
+        num_elements = self._num_elements if self._num_elements is not None else 0
+        if num_elements <= 0:
+            logger.error(
+                "rank %s: invalid vram_to_keep=%s", self.rank, self.vram_to_keep
+            )
+            return
         matrix = None
         while not self._stop_evt.is_set():
             try:
-                num_elements = int(self.vram_to_keep)
-                if num_elements <= 0:
-                    raise ValueError("vram_to_keep must be positive")
                 matrix = torch.rand(
                     num_elements,
                     device=self.device,
@@ -152,7 +166,7 @@ class CudaGPUController(BaseGPUController):
                         gpu_utilization,
                     )
                 else:
-                    self._run_mat_batch(matrix)
+                    self._run_relu_batch(matrix)
                 time.sleep(self.interval)
             except RuntimeError as e:
                 # Handle OOM by clearing cache; then sleep and continue
@@ -168,11 +182,11 @@ class CudaGPUController(BaseGPUController):
     # Workload implementation
     # ------------------------------------------------------------------
     @torch.no_grad()
-    def _run_mat_batch(self, matrix: torch.Tensor) -> None:
+    def _run_relu_batch(self, matrix: torch.Tensor) -> None:
         """Run a batch of in-place ReLU ops to keep GPU busy."""
 
         tic = time.time()
-        for _ in range(self.matmul_iterations):
+        for _ in range(self.relu_iterations):
             torch.relu_(matrix)
             if self._stop_evt.is_set():
                 break
@@ -180,9 +194,9 @@ class CudaGPUController(BaseGPUController):
         toc = time.time()
 
         logger.debug(
-            "rank %s: mat ops batch done - avg %.2f ms",
+            "rank %s: relu ops batch done - avg %.2f ms",
             self.rank,
-            (toc - tic) * 1000 / self.matmul_iterations,
+            (toc - tic) * 1000 / self.relu_iterations,
         )
 
     # ------------------------------------------------------------------

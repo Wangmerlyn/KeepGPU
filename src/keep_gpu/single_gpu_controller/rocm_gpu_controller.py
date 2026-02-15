@@ -24,7 +24,7 @@ class RocmGPUController(BaseGPUController):
         vram_to_keep: str | int = "1000 MB",
         busy_threshold: int = 10,
         iterations: int = 5000,
-        max_allocation_retries: int = 3,
+        max_allocation_retries: Optional[int] = None,
     ):
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
         self.rank = rank
@@ -100,7 +100,7 @@ class RocmGPUController(BaseGPUController):
         torch.cuda.set_device(self.rank)
         tensor = None
         attempts = 0
-        while not self._stop_evt.is_set() and attempts < self.max_allocation_retries:
+        while not self._stop_evt.is_set():
             try:
                 num_elements = int(self.vram_to_keep)
                 if num_elements <= 0:
@@ -115,19 +115,26 @@ class RocmGPUController(BaseGPUController):
             except (RuntimeError, ValueError) as exc:
                 attempts += 1
                 logger.error(
-                    "rank %s: failed to allocate tensor (attempt %d/%d): %s",
+                    "rank %s: failed to allocate tensor (attempt %d%s): %s",
                     self.rank,
                     attempts,
-                    self.max_allocation_retries,
+                    (
+                        f"/{self.max_allocation_retries}"
+                        if self.max_allocation_retries is not None
+                        else ""
+                    ),
                     exc,
                 )
+                if (
+                    self.max_allocation_retries is not None
+                    and attempts >= self.max_allocation_retries
+                ):
+                    self._failure_exc = RuntimeError(
+                        f"rank {self.rank}: failed to allocate tensor after {attempts} attempts"
+                    )
+                    logger.error("%s", self._failure_exc)
+                    return
                 time.sleep(self.interval)
-        if tensor is None:
-            self._failure_exc = RuntimeError(
-                f"rank {self.rank}: failed to allocate tensor after {attempts} attempts"
-            )
-            logger.error("%s", self._failure_exc)
-            return
 
         while not self._stop_evt.is_set():
             try:
@@ -146,7 +153,11 @@ class RocmGPUController(BaseGPUController):
                 time.sleep(self.interval)
 
     def allocation_status(self) -> Optional[Exception]:
-        """Return allocation failure exception captured in worker thread, if any."""
+        """
+        Return allocation failure captured in the worker thread, if any.
+
+        The reference assignment/read is thread-safe for CPython's GIL model.
+        """
         return self._failure_exc
 
     @torch.no_grad()

@@ -18,7 +18,7 @@ def test_controller_respects_busy_threshold(monkeypatch):
         interval=0.05,
         vram_to_keep="4MB",
         busy_threshold=10,
-        matmul_iterations=8,
+        relu_iterations=8,
     )
 
     def fake_utilization(_rank: int) -> int:
@@ -28,7 +28,7 @@ def test_controller_respects_busy_threshold(monkeypatch):
         calls["run"] += 1
 
     monkeypatch.setattr(ctrl, "_monitor_utilization", fake_utilization)
-    monkeypatch.setattr(ctrl, "_run_mat_batch", fake_run)
+    monkeypatch.setattr(ctrl, "_run_relu_batch", fake_run)
 
     ctrl.keep()
     time.sleep(0.2)
