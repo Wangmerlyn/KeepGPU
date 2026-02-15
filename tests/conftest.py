@@ -1,5 +1,4 @@
 import pytest
-import torch
 
 
 def pytest_addoption(parser):
@@ -23,4 +22,11 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture
 def rocm_available():
-    return bool(torch.cuda.is_available() and getattr(torch.version, "hip", None))
+    try:
+        import torch
+    except Exception:
+        return False
+    try:
+        return bool(torch.cuda.is_available() and getattr(torch.version, "hip", None))
+    except Exception:
+        return False

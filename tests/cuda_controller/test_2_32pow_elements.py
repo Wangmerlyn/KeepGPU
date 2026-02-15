@@ -8,11 +8,16 @@ from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_large_vram_allocation():
     """Tests controller with a large VRAM allocation."""
-    # Using a smaller allocation for general testing. The original 2**32 can be used on machines with sufficient VRAM.
-    # torch has some indexing issues on very large tensors
-    # e.g. tensors with more than 2**32-1 elements may cause issues
-    # just a test to see if it is real.
-    vram_elements = 2**32  # Allocates 16GiB to test large tensor handling
+    # Intentionally using full 2**32 float32 elements (~16 GiB) for large-tensor testing.
+    # Torch may expose indexing issues around this boundary on some systems.
+    vram_elements = 2**32
+    required_bytes = vram_elements * 4
+    free_bytes, _ = torch.cuda.mem_get_info(0)
+    if free_bytes < required_bytes:
+        pytest.skip(
+            f"Insufficient free VRAM for large test: need {required_bytes}, have {free_bytes}"
+        )
+
     controller = CudaGPUController(
         rank=0,
         interval=0.5,
@@ -27,7 +32,3 @@ def test_large_vram_allocation():
         assert controller._thread is not None and controller._thread.is_alive()
     finally:
         controller.release()
-
-
-if __name__ == "__main__":
-    test_large_vram_allocation()

@@ -50,7 +50,7 @@ class CudaGPUController(BaseGPUController):
         Args:
             rank (int): Local CUDA device index to occupy.
             interval (float, optional): Sleep time (seconds) between workload
-                batches. Defaults to 0.5.
+                batches. Defaults to 1.0.
             matmul_iterations (int, optional): Number of matmul ops per batch.
             vram_to_keep (int or str, optional): Amount of VRAM to keep busy,
                 e.g. `"1000 MB"`, `"20 GB"`, or an integer like `1000 * 1000`.
@@ -126,8 +126,11 @@ class CudaGPUController(BaseGPUController):
         matrix = None
         while not self._stop_evt.is_set():
             try:
+                num_elements = int(self.vram_to_keep)
+                if num_elements <= 0:
+                    raise ValueError("vram_to_keep must be positive")
                 matrix = torch.rand(
-                    self.vram_to_keep,
+                    num_elements,
                     device=self.device,
                     dtype=torch.float32,
                     requires_grad=False,
@@ -166,7 +169,7 @@ class CudaGPUController(BaseGPUController):
     # ------------------------------------------------------------------
     @torch.no_grad()
     def _run_mat_batch(self, matrix: torch.Tensor) -> None:
-        """Run a batch of dummy matmuls to keep GPU busy."""
+        """Run a batch of in-place ReLU ops to keep GPU busy."""
 
         tic = time.time()
         for _ in range(self.matmul_iterations):

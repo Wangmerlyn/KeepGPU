@@ -23,7 +23,3 @@ def test_global_controller():
     controller.release()
     for ctrl in controller.controllers:
         assert not (ctrl._thread and ctrl._thread.is_alive())
-
-
-if __name__ == "__main__":
-    test_global_controller()

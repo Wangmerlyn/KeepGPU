@@ -24,14 +24,17 @@ class RocmGPUController(BaseGPUController):
         vram_to_keep: str | int = "1000 MB",
         busy_threshold: int = 10,
         iterations: int = 5000,
+        max_allocation_retries: int = 3,
     ):
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
         self.busy_threshold = busy_threshold
         self.iterations = iterations
+        self.max_allocation_retries = max_allocation_retries
         self._stop_evt: Optional[threading.Event] = None
         self._thread: Optional[threading.Thread] = None
+        self._failure_exc: Optional[Exception] = None
 
         # Lazy rocm_smi import; keep handle for reuse
         try:
@@ -46,6 +49,7 @@ class RocmGPUController(BaseGPUController):
         if self._thread and self._thread.is_alive():
             logger.warning("rank %s: keep thread already running", self.rank)
             return
+        self._failure_exc = None
         if self._rocm_smi:
             try:
                 self._rocm_smi.rsmi_init()
@@ -62,12 +66,12 @@ class RocmGPUController(BaseGPUController):
         logger.info("rank %s: ROCm keep thread started", self.rank)
 
     def release(self) -> None:
-        if not (self._thread and self._thread.is_alive()):
+        if self._thread and self._thread.is_alive():
+            self._stop_evt.set()
+            self._thread.join()
+            torch.cuda.empty_cache()
+        else:
             logger.warning("rank %s: keep thread not running", self.rank)
-            return
-        self._stop_evt.set()
-        self._thread.join()
-        torch.cuda.empty_cache()
         if self._rocm_smi:
             try:
                 self._rocm_smi.rsmi_shut_down()
@@ -95,21 +99,35 @@ class RocmGPUController(BaseGPUController):
     def _keep_loop(self) -> None:
         torch.cuda.set_device(self.rank)
         tensor = None
-        while not self._stop_evt.is_set():
+        attempts = 0
+        while not self._stop_evt.is_set() and attempts < self.max_allocation_retries:
             try:
+                num_elements = int(self.vram_to_keep)
+                if num_elements <= 0:
+                    raise ValueError("vram_to_keep must be positive")
                 tensor = torch.rand(
-                    self.vram_to_keep,
+                    num_elements,
                     device=self.device,
                     dtype=torch.float32,
                     requires_grad=False,
                 )
                 break
-            except RuntimeError:
-                logger.exception("rank %s: failed to allocate tensor", self.rank)
+            except (RuntimeError, ValueError) as exc:
+                attempts += 1
+                logger.error(
+                    "rank %s: failed to allocate tensor (attempt %d/%d): %s",
+                    self.rank,
+                    attempts,
+                    self.max_allocation_retries,
+                    exc,
+                )
                 time.sleep(self.interval)
         if tensor is None:
-            logger.error("rank %s: failed to allocate tensor, exiting loop", self.rank)
-            raise RuntimeError("Failed to allocate tensor for ROCm GPU keeping")
+            self._failure_exc = RuntimeError(
+                f"rank {self.rank}: failed to allocate tensor after {attempts} attempts"
+            )
+            logger.error("%s", self._failure_exc)
+            return
 
         while not self._stop_evt.is_set():
             try:
@@ -126,6 +144,10 @@ class RocmGPUController(BaseGPUController):
             except Exception:
                 logger.exception("rank %s: unexpected error", self.rank)
                 time.sleep(self.interval)
+
+    def allocation_status(self) -> Optional[Exception]:
+        """Return allocation failure exception captured in worker thread, if any."""
+        return self._failure_exc
 
     @torch.no_grad()
     def _run_batch(self, tensor: torch.Tensor) -> None:

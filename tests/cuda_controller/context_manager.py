@@ -1,6 +1,7 @@
 import time
-import torch
 import pytest
+import torch
+
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 
 
@@ -10,15 +11,20 @@ from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 )
 def test_cuda_controller_context_manager():
     ctrl = CudaGPUController(
-        rank=torch.cuda.device_count() - 1, interval=10, vram_to_keep="1GB"
+        rank=torch.cuda.device_count() - 1,
+        interval=0.05,
+        vram_to_keep="8MB",
+        matmul_iterations=64,
     )
 
+    torch.cuda.set_device(ctrl.rank)
+    before_reserved = torch.cuda.memory_reserved(ctrl.rank)
     with ctrl:
-        print("GPU kept busy for 10 seconds.")
-        time.sleep(10)
-        print("GPU released.")
-    print("Test completed successfully.")
+        time.sleep(0.3)
+        assert ctrl._thread and ctrl._thread.is_alive()
+        during_reserved = torch.cuda.memory_reserved(ctrl.rank)
+        assert during_reserved >= before_reserved
 
-
-if __name__ == "__main__":
-    test_cuda_controller_context_manager()
+    if ctrl._thread:
+        ctrl._thread.join(timeout=2)
+    assert not (ctrl._thread and ctrl._thread.is_alive())

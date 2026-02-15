@@ -19,20 +19,22 @@ def test_cuda_controller_basic():
     time.sleep(0.2)
     assert ctrl._thread and ctrl._thread.is_alive()
 
+    assert ctrl._thread is not None
     ctrl.release()
+    ctrl._thread.join(timeout=2)
     assert not (ctrl._thread and ctrl._thread.is_alive())
 
     ctrl.keep()
     time.sleep(0.2)
     assert ctrl._thread and ctrl._thread.is_alive()
+    assert ctrl._thread is not None
     ctrl.release()
+    ctrl._thread.join(timeout=2)
     assert not (ctrl._thread and ctrl._thread.is_alive())
 
     with ctrl:
         assert ctrl._thread and ctrl._thread.is_alive()
         time.sleep(0.2)
+    assert ctrl._thread is not None
+    ctrl._thread.join(timeout=2)
     assert not (ctrl._thread and ctrl._thread.is_alive())
-
-
-if __name__ == "__main__":
-    test_cuda_controller_basic()

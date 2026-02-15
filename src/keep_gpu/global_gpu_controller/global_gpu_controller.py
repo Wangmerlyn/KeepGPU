@@ -51,7 +51,7 @@ class GlobalGPUController:
             controller_cls(
                 rank=i,
                 interval=interval,
-                vram_to_keep=vram_to_keep,
+                vram_to_keep=self.vram_to_keep,
                 busy_threshold=busy_threshold,
             )
             for i in self.gpu_ids
