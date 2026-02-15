@@ -71,6 +71,8 @@ class CudaGPUController(BaseGPUController):
         self.interval = interval
         if matmul_iterations is not None:
             relu_iterations = matmul_iterations
+        if relu_iterations <= 0:
+            raise ValueError("relu_iterations must be positive")
         self.relu_iterations = relu_iterations
         self.busy_threshold = busy_threshold
         self.platform = ComputingPlatform.CUDA
@@ -196,7 +198,7 @@ class CudaGPUController(BaseGPUController):
         logger.debug(
             "rank %s: relu ops batch done - avg %.2f ms",
             self.rank,
-            (toc - tic) * 1000 / self.relu_iterations,
+            (toc - tic) * 1000 / max(1, self.relu_iterations),
         )
 
     # ------------------------------------------------------------------

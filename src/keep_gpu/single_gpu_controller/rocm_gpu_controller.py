@@ -35,6 +35,7 @@ class RocmGPUController(BaseGPUController):
         self._stop_evt: Optional[threading.Event] = None
         self._thread: Optional[threading.Thread] = None
         self._failure_exc: Optional[Exception] = None
+        self._num_elements: Optional[int] = None
 
         # Lazy rocm_smi import; keep handle for reuse
         try:
@@ -50,6 +51,9 @@ class RocmGPUController(BaseGPUController):
             logger.warning("rank %s: keep thread already running", self.rank)
             return
         self._failure_exc = None
+        self._num_elements = int(self.vram_to_keep)
+        if self._num_elements <= 0:
+            raise ValueError("vram_to_keep must be positive")
         if self._rocm_smi:
             try:
                 self._rocm_smi.rsmi_init()
@@ -100,11 +104,14 @@ class RocmGPUController(BaseGPUController):
         torch.cuda.set_device(self.rank)
         tensor = None
         attempts = 0
+        num_elements = self._num_elements if self._num_elements is not None else 0
+        if num_elements <= 0:
+            logger.error(
+                "rank %s: invalid vram_to_keep=%s", self.rank, self.vram_to_keep
+            )
+            return
         while not self._stop_evt.is_set():
             try:
-                num_elements = int(self.vram_to_keep)
-                if num_elements <= 0:
-                    raise ValueError("vram_to_keep must be positive")
                 tensor = torch.rand(
                     num_elements,
                     device=self.device,
@@ -112,7 +119,7 @@ class RocmGPUController(BaseGPUController):
                     requires_grad=False,
                 )
                 break
-            except (RuntimeError, ValueError) as exc:
+            except RuntimeError as exc:
                 attempts += 1
                 logger.error(
                     "rank %s: failed to allocate tensor (attempt %d%s): %s",
