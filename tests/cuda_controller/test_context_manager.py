@@ -1,8 +1,8 @@
-import time
 import pytest
 import torch
 
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
+from tests.polling import wait_until
 
 
 @pytest.mark.skipif(
@@ -36,11 +36,11 @@ def test_cuda_controller_context_manager():
 
     with ctrl:
         assert ctrl._thread and ctrl._thread.is_alive()
-        reached_target = False
         peak_alloc_delta = 0
         peak_reserved_delta = 0
-        deadline = time.time() + 3.0
-        while time.time() < deadline:
+
+        def _target_reached() -> bool:
+            nonlocal peak_alloc_delta, peak_reserved_delta
             alloc_delta = max(
                 0, torch.cuda.memory_allocated(ctrl.rank) - before_allocated
             )
@@ -49,38 +49,35 @@ def test_cuda_controller_context_manager():
             )
             peak_alloc_delta = max(peak_alloc_delta, alloc_delta)
             peak_reserved_delta = max(peak_reserved_delta, reserved_delta)
-
             # allocated should track payload; reserved may be larger due allocator blocks
-            if (
+            return (
                 alloc_delta >= int(target_bytes * 0.95)
                 and reserved_delta >= alloc_delta
-            ):
-                reached_target = True
-                break
-            time.sleep(0.05)
+            )
+
+        reached_target = wait_until(_target_reached, timeout_s=3.0)
 
         assert reached_target, (
             f"VRAM target not reached. target={target_bytes}, "
             f"peak_alloc_delta={peak_alloc_delta}, peak_reserved_delta={peak_reserved_delta}"
         )
 
-    release_deadline = time.time() + 3.0
-    released = False
     alloc_delta_after = -1
     reserved_delta_after = -1
-    while time.time() < release_deadline:
+
+    def _released() -> bool:
+        nonlocal alloc_delta_after, reserved_delta_after
         alloc_after = torch.cuda.memory_allocated(ctrl.rank)
         reserved_after = torch.cuda.memory_reserved(ctrl.rank)
         alloc_delta_after = max(0, alloc_after - before_allocated)
         reserved_delta_after = max(0, reserved_after - before_reserved)
-        if (
+        return (
             alloc_delta_after <= alloc_tolerance
             and reserved_delta_after <= reserve_tolerance
             and not (ctrl._thread and ctrl._thread.is_alive())
-        ):
-            released = True
-            break
-        time.sleep(0.05)
+        )
+
+    released = wait_until(_released, timeout_s=3.0)
 
     assert released, (
         "VRAM did not return near baseline after release. "

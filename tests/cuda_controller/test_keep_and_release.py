@@ -1,17 +1,9 @@
-import time
 import pytest
+import time
 import torch
 
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
-
-
-def _wait_until(predicate, timeout_s: float = 3.0, interval_s: float = 0.05) -> bool:
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        if predicate():
-            return True
-        time.sleep(interval_s)
-    return False
+from tests.polling import wait_until
 
 
 @pytest.mark.skipif(
@@ -73,10 +65,16 @@ def test_cuda_controller_respects_vram_target_during_keep():
     reserve_tolerance = 16 * 1024 * 1024
 
     ctrl.keep()
-    reached = _wait_until(
+    reached = wait_until(
         lambda: (
-            (alloc_delta := max(0, torch.cuda.memory_allocated(ctrl.rank) - before_alloc)) >= int(target_bytes * 0.95)
-            and max(0, torch.cuda.memory_reserved(ctrl.rank) - before_reserved) >= alloc_delta
+            (
+                alloc_delta := max(
+                    0, torch.cuda.memory_allocated(ctrl.rank) - before_alloc
+                )
+            )
+            >= int(target_bytes * 0.95)
+            and max(0, torch.cuda.memory_reserved(ctrl.rank) - before_reserved)
+            >= alloc_delta
         ),
         timeout_s=3.0,
     )
@@ -88,7 +86,7 @@ def test_cuda_controller_respects_vram_target_during_keep():
     assert reserved_delta >= alloc_delta
 
     ctrl.release()
-    released = _wait_until(
+    released = wait_until(
         lambda: (
             max(0, torch.cuda.memory_allocated(ctrl.rank) - before_alloc)
             <= alloc_tolerance
