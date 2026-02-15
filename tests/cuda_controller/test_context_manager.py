@@ -1,6 +1,7 @@
 import time
-import torch
 import pytest
+import torch
+
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 
 
@@ -8,27 +9,20 @@ from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
     not torch.cuda.is_available(),
     reason="Only run CUDA tests when CUDA is available",
 )
-def test_cuda_controller_basic():
+def test_cuda_controller_context_manager():
     ctrl = CudaGPUController(
-        rank=0,
+        rank=torch.cuda.device_count() - 1,
         interval=0.05,
         vram_to_keep="8MB",
         relu_iterations=64,
     )
-    ctrl.keep()
-    time.sleep(0.2)
-    assert ctrl._thread and ctrl._thread.is_alive()
 
-    ctrl.release()
-    assert not (ctrl._thread and ctrl._thread.is_alive())
-
-    ctrl.keep()
-    time.sleep(0.2)
-    assert ctrl._thread and ctrl._thread.is_alive()
-    ctrl.release()
-    assert not (ctrl._thread and ctrl._thread.is_alive())
-
+    torch.cuda.set_device(ctrl.rank)
+    before_reserved = torch.cuda.memory_reserved(ctrl.rank)
     with ctrl:
+        time.sleep(0.3)
         assert ctrl._thread and ctrl._thread.is_alive()
-        time.sleep(0.2)
+        during_reserved = torch.cuda.memory_reserved(ctrl.rank)
+        assert during_reserved >= before_reserved
+
     assert not (ctrl._thread and ctrl._thread.is_alive())

@@ -29,10 +29,13 @@ def _build_console_handler(level: int) -> logging.Handler:
     """Create a colored console handler with filename:lineno."""
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(level)
-    fmt = "%(log_color)s%(asctime)s [%(levelname)s] %(name)s (%(filename)s:%(lineno)d): %(message)s"
+    color_fmt = "%(log_color)s%(asctime)s [%(levelname)s] %(name)s (%(filename)s:%(lineno)d): %(message)s"
+    plain_fmt = (
+        "%(asctime)s [%(levelname)s] %(name)s (%(filename)s:%(lineno)d): %(message)s"
+    )
     if ColoredFormatter:
         formatter = ColoredFormatter(
-            fmt,
+            color_fmt,
             datefmt="%H:%M:%S",
             log_colors={
                 "DEBUG": "cyan",
@@ -43,7 +46,7 @@ def _build_console_handler(level: int) -> logging.Handler:
             },
         )
     else:
-        formatter = logging.Formatter(fmt, "%H:%M:%S")
+        formatter = logging.Formatter(plain_fmt, "%H:%M:%S")
     handler.setFormatter(formatter)
     return handler
 
@@ -53,7 +56,7 @@ def _build_file_handler(
 ) -> logging.Handler:
     """Create a file handler with filename:lineno."""
     log_dir = Path(log_dir)
-    log_dir.mkdir(exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_path = log_dir / f"{name}_{timestamp}.log"
 

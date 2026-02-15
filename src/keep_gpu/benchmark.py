@@ -51,7 +51,9 @@ def keep(rank, args):
             toc = time.time()
 
             logger.info(
-                f"benchmark {rank} matmul: time span: {(toc - tic) * 1000 / 5000:.2f}ms"
+                "benchmark %s matmul: time span: %.2fms",
+                rank,
+                (toc - tic) * 1000 / args.matmul_iterations,
             )
 
             time.sleep(args.interval)

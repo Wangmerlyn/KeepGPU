@@ -32,7 +32,7 @@ class BaseGPUController:
 
     def keep(self):
         """
-        Method to keep the specified amount of VRAM free.
+        Method to keep the specified amount of VRAM busy/occupied.
         Should be implemented by subclasses.
         """
         raise NotImplementedError("Subclasses must implement this method.")
@@ -46,7 +46,7 @@ class BaseGPUController:
 
     async def _keep(self):
         """
-        Asynchronous method to keep the specified amount of VRAM free.
+        Asynchronous method to keep the specified amount of VRAM busy/occupied.
         This is a placeholder for subclasses to implement their logic.
         """
         raise NotImplementedError("Subclasses must implement this method.")
