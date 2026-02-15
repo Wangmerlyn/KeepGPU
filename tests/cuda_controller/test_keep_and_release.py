@@ -75,8 +75,8 @@ def test_cuda_controller_respects_vram_target_during_keep():
     ctrl.keep()
     reached = _wait_until(
         lambda: (
-            max(0, torch.cuda.memory_allocated(ctrl.rank) - before_alloc)
-            >= int(target_bytes * 0.95)
+            (alloc_delta := max(0, torch.cuda.memory_allocated(ctrl.rank) - before_alloc)) >= int(target_bytes * 0.95)
+            and max(0, torch.cuda.memory_reserved(ctrl.rank) - before_reserved) >= alloc_delta
         ),
         timeout_s=3.0,
     )
