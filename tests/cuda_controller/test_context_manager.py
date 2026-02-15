@@ -66,6 +66,8 @@ def test_cuda_controller_context_manager():
 
     release_deadline = time.time() + 3.0
     released = False
+    alloc_delta_after = -1
+    reserved_delta_after = -1
     while time.time() < release_deadline:
         alloc_after = torch.cuda.memory_allocated(ctrl.rank)
         reserved_after = torch.cuda.memory_reserved(ctrl.rank)
