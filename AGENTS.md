@@ -32,7 +32,7 @@ This file defines how coding agents should work in this repository.
 
 - When adding user-visible features, update the user documentation with usage guidance alongside the code changes.
 - For complex features, bug investigations, or refactorings that require detailed documentation (for example, plans, testing guides, summaries), create a dedicated subfolder under `docs/` with a descriptive name (for example, `docs/opencode-poll-loop-refactor/`). Place all related documentation files in that subfolder.
-- Do NOT place project-specific documentation in the root directory. Keep the root clean.
+- Avoid placing new project-specific documentation in the root directory; keep only canonical top-level docs (for example, `AGENTS.md`, `README.md`) at root.
 
 ### Quality Bar
 
@@ -75,7 +75,8 @@ This file defines how coding agents should work in this repository.
 
 - Before pushing, run targeted tests relevant to changed modules first, then broader checks.
 - Common targeted commands:
-  - `pytest tests/cuda_controller tests/global_controller tests/utilities/test_platform_manager.py tests/test_cli_thresholds.py`
+  - `pytest tests/cuda_controller tests/global_controller tests/utilities/test_platform_manager.py`
+  - `pytest tests -k threshold`
   - `pytest tests/mcp tests/utilities/test_gpu_info.py`
   - `pytest --run-rocm tests/rocm_controller` (only on ROCm-capable machines)
 - Respect existing pytest markers:
