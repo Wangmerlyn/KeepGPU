@@ -1,94 +1,135 @@
 ---
 name: keepgpu-repo-workflow
-description: Implement, test, and document changes in the KeepGPU repository while preserving CLI, Python API, and MCP parity, platform boundaries, and GPU-safe behavior on no-GPU CI runners. Use when tasks request code changes, bug fixes, refactors, tests, docs updates, releases, or pull-request work in this repository; do not use for unrelated repositories or generic Python questions.
+description: Install and operate the KeepGPU CLI to keep reserved GPUs active during data prep, debugging, and orchestration downtime. Use when users ask for keep-gpu command construction, tuning (--vram, --interval, --busy-threshold), installation from this repository, or runtime troubleshooting of keep-gpu sessions; do not use for repository development, code refactoring, or unrelated Python tooling.
 ---
 
-# KeepGPU Repository Workflow
+# KeepGPU CLI Operator
 
-Follow this workflow to make reliable, review-ready changes in KeepGPU.
+Use this workflow to run `keep-gpu` safely and effectively.
 
 ## Prerequisites
 
-- Work from repository root.
-- Confirm branch starts from latest `main`.
-- Keep user-facing text and comments in English.
+- Confirm at least one GPU is visible (`python -c "import torch; print(torch.cuda.device_count())"`).
+- Run commands in a shell where CUDA/ROCm drivers are already available.
+- Use `Ctrl+C` to stop KeepGPU and release memory cleanly.
 
-## Repository map
+## Install KeepGPU
 
-- CLI entrypoint: `src/keep_gpu/cli.py`
-- Single-GPU controllers: `src/keep_gpu/single_gpu_controller/`
-- Global controller orchestration: `src/keep_gpu/global_gpu_controller/`
-- MCP server: `src/keep_gpu/mcp/server.py`
-- Platform probing: `src/keep_gpu/utilities/platform_manager.py`
-- GPU telemetry helpers: `src/keep_gpu/utilities/gpu_info.py`
+Install PyTorch first for your platform, then install KeepGPU.
 
-## Implementation rules
-
-1. Start from a new branch and keep diffs focused.
-2. For non-trivial work, create or update a plan in `docs/plans/` with background, goal, solution, and todo items.
-3. Keep platform detection centralized in `platform_manager.py`; do not spread platform branching across unrelated modules.
-4. Keep telemetry logic in `gpu_info.py` or related utility modules.
-5. Preserve controller flow: global controller orchestrates per-GPU controllers; single-GPU controllers handle keep/release loops.
-6. Keep CUDA telemetry on `nvidia-ml-py` (`pynvml` module import) and keep ROCm support optional with graceful failure on non-ROCm hosts.
-7. Update docs when behavior changes for CLI flags, controllers, platform support, or MCP methods.
-8. Keep commits narrow and use `type(scope): summary` commit messages.
-
-## Validation order
-
-Run the smallest relevant checks first, then broader checks.
-
-1. Targeted tests for changed modules.
-2. Broader tests if changes touch shared logic.
-3. `pre-commit run --all-files` before push.
-4. `mkdocs build` when docs are changed.
-
-Preferred targeted test commands:
+### Option A: Install from package index
 
 ```bash
-pytest tests/cuda_controller tests/global_controller tests/utilities/test_platform_manager.py
-pytest tests -k threshold
-pytest tests/mcp tests/utilities/test_gpu_info.py
+# CUDA example (change cu121 to your CUDA version)
+pip install --index-url https://download.pytorch.org/whl/cu121 torch
+pip install keep-gpu
 ```
-
-ROCm-only command (run only on ROCm-capable machines):
 
 ```bash
-pytest --run-rocm tests/rocm_controller
+# ROCm example (change rocm6.1 to your ROCm version)
+pip install --index-url https://download.pytorch.org/whl/rocm6.1 torch
+pip install keep-gpu[rocm]
 ```
+
+### Option B: Install from this repository
+
+```bash
+pip install -e .
+```
+
+For ROCm users from repo checkout:
+
+```bash
+pip install -e ".[rocm]"
+```
+
+Verify installation:
+
+```bash
+keep-gpu --help
+```
+
+## Command model
+
+CLI options to tune:
+
+- `--gpu-ids`: comma-separated IDs (`0`, `0,1`). If omitted, KeepGPU uses all visible GPUs.
+- `--vram`: VRAM to hold per GPU (`512MB`, `1GiB`, or raw bytes).
+- `--interval`: seconds between keep-alive cycles.
+- `--busy-threshold` (`--util-threshold` alias): if utilization is above this percent, KeepGPU backs off.
+
+Legacy compatibility:
+
+- `--threshold` is deprecated but still accepted.
+- Numeric `--threshold` maps to busy threshold.
+- String `--threshold` maps to VRAM.
+
+## Agent workflow
+
+1. Collect workload intent: target GPU IDs, expected hold duration, and whether node is shared.
+2. Choose safe defaults when unspecified: `--vram 1GiB`, `--interval 60-120`, `--busy-threshold 25` for shared nodes.
+3. Build one concrete command.
+4. Provide stop instruction (`Ctrl+C`) and a verification step.
+5. If command fails, provide one minimal troubleshooting command at a time.
+
+## Command templates
+
+Single GPU while preprocessing:
+
+```bash
+keep-gpu --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
+```
+
+All visible GPUs with lighter load:
+
+```bash
+keep-gpu --vram 512MB --interval 180
+```
+
+Background execution on remote shell:
+
+```bash
+nohup keep-gpu --gpu-ids 0 --vram 1GiB --interval 300 > keepgpu.log 2>&1 &
+```
+
+## Troubleshooting
+
+- Invalid `--gpu-ids`: ensure comma-separated integers only.
+- Allocation failure / OOM: reduce `--vram` or free memory first.
+- No utilization telemetry: ensure `nvidia-ml-py` works and `nvidia-smi` is available.
+- No GPUs detected: verify drivers, CUDA/ROCm runtime, and `torch.cuda.device_count()`.
 
 ## Output format
 
-Return results in this structure:
+Return guidance in this structure:
 
 ```markdown
-## KeepGPU Task Result
+## KeepGPU CLI Plan
 
-### Changes
-- <file-level summary>
+### Install
+- <exact install command(s) for this machine>
 
-### Validation
-- Targeted tests: <pass/fail + command>
-- Broader checks: <pass/fail + command>
-- Docs build: <pass/fail or not run>
-- Pre-commit: <pass/fail>
+### Run Command
+- <single final keep-gpu command>
 
-### Risks
-- <known caveat or "none">
+### Verify
+- <one verification command and expected signal>
+
+### Stop
+- Press Ctrl+C (or kill background PID) to release VRAM.
 ```
 
 ## Example
 
-User request: "Add a new CLI flag for busy-threshold defaults and update docs."
+User request: "Install from this repo and keep GPU 0 alive while I preprocess."
 
-Execution pattern:
+Suggested response shape:
 
-1. Update `src/keep_gpu/cli.py` and related controller wiring.
-2. Add or update tests in `tests/test_cli_thresholds.py` and relevant controller tests.
-3. Update user docs and README sections for the flag behavior.
-4. Run targeted tests, then `pre-commit run --all-files`, then `mkdocs build`.
-5. Prepare a focused commit and PR summary.
+1. Install: `pip install -e .`
+2. Run: `keep-gpu --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25`
+3. Verify: check CLI logs for keep loop activity; stop with `Ctrl+C` when done.
 
 ## Limitations
 
-- GPU hardware is often unavailable in CI; guard hardware-dependent logic and tests.
-- Do not bump versions, retag releases, or alter release metadata unless explicitly requested.
+- KeepGPU is not a scheduler; it only keeps already accessible GPUs active.
+- KeepGPU behavior depends on cluster policy; some schedulers require higher VRAM or tighter intervals.
