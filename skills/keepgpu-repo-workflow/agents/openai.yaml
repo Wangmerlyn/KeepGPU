@@ -1,0 +1,3 @@
+display_name: KeepGPU Repo Workflow
+short_description: Implement and validate KeepGPU repository changes with architecture and testing guardrails.
+default_prompt: Use this skill to implement, test, and document changes in KeepGPU while preserving CLI/API/MCP parity and platform-specific boundaries.
