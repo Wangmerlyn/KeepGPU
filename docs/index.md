@@ -18,7 +18,7 @@ during longer CPU-bound sections of your workflow.
 
 ## What’s inside
 
-- Rich CLI based on Typer + Rich (interval tuning, selective GPU IDs, VRAM budgeting).
+- Rich CLI based on Typer + Rich (blocking and non-blocking session workflows).
 - `GlobalGPUController` that spins up a keep-alive worker per GPU.
 - `CudaGPUController` context manager for fine-grained orchestration inside scripts.
 - Helpers for parsing human VRAM sizes (`1GiB`, `850MB`, etc.) and platform detection.
@@ -32,8 +32,10 @@ during longer CPU-bound sections of your workflow.
   for pinning cards on clusters, workstations, or Jupyter.
 - :material-code-tags: **[Python API Recipes](guides/python.md)** – Drop-in snippets
   for wrapping preprocessing stages or orchestration scripts.
-- :material-lan: **[MCP Server](guides/mcp.md)** – Expose KeepGPU by way of JSON-RPC
-  (stdio/HTTP) for agents and remote orchestration.
+- :material-monitor-dashboard: **Dashboard + API** – Run `keep-gpu serve` and open
+  `http://127.0.0.1:8765/` for session controls and telemetry.
+- :material-lan: **[MCP and Service API](guides/mcp.md)** – JSON-RPC + REST endpoints
+  for agents and remote orchestration.
 - :material-diagram-project: **[How KeepGPU Works](concepts/architecture.md)** –
   Learn how controllers allocate VRAM and throttle themselves.
 - :material-book-open-outline: **[Reference](reference/cli.md)** – Full option list

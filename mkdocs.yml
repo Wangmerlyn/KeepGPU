@@ -18,7 +18,7 @@ nav:
   - Usage:
       - CLI Playbook: guides/cli.md
       - Python API Recipes: guides/python.md
-      - MCP Server: guides/mcp.md
+      - MCP and Service API: guides/mcp.md
   - Concepts:
       - How KeepGPU Works: concepts/architecture.md
   - Reference:

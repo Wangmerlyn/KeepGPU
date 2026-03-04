@@ -86,6 +86,24 @@ keep-gpu --interval 120 --gpu-ids 0 --vram 1GiB
 Leave the command running while you prepare data or review notebooks. When you are
 ready to hand the GPU back, hit `Ctrl+C`—controllers will release VRAM and exit.
 
+## Non-blocking workflow for agents
+
+Use service mode when you need the terminal for follow-up commands:
+
+```bash
+keep-gpu start --gpu-ids 0 --interval 120 --vram 1GiB --busy-threshold 25
+keep-gpu status
+```
+
+You can inspect and control sessions in a browser by starting the service and
+opening:
+
+```bash
+keep-gpu serve --host 127.0.0.1 --port 8765
+```
+
+`http://127.0.0.1:8765/`
+
 ## KeepGPU inside Python
 
 Prefer code-level control? Import the controllers directly (full recipes in

@@ -1,6 +1,6 @@
 ---
 name: gpu-keepalive-with-keepgpu
-description: Install and operate the KeepGPU CLI to keep reserved GPUs active during data prep, debugging, and orchestration downtime. Use when users ask for keep-gpu command construction, tuning (--vram, --interval, --busy-threshold), installation from this repository, or runtime troubleshooting of keep-gpu sessions; do not use for repository development, code refactoring, or unrelated Python tooling.
+description: Install and operate KeepGPU for GPU keep-alive with both blocking CLI and non-blocking service workflows. Use when users ask for keep-gpu command construction, start/status/stop session control, dashboard usage, tuning (--vram, --interval, --busy-threshold), installation from this repository, or troubleshooting keep sessions; do not use for repository development, code refactoring, or unrelated Python tooling.
 ---
 
 # KeepGPU CLI Operator
@@ -81,6 +81,29 @@ keep-gpu --help
 
 ## Command model
 
+KeepGPU supports two execution modes.
+
+### Blocking mode (compatibility)
+
+```bash
+keep-gpu --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
+```
+
+Use when users intentionally want one foreground process and manual `Ctrl+C` stop.
+
+### Non-blocking mode (recommended for agents)
+
+```bash
+keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
+keep-gpu status
+keep-gpu stop --all
+keep-gpu service-stop
+```
+
+`start` auto-starts local service when unavailable.
+
+`Ctrl+C` stops only foreground blocking runs. For service mode sessions started by `keep-gpu start`, use `keep-gpu status`, `keep-gpu stop`, and `keep-gpu service-stop`.
+
 CLI options to tune:
 
 - `--gpu-ids`: comma-separated IDs (`0`, `0,1`). If omitted, KeepGPU uses all visible GPUs.
@@ -96,24 +119,41 @@ Legacy compatibility:
 
 ## Agent workflow
 
-1. Collect workload intent: target GPU IDs, expected hold duration, and whether node is shared.
-2. Choose safe defaults when unspecified: `--vram 1GiB`, `--interval 60-120`, `--busy-threshold 25` for shared nodes.
-3. Build one concrete command.
-4. Provide stop instruction (`Ctrl+C`) and a verification step.
-5. If command fails, provide one minimal troubleshooting command at a time.
+1. Collect workload intent: target GPUs, hold duration, and whether node is shared.
+2. Choose mode:
+   - blocking mode for manual shell sessions,
+   - non-blocking mode for agent pipelines (default recommendation).
+3. Choose safe defaults when unspecified: `--vram 1GiB`, `--interval 60-120`, `--busy-threshold 25`.
+4. Provide command sequence with verification and stop command.
+5. For non-blocking mode, include `status`, `stop`, and daemon shutdown (`service-stop`).
 
 ## Command templates
 
-Single GPU while preprocessing:
+Single GPU while preprocessing (blocking):
 
 ```bash
 keep-gpu --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
 ```
 
-All visible GPUs with lighter load:
+All visible GPUs with lighter load (blocking):
 
 ```bash
 keep-gpu --vram 512MB --interval 180
+```
+
+Agent-friendly non-blocking sequence:
+
+```bash
+keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
+keep-gpu status
+keep-gpu stop --job-id <job_id>
+keep-gpu service-stop
+```
+
+Open dashboard:
+
+```text
+http://127.0.0.1:8765/
 ```
 
 Remote sessions (preferred: `tmux` for visibility and control):
@@ -147,8 +187,8 @@ User request: "Install KeepGPU from GitHub and keep GPU 0 alive while I preproce
 Suggested response shape:
 
 1. Install: `pip install "git+https://github.com/Wangmerlyn/KeepGPU.git"`
-2. Run: `keep-gpu --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25`
-3. Verify: check CLI logs for keep loop activity; stop with `Ctrl+C` when done.
+2. Run: `keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25`
+3. Verify: `keep-gpu status` or dashboard `http://127.0.0.1:8765/`; stop session with `keep-gpu stop --job-id <job_id>` and daemon with `keep-gpu service-stop`.
 
 ## Limitations
 
