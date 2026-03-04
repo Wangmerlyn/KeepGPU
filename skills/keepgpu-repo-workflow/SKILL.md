@@ -31,9 +31,29 @@ pip install --index-url https://download.pytorch.org/whl/rocm6.1 torch
 pip install keep-gpu[rocm]
 ```
 
-### Option B: Install from a KeepGPU source checkout (explicit path)
+### Option B: Install directly from Git URL (no local clone)
 
-Use this option when KeepGPU is checked out locally. Do not run this from the skill folder itself.
+Prefer this option when users only need the CLI and do not need local source edits. This avoids checkout directory and cleanup overhead.
+
+```bash
+pip install "git+https://github.com/Wangmerlyn/KeepGPU.git"
+```
+
+If SSH access is configured:
+
+```bash
+pip install "git+ssh://git@github.com/Wangmerlyn/KeepGPU.git"
+```
+
+ROCm variant from Git URL:
+
+```bash
+pip install "keep_gpu[rocm] @ git+https://github.com/Wangmerlyn/KeepGPU.git"
+```
+
+### Option C: Install from a local source checkout (explicit path)
+
+Use this option only when users already have a local checkout or plan to edit source.
 
 ```bash
 git clone https://github.com/Wangmerlyn/KeepGPU.git
@@ -47,7 +67,7 @@ If the checkout already exists somewhere else, install by absolute path:
 pip install -e /absolute/path/to/KeepGPU
 ```
 
-For ROCm users from repo checkout:
+For ROCm users from local checkout:
 
 ```bash
 pip install -e ".[rocm]"
@@ -131,11 +151,11 @@ Return guidance in this structure:
 
 ## Example
 
-User request: "Install from a local KeepGPU checkout and keep GPU 0 alive while I preprocess."
+User request: "Install KeepGPU from GitHub and keep GPU 0 alive while I preprocess."
 
 Suggested response shape:
 
-1. Install: `pip install -e /absolute/path/to/KeepGPU`
+1. Install: `pip install "git+https://github.com/Wangmerlyn/KeepGPU.git"`
 2. Run: `keep-gpu --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25`
 3. Verify: check CLI logs for keep loop activity; stop with `Ctrl+C` when done.
 
