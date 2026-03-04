@@ -12,7 +12,6 @@ Validation method: applied the SkillCheck Free rule set from `skill-check/SKILL.
 
 - Description includes activation triggers (8.3)
 - Description includes negative triggers (8.7)
-- Skill specifies output format with examples (8.4)
 - Skill includes example section (8.1)
 - Skill documents error handling or limitations (8.2)
 - Skill uses structured instructions (8.5)

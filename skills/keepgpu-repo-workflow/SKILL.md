@@ -140,26 +140,6 @@ echo $! > keepgpu.pid
 - No utilization telemetry: ensure `nvidia-ml-py` works and `nvidia-smi` is available.
 - No GPUs detected: verify drivers, CUDA/ROCm runtime, and `torch.cuda.device_count()`.
 
-## Output format
-
-Return guidance in this structure:
-
-```markdown
-## KeepGPU CLI Plan
-
-### Install
-- <exact install command(s) for this machine>
-
-### Run Command
-- <single final keep-gpu command>
-
-### Verify
-- <one verification command and expected signal>
-
-### Stop
-- Press Ctrl+C (or kill background PID) to release VRAM.
-```
-
 ## Example
 
 User request: "Install KeepGPU from GitHub and keep GPU 0 alive while I preprocess."
