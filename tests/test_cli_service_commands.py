@@ -117,3 +117,32 @@ def test_service_stop_refuses_active_sessions_without_force(monkeypatch):
 
     assert result.exit_code == 1
     assert "Active keep sessions detected" in result.output
+
+
+def test_stop_handles_service_timeout_without_traceback(monkeypatch):
+    def fake_rpc(method, params, host, port):
+        raise RuntimeError(
+            "Cannot reach KeepGPU service at http://127.0.0.1:8765/rpc: timed out"
+        )
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["stop", "--all"])
+
+    assert result.exit_code == 1
+    assert "Cannot reach KeepGPU service" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_http_json_request_wraps_timeout(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "urlopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(TimeoutError("timed out")),
+    )
+
+    try:
+        cli._http_json_request("GET", "http://127.0.0.1:8765/health")
+        assert False, "Expected RuntimeError"
+    except RuntimeError as exc:
+        assert "Cannot reach KeepGPU service" in str(exc)

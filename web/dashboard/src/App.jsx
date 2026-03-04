@@ -7,29 +7,46 @@ const defaultForm = {
   busyThreshold: "25"
 }
 
+const REQUEST_TIMEOUT_MS = 10000
+
 async function api(method, path, body) {
-  const response = await fetch(path, {
-    method,
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: body ? JSON.stringify(body) : undefined
-  })
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(text || `Request failed (${response.status})`)
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    const response = await fetch(path, {
+      method,
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal
+    })
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(text || `Request failed (${response.status})`)
+    }
+    return response.json()
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Request timed out")
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
   }
-  return response.json()
 }
 
 function parseGpuIds(raw) {
-  if (!raw.trim()) {
+  const value = raw.trim()
+  if (!value) {
     return null
   }
-  return raw
-    .split(",")
-    .map((part) => Number(part.trim()))
-    .filter((value) => Number.isFinite(value))
+
+  const parts = value.split(",").map((part) => part.trim())
+  if (parts.some((part) => !/^\d+$/.test(part))) {
+    throw new Error("GPU IDs must be comma-separated integers, for example: 0,1")
+  }
+  return parts.map((part) => Number(part))
 }
 
 function formatBytes(value) {
@@ -46,6 +63,13 @@ function formatBytes(value) {
   return `${current.toFixed(current >= 10 ? 0 : 1)} ${units[index]}`
 }
 
+function formatGpuTarget(ids) {
+  if (!ids || ids.length === 0) {
+    return "all visible"
+  }
+  return ids.join(",")
+}
+
 function utilizationTone(util) {
   if (util === null || util === undefined) {
     return "muted"
@@ -59,19 +83,15 @@ function utilizationTone(util) {
   return "cool"
 }
 
-function formatGpuTarget(ids) {
-  if (!ids || ids.length === 0) {
-    return "all visible"
-  }
-  return ids.join(",")
-}
-
 export default function App() {
   const [gpus, setGpus] = useState([])
   const [sessions, setSessions] = useState([])
   const [form, setForm] = useState(defaultForm)
-  const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState("Awaiting telemetry stream.")
+  const [startingSession, setStartingSession] = useState(false)
+  const [stoppingAll, setStoppingAll] = useState(false)
+  const [stoppingIds, setStoppingIds] = useState(() => new Set())
+  const [message, setMessage] = useState("Connected to KeepGPU service.")
+
   const serviceUrl = window.location.origin
 
   const counts = useMemo(() => {
@@ -95,19 +115,19 @@ export default function App() {
       setGpus(gpuPayload.gpus ?? [])
       setSessions(sessionPayload.active_jobs ?? [])
     } catch (error) {
-      setMessage(`Telemetry warning: ${error.message}`)
+      setMessage(`Refresh warning: ${error.message}`)
     }
   }
 
   useEffect(() => {
     refresh()
-    const timer = window.setInterval(refresh, 2500)
+    const timer = window.setInterval(refresh, 3000)
     return () => window.clearInterval(timer)
   }, [])
 
   async function onStartSession(event) {
     event.preventDefault()
-    setBusy(true)
+    setStartingSession(true)
     try {
       const payload = {
         gpu_ids: parseGpuIds(form.gpuIds),
@@ -116,31 +136,39 @@ export default function App() {
         busy_threshold: Number(form.busyThreshold)
       }
       const result = await api("POST", "/api/sessions", payload)
-      setMessage(`Session armed: ${result.job_id}`)
+      setMessage(`Session started: ${result.job_id}`)
       setForm(defaultForm)
       await refresh()
     } catch (error) {
       setMessage(`Start failed: ${error.message}`)
     } finally {
-      setBusy(false)
+      setStartingSession(false)
     }
   }
 
   async function stopSession(jobId) {
-    setBusy(true)
+    setStoppingIds((prev) => {
+      const next = new Set(prev)
+      next.add(jobId)
+      return next
+    })
     try {
       await api("DELETE", `/api/sessions/${jobId}`)
       setMessage(`Session released: ${jobId}`)
       await refresh()
     } catch (error) {
-      setMessage(`Stop failed: ${error.message}`)
+      setMessage(`Release failed (${jobId}): ${error.message}`)
     } finally {
-      setBusy(false)
+      setStoppingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(jobId)
+        return next
+      })
     }
   }
 
   async function stopAllSessions() {
-    setBusy(true)
+    setStoppingAll(true)
     try {
       await api("DELETE", "/api/sessions")
       setMessage("All sessions released.")
@@ -148,46 +176,45 @@ export default function App() {
     } catch (error) {
       setMessage(`Stop-all failed: ${error.message}`)
     } finally {
-      setBusy(false)
+      setStoppingAll(false)
     }
   }
 
   return (
     <div className="deck">
-      <div className="grid-noise" aria-hidden="true" />
-      <header className="masthead glass">
-        <p className="eyebrow">KeepGPU Control Plane</p>
-        <h1>Keepalive Operations Console</h1>
+      <header className="masthead panel">
+        <p className="eyebrow">KeepGPU Operations</p>
+        <h1>GPU Keepalive Console</h1>
         <p>
-          Start non-blocking keep sessions, monitor device pressure, and release
-          reservations without sacrificing your terminal workflow.
+          Manage non-blocking keepalive sessions with a clean control surface.
+          Start sessions, monitor pressure, and release devices without blocking
+          your terminal pipeline.
         </p>
         <p className="service-hint">
-          Service endpoint <code>{serviceUrl}</code> · stop daemon with
+          Service endpoint <code>{serviceUrl}</code> · daemon command
           <code>keep-gpu service-stop</code>
         </p>
       </header>
 
       <section className="stats-row">
-        <article className="stat-card glass rise-delay-1">
+        <article className="stat-card panel">
           <h2>Detected GPUs</h2>
           <p>{counts.gpuCount}</p>
         </article>
-        <article className="stat-card glass rise-delay-2">
+        <article className="stat-card panel">
           <h2>Active Sessions</h2>
           <p>{counts.activeCount}</p>
         </article>
-        <article className="stat-card glass rise-delay-3">
-          <h2>Avg Utilization</h2>
+        <article className="stat-card panel">
+          <h2>Average Utilization</h2>
           <p>{counts.avgUtil === null ? "n/a" : `${counts.avgUtil}%`}</p>
         </article>
       </section>
 
       <main className="panel-grid">
-        <section className="glass panel launch-panel">
+        <section className="panel">
           <div className="panel-heading">
-            <h2>Launch Keep Session</h2>
-            <span className="chip">non-blocking</span>
+            <h2>Start Session</h2>
           </div>
           <form onSubmit={onStartSession} className="form-grid">
             <label>
@@ -211,7 +238,7 @@ export default function App() {
               />
             </label>
             <label>
-              <span>Interval (sec)</span>
+              <span>Interval (seconds)</span>
               <input
                 type="number"
                 min="1"
@@ -232,56 +259,58 @@ export default function App() {
                 }
               />
             </label>
-            <button className="primary" type="submit" disabled={busy}>
-              Arm Session
+            <button className="primary" type="submit" disabled={startingSession || stoppingAll}>
+              {startingSession ? "Starting..." : "Start Keepalive"}
             </button>
             <button
               className="ghost"
               type="button"
-              disabled={busy || sessions.length === 0}
+              disabled={stoppingAll || sessions.length === 0}
               onClick={stopAllSessions}
             >
-              Release All
+              {stoppingAll ? "Releasing..." : "Release All"}
             </button>
           </form>
         </section>
 
-        <section className="glass panel">
+        <section className="panel">
           <div className="panel-heading">
             <h2>Active Sessions</h2>
-            <span className="chip">{sessions.length}</span>
           </div>
           <div className="session-list">
             {sessions.length === 0 ? (
-              <p className="empty">No active keep sessions.</p>
+              <p className="empty">No active keepalive sessions.</p>
             ) : (
-              sessions.map((session) => (
-                <article key={session.job_id} className="session-row">
-                  <div>
-                    <h3>{session.job_id}</h3>
-                    <p>
-                      GPUs {formatGpuTarget(session.params.gpu_ids)} / {session.params.vram}
-                      / {session.params.interval}s / threshold {session.params.busy_threshold}%
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="danger"
-                    disabled={busy}
-                    onClick={() => stopSession(session.job_id)}
-                  >
-                    Release
-                  </button>
-                </article>
-              ))
+              sessions.map((session) => {
+                const isStopping = stoppingIds.has(session.job_id) || stoppingAll
+                return (
+                  <article key={session.job_id} className="session-row">
+                    <div>
+                      <h3>{session.job_id}</h3>
+                      <p>
+                        GPUs {formatGpuTarget(session.params.gpu_ids)} / {session.params.vram}
+                        / {session.params.interval}s / threshold {session.params.busy_threshold}%
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={isStopping}
+                      onClick={() => stopSession(session.job_id)}
+                    >
+                      {isStopping ? "Releasing..." : "Release"}
+                    </button>
+                  </article>
+                )
+              })
             )}
           </div>
         </section>
 
-        <section className="glass panel span-all">
+        <section className="panel span-all">
           <div className="panel-heading">
             <h2>GPU Telemetry</h2>
-            <span className="chip">refresh 2.5s</span>
+            <span className="refresh-tag">refresh 3s</span>
           </div>
           <div className="telemetry-grid">
             {gpus.length === 0 ? (
@@ -316,10 +345,7 @@ export default function App() {
         </section>
       </main>
 
-      <footer className="status-line">
-        <span className="blink" aria-hidden="true" />
-        {message}
-      </footer>
+      <footer className="status-line">{message}</footer>
     </div>
   )
 }

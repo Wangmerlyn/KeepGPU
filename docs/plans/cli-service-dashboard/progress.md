@@ -17,6 +17,10 @@
   - improved `keep-gpu start` messaging with dashboard URL and shutdown hints,
   - added `keep-gpu service-stop` command for daemon shutdown.
 - Expanded tests for output/help lifecycle behavior.
+- Applied follow-up reliability fixes from real-user reproduction:
+  - moved `torch` import into blocking-only path,
+  - normalized service timeout/HTTP failures into user-friendly errors,
+  - fixed dashboard release-button state handling to avoid global lockouts.
 
 ### In Progress
 
@@ -31,6 +35,12 @@
 - `pytest tests/mcp/test_server.py tests/mcp/test_http_api.py tests/test_cli_thresholds.py tests/test_cli_service_commands.py` -> 13 passed.
 - `pre-commit run --all-files` -> all hooks passed.
 - `mkdocs build` -> success (non-blocking info about docs pages outside nav).
+
+### Validation Results (Follow-up)
+
+- `pytest tests/test_cli_service_commands.py tests/mcp/test_http_api.py tests/mcp/test_server.py tests/test_cli_thresholds.py` -> 18 passed.
+- `pre-commit run --all-files` -> all hooks passed.
+- `mkdocs build` -> success.
 
 ## Error Log (This Iteration)
 

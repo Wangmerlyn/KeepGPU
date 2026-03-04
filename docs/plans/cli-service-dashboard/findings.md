@@ -45,3 +45,15 @@
 - Updated `keep-gpu start` output to always print dashboard URL and follow-up stop commands.
 - Reworked dashboard visual language from neon/glassy to classic, restrained control-room style.
 - Expanded CLI tests to cover start-output hints and `service-stop` guardrails.
+
+## Iteration Findings (Bug Report Follow-up)
+
+- Root cause for noisy `keep-gpu stop --all` failure output:
+  - service commands still imported `torch` at module import time, causing unrelated NumPy warning noise,
+  - network timeout from `urlopen` was not normalized, so users could see raw traceback-style failures.
+- Fixes applied:
+  - moved `torch` import into blocking-only execution path,
+  - wrapped HTTP/timeout errors in friendly `RuntimeError` messages,
+  - extended command error handling to avoid traceback leaks to users,
+  - improved dashboard action state so releasing one session does not disable every release control globally.
+- Additional tests now assert timeout/error behavior for `keep-gpu stop --all` and HTTP wrapper timeout handling.

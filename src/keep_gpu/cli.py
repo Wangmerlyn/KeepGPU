@@ -10,10 +10,9 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-import torch
 import typer
 from rich.console import Console
 
@@ -115,16 +114,23 @@ def _http_json_request(
     method: str,
     url: str,
     payload: Optional[Dict[str, Any]] = None,
-    timeout: float = 2.0,
+    timeout: float = 8.0,
 ) -> Dict[str, Any]:
     data = None
     headers = {"content-type": "application/json"}
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
     request = Request(url=url, data=data, headers=headers, method=method)
-    with urlopen(request, timeout=timeout) as response:  # nosec B310
-        body = response.read().decode("utf-8")
-        return json.loads(body) if body else {}
+    try:
+        with urlopen(request, timeout=timeout) as response:  # nosec B310
+            body = response.read().decode("utf-8")
+            return json.loads(body) if body else {}
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+        detail = body or str(exc)
+        raise RuntimeError(f"Service HTTP error: {detail}") from exc
+    except (URLError, TimeoutError, OSError) as exc:
+        raise RuntimeError(f"Cannot reach KeepGPU service at {url}: {exc}") from exc
 
 
 def _service_available(host: str, port: int) -> bool:
@@ -251,6 +257,8 @@ def _run_blocking(
         logger.info("Using specified GPUs: %s", gpu_id_list)
         gpu_count = len(gpu_id_list)
     else:
+        import torch
+
         gpu_count = torch.cuda.device_count()
         logger.info("Using all available GPUs")
 
@@ -397,7 +405,7 @@ def start(
         console.print(
             "[dim]When all sessions are done, stop daemon with: keep-gpu service-stop[/dim]"
         )
-    except (RuntimeError, typer.BadParameter, URLError) as exc:
+    except (RuntimeError, typer.BadParameter) as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
         raise typer.Exit(code=1) from exc
 
@@ -417,7 +425,7 @@ def status(
             port,
         )
         console.print_json(data=json.dumps(result))
-    except (RuntimeError, URLError) as exc:
+    except RuntimeError as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
         raise typer.Exit(code=1) from exc
 
@@ -447,7 +455,7 @@ def stop(
             port,
         )
         console.print_json(data=json.dumps(result))
-    except (RuntimeError, URLError) as exc:
+    except RuntimeError as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
         raise typer.Exit(code=1) from exc
 
@@ -461,7 +469,7 @@ def list_gpus(
     try:
         result = _rpc_call("list_gpus", {}, host, port)
         console.print_json(data=json.dumps(result))
-    except (RuntimeError, URLError) as exc:
+    except RuntimeError as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
         raise typer.Exit(code=1) from exc
 
@@ -496,7 +504,7 @@ def service_stop(
         console.print(
             f"[bold green]Stopped KeepGPU service daemon[/bold green] at http://{host}:{port}/"
         )
-    except (RuntimeError, URLError) as exc:
+    except RuntimeError as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
         raise typer.Exit(code=1) from exc
 
