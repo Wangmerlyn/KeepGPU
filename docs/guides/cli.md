@@ -102,6 +102,6 @@ of `keep-gpu status`.
 
 - **`--gpu-ids` parse error**: use only comma-separated integers (`0,1`).
 - **Start cannot reach service**: run `keep-gpu serve --host 127.0.0.1 --port 8765`.
-- **Need to close background service**: run `keep-gpu service-stop`.
+- **Need to close background service**: run `keep-gpu stop --all` first, then `keep-gpu service-stop` (or use `keep-gpu service-stop --force`).
 - **OOM during keep**: reduce `--vram` or free GPU memory before starting.
 - **No utilization data**: ensure `nvidia-ml-py` works and `nvidia-smi` is available.

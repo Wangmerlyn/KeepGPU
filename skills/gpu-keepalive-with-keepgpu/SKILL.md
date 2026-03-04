@@ -102,6 +102,8 @@ keep-gpu service-stop
 
 `start` auto-starts local service when unavailable.
 
+`Ctrl+C` stops only foreground blocking runs. For service mode sessions started by `keep-gpu start`, use `keep-gpu status`, `keep-gpu stop`, and `keep-gpu service-stop`.
+
 CLI options to tune:
 
 - `--gpu-ids`: comma-separated IDs (`0`, `0,1`). If omitted, KeepGPU uses all visible GPUs.

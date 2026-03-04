@@ -185,3 +185,39 @@ def test_http_json_request_wraps_timeout(monkeypatch):
         assert False, "Expected RuntimeError"
     except RuntimeError as exc:
         assert "Cannot reach KeepGPU service" in str(exc)
+
+
+def test_http_json_request_wraps_non_json_response(monkeypatch):
+    class DummyResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return b"not-json"
+
+    monkeypatch.setattr(cli, "urlopen", lambda *args, **kwargs: DummyResponse())
+
+    try:
+        cli._http_json_request("GET", "http://127.0.0.1:8765/health")
+        assert False, "Expected RuntimeError"
+    except RuntimeError as exc:
+        assert "Non-JSON response from service endpoint" in str(exc)
+
+
+def test_stop_service_process_rejects_unmanaged_pid(monkeypatch):
+    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: 4321)
+    monkeypatch.setattr(cli, "_is_managed_keepgpu_pid", lambda pid: False)
+    monkeypatch.setattr(cli, "_clear_service_pid", lambda host, port: None)
+    monkeypatch.setattr(
+        cli.os,
+        "kill",
+        lambda pid, sig: (_ for _ in ()).throw(
+            AssertionError("os.kill should not be called")
+        ),
+    )
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765)
+    assert stopped is False

@@ -29,11 +29,12 @@
 
 ### In Progress
 
-- Preparing final summary and PR after successful validation.
+- PR is open; addressing review feedback and final merge readiness checks.
 
 ### Next
 
-1. Create commit and open PR for review.
+1. Finish open review comments and verify final CI pass.
+2. Merge PR after review completion.
 
 ### Validation Results
 

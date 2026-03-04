@@ -41,6 +41,7 @@ from keep_gpu.utilities.logger import setup_logger
 
 logger = setup_logger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+MAX_JSON_BODY_BYTES = 1_000_000
 
 
 @dataclass
@@ -55,6 +56,7 @@ class KeepGPUServer:
         controller_factory: Optional[Callable[..., GlobalGPUController]] = None,
     ) -> None:
         self._sessions: Dict[str, Session] = {}
+        self._sessions_lock = threading.RLock()
         self._controller_factory = controller_factory or GlobalGPUController
         atexit.register(self.shutdown)
 
@@ -107,8 +109,9 @@ class KeepGPUServer:
             ValueError: If the provided job_id already exists.
         """
         job_id = job_id or str(uuid.uuid4())
-        if job_id in self._sessions:
-            raise ValueError(f"job_id {job_id} already exists")
+        with self._sessions_lock:
+            if job_id in self._sessions:
+                raise ValueError(f"job_id {job_id} already exists")
 
         controller = self._controller_factory(
             gpu_ids=gpu_ids,
@@ -117,15 +120,19 @@ class KeepGPUServer:
             busy_threshold=busy_threshold,
         )
         controller.keep()
-        self._sessions[job_id] = Session(
-            controller=controller,
-            params={
-                "gpu_ids": gpu_ids,
-                "vram": vram,
-                "interval": interval,
-                "busy_threshold": busy_threshold,
-            },
-        )
+        with self._sessions_lock:
+            if job_id in self._sessions:
+                controller.release()
+                raise ValueError(f"job_id {job_id} already exists")
+            self._sessions[job_id] = Session(
+                controller=controller,
+                params={
+                    "gpu_ids": gpu_ids,
+                    "vram": vram,
+                    "interval": interval,
+                    "busy_threshold": busy_threshold,
+                },
+            )
         logger.info("Started keep session %s on GPUs %s", job_id, gpu_ids)
         return {"job_id": job_id}
 
@@ -147,7 +154,8 @@ class KeepGPUServer:
             found, a "message" field explains the miss.
         """
         if job_id:
-            session = self._sessions.pop(job_id, None)
+            with self._sessions_lock:
+                session = self._sessions.pop(job_id, None)
             if session:
                 released = self._release_with_timeout(session.controller)
                 if not quiet:
@@ -166,10 +174,12 @@ class KeepGPUServer:
                 }
             return {"stopped": [], "message": "job_id not found"}
 
-        stopped_ids = list(self._sessions.keys())
+        with self._sessions_lock:
+            session_items = list(self._sessions.items())
+            self._sessions.clear()
+        stopped_ids = [jid for jid, _ in session_items]
         timed_out_ids: List[str] = []
-        for job_id in stopped_ids:
-            session = self._sessions.pop(job_id)
+        for job_id, session in session_items:
             released = self._release_with_timeout(session.controller)
             if not released:
                 timed_out_ids.append(job_id)
@@ -188,7 +198,8 @@ class KeepGPUServer:
 
     def status(self, job_id: Optional[str] = None) -> Dict[str, Any]:
         if job_id:
-            session = self._sessions.get(job_id)
+            with self._sessions_lock:
+                session = self._sessions.get(job_id)
             if not session:
                 return {"active": False, "job_id": job_id}
             return {
@@ -196,10 +207,11 @@ class KeepGPUServer:
                 "job_id": job_id,
                 "params": session.params,
             }
+        with self._sessions_lock:
+            session_items = list(self._sessions.items())
         return {
             "active_jobs": [
-                {"job_id": jid, "params": sess.params}
-                for jid, sess in self._sessions.items()
+                {"job_id": jid, "params": sess.params} for jid, sess in session_items
             ]
         }
 
@@ -261,6 +273,10 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
 
     def _read_json_body(self) -> Dict[str, Any]:
         length = int(self.headers.get("content-length", "0"))
+        if length > MAX_JSON_BODY_BYTES:
+            raise ValueError(
+                f"Request body too large: {length} bytes (max {MAX_JSON_BODY_BYTES})"
+            )
         body = self.rfile.read(length).decode("utf-8")
         return json.loads(body)
 
@@ -306,8 +322,15 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             self._json_response(200, server_ref.status())
             return
         if path.startswith("/api/sessions/"):
-            job_id = unquote(path.rsplit("/", 1)[-1])
+            job_id = unquote(path.rsplit("/", 1)[-1]).strip()
+            if not job_id:
+                self._json_response(400, {"error": {"message": "Missing job_id"}})
+                return
             self._json_response(200, server_ref.status(job_id=job_id))
+            return
+
+        if path.startswith("/api/"):
+            self._json_response(404, {"error": {"message": "Unknown endpoint"}})
             return
 
         self._serve_static(path)
@@ -325,7 +348,44 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         try:
             payload = self._read_json_body()
             if path == "/api/sessions":
-                result = server_ref.start_keep(**payload)
+                allowed_fields = {
+                    "gpu_ids",
+                    "vram",
+                    "interval",
+                    "busy_threshold",
+                    "job_id",
+                }
+                unknown_fields = set(payload) - allowed_fields
+                if unknown_fields:
+                    raise ValueError(
+                        f"Unknown request fields: {sorted(unknown_fields)}"
+                    )
+
+                safe_payload = {
+                    key: value
+                    for key, value in payload.items()
+                    if key in allowed_fields
+                }
+                gpu_ids = safe_payload.get("gpu_ids")
+                if gpu_ids is not None:
+                    if not isinstance(gpu_ids, list):
+                        raise ValueError("gpu_ids must be a list of integers")
+                    if len(gpu_ids) > 64:
+                        raise ValueError("gpu_ids has too many items")
+                    if any(
+                        (not isinstance(gpu_id, int) or gpu_id < 0)
+                        for gpu_id in gpu_ids
+                    ):
+                        raise ValueError("gpu_ids must contain non-negative integers")
+                    visible_gpus = server_ref.list_gpus().get("gpus", [])
+                    if visible_gpus and any(
+                        gpu_id >= len(visible_gpus) for gpu_id in gpu_ids
+                    ):
+                        raise ValueError(
+                            f"gpu_ids must be in range 0..{len(visible_gpus) - 1}"
+                        )
+
+                result = server_ref.start_keep(**safe_payload)
                 self._json_response(200, result)
                 return
 
@@ -336,8 +396,19 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                 return
 
             self._json_response(404, {"error": {"message": "Unknown endpoint"}})
-        except (json.JSONDecodeError, ValueError, UnicodeDecodeError) as exc:
+        except (json.JSONDecodeError, ValueError, UnicodeDecodeError, TypeError) as exc:
             self._json_response(400, {"error": {"message": f"Bad request: {exc}"}})
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.exception("POST request failed for path %s", path)
+            self._json_response(
+                500,
+                {
+                    "error": {
+                        "message": str(exc),
+                        "type": exc.__class__.__name__,
+                    }
+                },
+            )
 
     def do_DELETE(self):  # noqa: N802
         parsed = urlparse(self.path)
@@ -348,7 +419,10 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             self._json_response(200, server_ref.stop_keep(job_id=None))
             return
         if path.startswith("/api/sessions/"):
-            job_id = unquote(path.rsplit("/", 1)[-1])
+            job_id = unquote(path.rsplit("/", 1)[-1]).strip()
+            if not job_id:
+                self._json_response(400, {"error": {"message": "Missing job_id"}})
+                return
             self._json_response(200, server_ref.stop_keep(job_id=job_id))
             return
         self._json_response(404, {"error": {"message": "Unknown endpoint"}})

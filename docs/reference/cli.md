@@ -8,9 +8,9 @@
 keep-gpu [blocking options]
 keep-gpu serve [--host 127.0.0.1] [--port 8765]
 keep-gpu start [options]
-keep-gpu status [--job-id ID]
+keep-gpu status [--job-id ID] [--host 127.0.0.1] [--port 8765]
 keep-gpu stop (--job-id ID | --all)
-keep-gpu service-stop [--force]
+keep-gpu service-stop [--host 127.0.0.1] [--port 8765] [--force]
 keep-gpu list-gpus
 ```
 

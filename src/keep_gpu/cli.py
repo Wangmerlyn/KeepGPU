@@ -122,7 +122,14 @@ def _http_json_request(
     try:
         with urlopen(request, timeout=timeout) as response:  # nosec B310
             body = response.read().decode("utf-8")
-            return json.loads(body) if body else {}
+            if not body:
+                return {}
+            try:
+                return json.loads(body)
+            except (json.JSONDecodeError, ValueError) as exc:
+                raise RuntimeError(
+                    f"Non-JSON response from service endpoint: {url}"
+                ) from exc
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
         detail = body or str(exc)
@@ -142,6 +149,16 @@ def _service_available(host: str, port: int) -> bool:
 def _start_service_process(host: str, port: int) -> int:
     log_path = _service_log_path(host, port)
     with log_path.open("ab") as log_file:
+        popen_kwargs = {
+            "stdin": subprocess.DEVNULL,
+            "stdout": log_file,
+            "stderr": log_file,
+        }
+        if sys.platform == "win32":
+            popen_kwargs["creationflags"] = subprocess.DETACHED_PROCESS
+        else:
+            popen_kwargs["start_new_session"] = True
+
         process = subprocess.Popen(
             [
                 sys.executable,
@@ -154,10 +171,7 @@ def _start_service_process(host: str, port: int) -> int:
                 "--port",
                 str(port),
             ],
-            stdin=subprocess.DEVNULL,
-            stdout=log_file,
-            stderr=log_file,
-            start_new_session=True,
+            **popen_kwargs,
         )
     _write_service_pid(host, port, process.pid)
     return process.pid
@@ -192,11 +206,19 @@ def _stop_service_process(host: str, port: int, timeout: float = 3.0) -> bool:
     if pid is None:
         return False
 
+    if not _is_managed_keepgpu_pid(pid):
+        _clear_service_pid(host, port)
+        return False
+
     if not _pid_alive(pid):
         _clear_service_pid(host, port)
         return True
 
-    os.kill(pid, signal.SIGTERM)
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError:
+        _clear_service_pid(host, port)
+        return False
     deadline = time.time() + timeout
     while time.time() < deadline:
         if not _pid_alive(pid):
@@ -204,10 +226,33 @@ def _stop_service_process(host: str, port: int, timeout: float = 3.0) -> bool:
             return True
         time.sleep(0.1)
 
-    os.kill(pid, signal.SIGKILL)
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except OSError:
+        _clear_service_pid(host, port)
+        return False
     time.sleep(0.1)
     _clear_service_pid(host, port)
     return True
+
+
+def _is_managed_keepgpu_pid(pid: int) -> bool:
+    try:
+        proc_cmdline = Path(f"/proc/{pid}/cmdline")
+        if proc_cmdline.exists():
+            cmdline = proc_cmdline.read_text(encoding="utf-8", errors="replace")
+            cmdline = cmdline.replace("\x00", " ")
+        else:
+            cmdline = subprocess.check_output(
+                ["ps", "-p", str(pid), "-o", "command="],
+                text=True,
+            ).strip()
+    except Exception:
+        return False
+
+    return (
+        "keep_gpu.mcp.server" in cmdline and "--mode" in cmdline and "http" in cmdline
+    )
 
 
 def _rpc_call(
