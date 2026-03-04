@@ -1,0 +1,124 @@
+@import "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --shell-950: 12 15 20;
+    --shell-900: 18 23 30;
+    --shell-850: 30 36 46;
+    --shell-700: 65 78 95;
+    --shell-500: 143 154 168;
+    --shell-400: 174 183 196;
+    --shell-200: 214 220 228;
+    --shell-100: 236 241 248;
+    --shell-50: 248 250 252;
+  }
+
+  * {
+    @apply border-slate-800;
+  }
+
+  body {
+    @apply m-0 bg-shell font-sans text-shell-100 antialiased;
+    background-image:
+      radial-gradient(circle at 10% 0%, rgba(28, 35, 46, 0.65), transparent 45%),
+      radial-gradient(circle at 90% 0%, rgba(19, 27, 36, 0.55), transparent 44%),
+      linear-gradient(180deg, #0b0f14 0%, #0b0f14 100%);
+  }
+}
+
+@layer components {
+  .field-label {
+    @apply flex flex-col gap-2;
+  }
+
+  .field-label span {
+    @apply font-mono text-[11px] uppercase tracking-[0.12em] text-shell-500;
+  }
+
+  .field-input {
+    @apply w-full rounded-lg border border-white/10 bg-shell-900 px-3 py-2 text-sm text-shell-100 outline-none transition focus:border-white/25;
+  }
+
+  .btn-primary {
+    @apply rounded-lg bg-shell-100 px-4 py-2 text-sm font-semibold text-shell-950 transition hover:bg-white disabled:cursor-default disabled:bg-shell-700 disabled:text-shell-300;
+  }
+
+  .btn-muted {
+    @apply rounded-lg border border-white/15 bg-shell-900 px-4 py-2 text-sm font-medium text-shell-200 transition hover:bg-shell-850 disabled:cursor-default disabled:border-white/5 disabled:bg-shell-900 disabled:text-shell-600;
+  }
+
+  .btn-danger {
+    @apply rounded-lg border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-sm font-medium text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-default disabled:border-rose-300/20 disabled:bg-rose-500/10 disabled:text-rose-300/50;
+  }
+}
+
+@layer utilities {
+  .bg-shell {
+    background-color: rgb(var(--shell-950));
+  }
+
+  .bg-panel {
+    background-color: rgba(var(--shell-900), 0.78);
+    backdrop-filter: blur(10px);
+  }
+
+  .bg-shell-900 {
+    background-color: rgb(var(--shell-900));
+  }
+
+  .bg-shell-100 {
+    background-color: rgb(var(--shell-100));
+  }
+
+  .bg-shell-850 {
+    background-color: rgb(var(--shell-850));
+  }
+
+  .bg-shell-700 {
+    background-color: rgb(var(--shell-700));
+  }
+
+  .bg-shell-800 {
+    background-color: rgba(var(--shell-700), 0.36);
+  }
+
+  .text-shell-50 {
+    color: rgb(var(--shell-50));
+  }
+
+  .text-shell-100 {
+    color: rgb(var(--shell-100));
+  }
+
+  .text-shell-200 {
+    color: rgb(var(--shell-200));
+  }
+
+  .text-shell-300 {
+    color: rgb(196 205 216);
+  }
+
+  .text-shell-400 {
+    color: rgb(var(--shell-400));
+  }
+
+  .text-shell-500 {
+    color: rgb(var(--shell-500));
+  }
+
+  .text-shell-600 {
+    color: rgb(111 124 141);
+  }
+
+  .text-shell-950 {
+    color: rgb(var(--shell-950));
+  }
+
+  .shadow-soft {
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.33);
+  }
+}
