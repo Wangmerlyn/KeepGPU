@@ -21,6 +21,11 @@
   - moved `torch` import into blocking-only path,
   - normalized service timeout/HTTP failures into user-friendly errors,
   - fixed dashboard release-button state handling to avoid global lockouts.
+- Implemented root-cause shutdown fixes:
+  - converted CUDA/ROCm loop sleeps to interruptible waits,
+  - added bounded join behavior in controller `release()`,
+  - updated server stop behavior to surface timeout-aware payloads,
+  - moved HTTP server to threaded mode.
 
 ### In Progress
 
@@ -39,6 +44,12 @@
 ### Validation Results (Follow-up)
 
 - `pytest tests/test_cli_service_commands.py tests/mcp/test_http_api.py tests/mcp/test_server.py tests/test_cli_thresholds.py` -> 18 passed.
+- `pre-commit run --all-files` -> all hooks passed.
+- `mkdocs build` -> success.
+
+### Validation Results (Root-Cause Fix)
+
+- `pytest tests/test_cli_service_commands.py tests/mcp/test_server.py tests/mcp/test_http_api.py tests/test_cli_thresholds.py tests/cuda_controller/test_keep_and_release.py tests/cuda_controller/test_throttle.py` -> 26 passed.
 - `pre-commit run --all-files` -> all hooks passed.
 - `mkdocs build` -> success.
 

@@ -71,8 +71,23 @@ class RocmGPUController(BaseGPUController):
 
     def release(self) -> None:
         if self._thread and self._thread.is_alive():
-            self._stop_evt.set()
-            self._thread.join()
+            stop_evt = self._stop_evt
+            if stop_evt is None:
+                logger.warning(
+                    "rank %s: stop event missing; skipping release", self.rank
+                )
+                return
+            assert stop_evt is not None
+            stop_evt.set()
+            join_timeout = max(2.0, min(float(self.interval) + 2.0, 30.0))
+            self._thread.join(timeout=join_timeout)
+            if self._thread.is_alive():
+                logger.warning(
+                    "rank %s: ROCm keep thread did not stop within %.1fs",
+                    self.rank,
+                    join_timeout,
+                )
+                return
             torch.cuda.empty_cache()
         else:
             logger.warning("rank %s: keep thread not running", self.rank)
@@ -101,6 +116,12 @@ class RocmGPUController(BaseGPUController):
             return None
 
     def _keep_loop(self) -> None:
+        stop_evt = self._stop_evt
+        if stop_evt is None:
+            logger.error("rank %s: stop event not initialized", self.rank)
+            return
+        assert stop_evt is not None
+
         torch.cuda.set_device(self.rank)
         tensor = None
         attempts = 0
@@ -110,7 +131,7 @@ class RocmGPUController(BaseGPUController):
                 "rank %s: invalid vram_to_keep=%s", self.rank, self.vram_to_keep
             )
             return
-        while not self._stop_evt.is_set():
+        while not stop_evt.is_set():
             try:
                 tensor = torch.rand(
                     num_elements,
@@ -141,23 +162,32 @@ class RocmGPUController(BaseGPUController):
                     )
                     logger.error("%s", self._failure_exc)
                     return
-                time.sleep(self.interval)
+                if stop_evt.wait(self.interval):
+                    return
 
-        while not self._stop_evt.is_set():
+        if tensor is None:
+            logger.error("rank %s: failed to allocate tensor, exiting loop", self.rank)
+            return
+        assert tensor is not None
+
+        while not stop_evt.is_set():
             try:
                 util = self._query_utilization()
                 if util is not None and util > self.busy_threshold:
                     logger.debug("rank %s: GPU busy (%d%%), sleeping", self.rank, util)
                 else:
                     self._run_batch(tensor)
-                time.sleep(self.interval)
+                if stop_evt.wait(self.interval):
+                    break
             except RuntimeError as exc:
                 if "out of memory" in str(exc).lower():
                     torch.cuda.empty_cache()
-                time.sleep(self.interval)
+                if stop_evt.wait(self.interval):
+                    break
             except Exception:
                 logger.exception("rank %s: unexpected error", self.rank)
-                time.sleep(self.interval)
+                if stop_evt.wait(self.interval):
+                    break
 
     def allocation_status(self) -> Optional[Exception]:
         """
@@ -169,10 +199,11 @@ class RocmGPUController(BaseGPUController):
 
     @torch.no_grad()
     def _run_batch(self, tensor: torch.Tensor) -> None:
+        stop_evt = self._stop_evt
         tic = time.time()
         for _ in range(self.iterations):
             torch.relu_(tensor)
-            if self._stop_evt.is_set():
+            if stop_evt is not None and stop_evt.is_set():
                 break
         torch.cuda.synchronize()
         toc = time.time()

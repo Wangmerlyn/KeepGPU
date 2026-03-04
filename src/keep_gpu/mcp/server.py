@@ -29,7 +29,7 @@ import argparse
 import threading
 import mimetypes
 from http.server import BaseHTTPRequestHandler
-from socketserver import TCPServer
+from socketserver import TCPServer, ThreadingMixIn
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -57,6 +57,30 @@ class KeepGPUServer:
         self._sessions: Dict[str, Session] = {}
         self._controller_factory = controller_factory or GlobalGPUController
         atexit.register(self.shutdown)
+
+    @staticmethod
+    def _release_with_timeout(
+        controller: GlobalGPUController,
+        timeout_s: float = 10.0,
+    ) -> bool:
+        done = threading.Event()
+        error_holder: Dict[str, Exception] = {}
+
+        def _release() -> None:
+            try:
+                controller.release()
+            except Exception as exc:  # pragma: no cover - defensive
+                error_holder["error"] = exc
+            finally:
+                done.set()
+
+        thread = threading.Thread(target=_release, daemon=True)
+        thread.start()
+        if not done.wait(timeout_s):
+            return False
+        if "error" in error_holder:
+            raise error_holder["error"]
+        return True
 
     def start_keep(
         self,
@@ -125,19 +149,42 @@ class KeepGPUServer:
         if job_id:
             session = self._sessions.pop(job_id, None)
             if session:
-                session.controller.release()
+                released = self._release_with_timeout(session.controller)
                 if not quiet:
-                    logger.info("Stopped keep session %s", job_id)
-                return {"stopped": [job_id]}
+                    if released:
+                        logger.info("Stopped keep session %s", job_id)
+                    else:
+                        logger.warning(
+                            "Timed out while stopping keep session %s", job_id
+                        )
+                if released:
+                    return {"stopped": [job_id]}
+                return {
+                    "stopped": [],
+                    "timed_out": [job_id],
+                    "message": "Timed out while stopping session; release continues in background.",
+                }
             return {"stopped": [], "message": "job_id not found"}
 
         stopped_ids = list(self._sessions.keys())
+        timed_out_ids: List[str] = []
         for job_id in stopped_ids:
             session = self._sessions.pop(job_id)
-            session.controller.release()
-        if stopped_ids and not quiet:
-            logger.info("Stopped sessions: %s", stopped_ids)
-        return {"stopped": stopped_ids}
+            released = self._release_with_timeout(session.controller)
+            if not released:
+                timed_out_ids.append(job_id)
+        successful = [jid for jid in stopped_ids if jid not in timed_out_ids]
+        if successful and not quiet:
+            logger.info("Stopped sessions: %s", successful)
+        if timed_out_ids and not quiet:
+            logger.warning("Timed out stopping sessions: %s", timed_out_ids)
+        result: Dict[str, Any] = {"stopped": successful}
+        if timed_out_ids:
+            result["timed_out"] = timed_out_ids
+            result["message"] = (
+                "Some sessions timed out during stop; release continues in background."
+            )
+        return result
 
     def status(self, job_id: Optional[str] = None) -> Dict[str, Any]:
         if job_id:
@@ -329,8 +376,9 @@ def run_stdio(server: KeepGPUServer) -> None:
 def run_http(server: KeepGPUServer, host: str = "127.0.0.1", port: int = 8765) -> None:
     """Run a lightweight HTTP JSON-RPC server on the given host/port."""
 
-    class _Server(TCPServer):
+    class _Server(ThreadingMixIn, TCPServer):
         allow_reuse_address = True
+        daemon_threads = True
 
     httpd = _Server((host, port), _JSONRPCHandler)
     httpd.keepgpu_server = server  # type: ignore[attr-defined]

@@ -57,3 +57,16 @@
   - extended command error handling to avoid traceback leaks to users,
   - improved dashboard action state so releasing one session does not disable every release control globally.
 - Additional tests now assert timeout/error behavior for `keep-gpu stop --all` and HTTP wrapper timeout handling.
+
+## Root-Cause Fix Findings (Stop-All Reliability)
+
+- Reproduced that frequent stop timeouts are mostly service-side latency under release, not network transport.
+- Root causes identified:
+  - worker loops used `time.sleep(interval)`, which is non-interruptible and can delay shutdown for long intervals,
+  - stop RPC could block behind slow release execution,
+  - single-threaded HTTP server amplified perceived hangs under long requests.
+- Fixes implemented:
+  - replaced sleep points in CUDA/ROCm keep loops with `Event.wait(interval)` so stop signals interrupt immediately,
+  - added bounded release join timeout in CUDA/ROCm controllers to avoid indefinite blocking,
+  - made release-all server responses timeout-aware (`timed_out` reporting) with background continuation,
+  - switched HTTP server to threaded mode to prevent one slow request from blocking others.

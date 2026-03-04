@@ -117,8 +117,22 @@ class CudaGPUController(BaseGPUController):
             logger.warning("rank %s: keep thread not running", self.rank)
             return
 
-        self._stop_evt.set()
-        self._thread.join()
+        stop_evt = self._stop_evt
+        if stop_evt is None:
+            logger.warning("rank %s: stop event missing; skipping release", self.rank)
+            return
+        assert stop_evt is not None
+
+        stop_evt.set()
+        join_timeout = max(2.0, min(float(self.interval) + 2.0, 30.0))
+        self._thread.join(timeout=join_timeout)
+        if self._thread.is_alive():
+            logger.warning(
+                "rank %s: keep thread did not stop within %.1fs",
+                self.rank,
+                join_timeout,
+            )
+            return
         torch.cuda.empty_cache()
         logger.info("rank %s: keep thread stopped & cache cleared", self.rank)
 
@@ -135,6 +149,12 @@ class CudaGPUController(BaseGPUController):
     # ------------------------------------------------------------------
     def _keep_loop(self) -> None:
         """Internal: run workloads until stop event is set."""
+        stop_evt = self._stop_evt
+        if stop_evt is None:
+            logger.error("rank %s: stop event not initialized", self.rank)
+            return
+        assert stop_evt is not None
+
         torch.cuda.set_device(self.rank)
         num_elements = self._num_elements if self._num_elements is not None else 0
         if num_elements <= 0:
@@ -143,7 +163,7 @@ class CudaGPUController(BaseGPUController):
             )
             return
         matrix = None
-        while not self._stop_evt.is_set():
+        while not stop_evt.is_set():
             try:
                 matrix = torch.rand(
                     num_elements,
@@ -154,11 +174,12 @@ class CudaGPUController(BaseGPUController):
                 break
             except RuntimeError as e:
                 logger.error("rank %s: failed to allocate matrix: %s", self.rank, e)
-                time.sleep(self.interval)
+                if stop_evt.wait(self.interval):
+                    return
         if matrix is None:
             logger.error("rank %s: failed to allocate matrix, exiting loop", self.rank)
-            raise RuntimeError("Failed to allocate matrix for GPU keeping")
-        while not self._stop_evt.is_set():
+            return
+        while not stop_evt.is_set():
             try:
                 gpu_utilization = self._monitor_utilization(self.rank)
                 if gpu_utilization > self.busy_threshold:
@@ -169,16 +190,19 @@ class CudaGPUController(BaseGPUController):
                     )
                 else:
                     self._run_relu_batch(matrix)
-                time.sleep(self.interval)
+                if stop_evt.wait(self.interval):
+                    break
             except RuntimeError as e:
                 # Handle OOM by clearing cache; then sleep and continue
                 if "out of memory" in str(e).lower():
                     torch.cuda.empty_cache()
-                time.sleep(self.interval)
+                if stop_evt.wait(self.interval):
+                    break
             except Exception:
                 # Log unexpected exceptions but keep running
                 logger.exception("rank %s: unexpected error", self.rank)
-                time.sleep(self.interval)
+                if stop_evt.wait(self.interval):
+                    break
 
     # ------------------------------------------------------------------
     # Workload implementation
@@ -186,11 +210,12 @@ class CudaGPUController(BaseGPUController):
     @torch.no_grad()
     def _run_relu_batch(self, matrix: torch.Tensor) -> None:
         """Run a batch of in-place ReLU ops to keep GPU busy."""
+        stop_evt = self._stop_evt
 
         tic = time.time()
         for _ in range(self.relu_iterations):
             torch.relu_(matrix)
-            if self._stop_evt.is_set():
+            if stop_evt is not None and stop_evt.is_set():
                 break
         torch.cuda.synchronize()
         toc = time.time()

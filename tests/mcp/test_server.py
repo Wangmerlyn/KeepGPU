@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 from keep_gpu.mcp.server import KeepGPUServer, _handle_request
 
 
@@ -21,8 +23,12 @@ def dummy_factory(**kwargs):
     return DummyController(**kwargs)
 
 
+def make_server() -> KeepGPUServer:
+    return KeepGPUServer(controller_factory=cast(Any, dummy_factory))
+
+
 def test_start_status_stop_cycle():
-    server = KeepGPUServer(controller_factory=dummy_factory)
+    server = make_server()
     res = server.start_keep(gpu_ids=[1], vram="2GiB", interval=5, busy_threshold=20)
     job_id = res["job_id"]
 
@@ -39,7 +45,7 @@ def test_start_status_stop_cycle():
 
 
 def test_stop_all():
-    server = KeepGPUServer(controller_factory=dummy_factory)
+    server = make_server()
     job_a = server.start_keep()["job_id"]
     job_b = server.start_keep()["job_id"]
 
@@ -50,13 +56,13 @@ def test_stop_all():
 
 
 def test_list_gpus():
-    server = KeepGPUServer(controller_factory=dummy_factory)
+    server = make_server()
     info = server.list_gpus()
     assert "gpus" in info
 
 
 def test_end_to_end_jsonrpc():
-    server = KeepGPUServer(controller_factory=dummy_factory)
+    server = make_server()
     # start_keep
     req = {
         "id": 1,
@@ -79,7 +85,7 @@ def test_end_to_end_jsonrpc():
 
 
 def test_status_all():
-    server = KeepGPUServer(controller_factory=dummy_factory)
+    server = make_server()
     job_a = server.start_keep(gpu_ids=[0])["job_id"]
     job_b = server.start_keep(gpu_ids=[1])["job_id"]
 
@@ -93,3 +99,32 @@ def test_status_all():
     assert job_statuses[job_a]["params"]["gpu_ids"] == [0]
     assert job_statuses[job_b]["params"]["gpu_ids"] == [1]
     assert "controller" not in job_statuses[job_a]
+
+
+def test_stop_keep_returns_timeout_payload(monkeypatch):
+    server = make_server()
+    job_id = server.start_keep()["job_id"]
+
+    monkeypatch.setattr(server, "_release_with_timeout", lambda controller: False)
+
+    result = server.stop_keep(job_id)
+    assert result["stopped"] == []
+    assert result["timed_out"] == [job_id]
+    assert "Timed out" in result["message"]
+
+
+def test_stop_all_tracks_timeouts(monkeypatch):
+    server = make_server()
+    job_a = server.start_keep()["job_id"]
+    job_b = server.start_keep()["job_id"]
+
+    outcomes = iter([True, False])
+    monkeypatch.setattr(
+        server,
+        "_release_with_timeout",
+        lambda controller: next(outcomes),
+    )
+
+    result = server.stop_keep()
+    assert result["stopped"] == [job_a]
+    assert result["timed_out"] == [job_b]
