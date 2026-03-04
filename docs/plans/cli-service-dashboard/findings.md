@@ -37,3 +37,11 @@
 - New CLI and server tests pass (`13 passed`).
 - Pre-commit hooks pass with no auto-fix needed after initial implementation.
 - `mkdocs build` succeeds; informational note reports plan/skills docs excluded from nav.
+
+## Iteration Findings (Post-UX Feedback)
+
+- Added explicit daemon lifecycle guidance in CLI output and docs.
+- Added `keep-gpu service-stop` command so users can terminate auto-started local daemon.
+- Updated `keep-gpu start` output to always print dashboard URL and follow-up stop commands.
+- Reworked dashboard visual language from neon/glassy to classic, restrained control-room style.
+- Expanded CLI tests to cover start-output hints and `service-stop` guardrails.

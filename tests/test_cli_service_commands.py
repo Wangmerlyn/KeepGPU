@@ -70,3 +70,50 @@ def test_blocking_mode_remains_default(monkeypatch):
 
     assert result.exit_code == 0
     assert called["args"] == (120, "0", "1GiB", None, -1)
+
+
+def test_start_prints_dashboard_and_stop_hints(monkeypatch):
+    def fake_ensure(host, port, auto_start=True):
+        return True
+
+    def fake_rpc(method, params, host, port):
+        return {"job_id": "job-abc"}
+
+    monkeypatch.setattr(cli, "_ensure_service_running", fake_ensure)
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["start"])
+
+    assert result.exit_code == 0
+    assert "Auto-started KeepGPU service" in result.output
+    assert "Dashboard:" in result.output
+    assert "keep-gpu service-stop" in result.output
+
+
+def test_service_stop_requires_managed_pid(monkeypatch):
+    monkeypatch.setattr(cli, "_service_available", lambda host, port: False)
+    monkeypatch.setattr(cli, "_stop_service_process", lambda host, port: False)
+
+    result = runner.invoke(cli.app, ["service-stop"])
+
+    assert result.exit_code == 1
+    assert "No managed daemon PID found" in result.output
+
+
+def test_service_stop_refuses_active_sessions_without_force(monkeypatch):
+    monkeypatch.setattr(cli, "_service_available", lambda host, port: True)
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda method, params, host, port: (
+            {"active_jobs": [{"job_id": "j1"}]}
+            if method == "status"
+            else {"stopped": []}
+        ),
+    )
+    monkeypatch.setattr(cli, "_stop_service_process", lambda host, port: True)
+
+    result = runner.invoke(cli.app, ["service-stop"])
+
+    assert result.exit_code == 1
+    assert "Active keep sessions detected" in result.output

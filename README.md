@@ -34,6 +34,8 @@ keep-gpu --gpu-ids 0 --vram 1GiB --busy-threshold 25 --interval 60
 # Non-blocking mode for agent workflows (auto-starts local service)
 keep-gpu start --gpu-ids 0 --vram 1GiB --busy-threshold 25 --interval 60
 keep-gpu status
+keep-gpu stop --all
+keep-gpu service-stop
 ```
 
 Open the dashboard while service mode is running:
@@ -72,6 +74,7 @@ Flags that matter:
   - `keep-gpu start`: create keep session and return immediately.
   - `keep-gpu status`: inspect active sessions.
   - `keep-gpu stop --job-id <id>` or `keep-gpu stop --all`: release sessions.
+  - `keep-gpu service-stop`: stop auto-started local daemon.
   - `keep-gpu list-gpus`: fetch telemetry from local service.
 
 ## Embed in Python

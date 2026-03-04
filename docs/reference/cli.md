@@ -10,6 +10,7 @@ keep-gpu serve [--host 127.0.0.1] [--port 8765]
 keep-gpu start [options]
 keep-gpu status [--job-id ID]
 keep-gpu stop (--job-id ID | --all)
+keep-gpu service-stop [--force]
 keep-gpu list-gpus
 ```
 
@@ -69,6 +70,15 @@ Starts a keep session and returns immediately with `job_id`.
 ### `keep-gpu list-gpus`
 
 Returns GPU telemetry from service.
+
+### `keep-gpu service-stop`
+
+Stops local daemon process created by auto-start logic.
+
+| Option | Description |
+| --- | --- |
+| `--host`, `--port` | Service host/port. |
+| `--force` | Stop daemon even if active sessions exist. |
 
 ## Service HTTP endpoints
 

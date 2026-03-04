@@ -59,12 +59,20 @@ function utilizationTone(util) {
   return "cool"
 }
 
+function formatGpuTarget(ids) {
+  if (!ids || ids.length === 0) {
+    return "all visible"
+  }
+  return ids.join(",")
+}
+
 export default function App() {
   const [gpus, setGpus] = useState([])
   const [sessions, setSessions] = useState([])
   const [form, setForm] = useState(defaultForm)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState("Awaiting telemetry stream.")
+  const serviceUrl = window.location.origin
 
   const counts = useMemo(() => {
     const gpuCount = gpus.length
@@ -148,11 +156,15 @@ export default function App() {
     <div className="deck">
       <div className="grid-noise" aria-hidden="true" />
       <header className="masthead glass">
-        <p className="eyebrow">KeepGPU / Local Control Plane</p>
-        <h1>GPU Keepalive Command Deck</h1>
+        <p className="eyebrow">KeepGPU Control Plane</p>
+        <h1>Keepalive Operations Console</h1>
         <p>
-          Fire non-blocking keep sessions, track thermal pulse, and release cards
-          without losing terminal control.
+          Start non-blocking keep sessions, monitor device pressure, and release
+          reservations without sacrificing your terminal workflow.
+        </p>
+        <p className="service-hint">
+          Service endpoint <code>{serviceUrl}</code> · stop daemon with
+          <code>keep-gpu service-stop</code>
         </p>
       </header>
 
@@ -248,9 +260,8 @@ export default function App() {
                   <div>
                     <h3>{session.job_id}</h3>
                     <p>
-                      GPUs {JSON.stringify(session.params.gpu_ids)} / {session.params.vram} /
-                      {" "}
-                      {session.params.interval}s / threshold {session.params.busy_threshold}%
+                      GPUs {formatGpuTarget(session.params.gpu_ids)} / {session.params.vram}
+                      / {session.params.interval}s / threshold {session.params.busy_threshold}%
                     </p>
                   </div>
                   <button

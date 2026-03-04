@@ -22,7 +22,11 @@ keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
 ```
 
 `start` auto-starts the local service if needed and returns immediately with a
-`job_id`.
+`job_id`. The command also prints:
+
+- dashboard URL (`http://<host>:<port>/`),
+- follow-up status/stop command hints,
+- daemon shutdown hint (`keep-gpu service-stop`).
 
 ### Check status
 
@@ -37,6 +41,14 @@ keep-gpu status --job-id <job_id>
 keep-gpu stop --job-id <job_id>
 keep-gpu stop --all
 ```
+
+### Stop local daemon
+
+```bash
+keep-gpu service-stop
+```
+
+If sessions are still active, stop them first or use `--force`.
 
 ### List telemetry
 
@@ -90,5 +102,6 @@ of `keep-gpu status`.
 
 - **`--gpu-ids` parse error**: use only comma-separated integers (`0,1`).
 - **Start cannot reach service**: run `keep-gpu serve --host 127.0.0.1 --port 8765`.
+- **Need to close background service**: run `keep-gpu service-stop`.
 - **OOM during keep**: reduce `--vram` or free GPU memory before starting.
 - **No utilization data**: ensure `nvidia-ml-py` works and `nvidia-smi` is available.

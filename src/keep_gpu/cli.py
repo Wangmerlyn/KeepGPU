@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -29,6 +30,48 @@ app = typer.Typer(
 )
 console = Console()
 logger = setup_logger(__name__)
+
+
+def _runtime_dir() -> Path:
+    runtime_dir = Path.home() / ".keepgpu"
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    return runtime_dir
+
+
+def _service_log_path(host: str, port: int) -> Path:
+    return _runtime_dir() / f"service-{host.replace('.', '_')}-{port}.log"
+
+
+def _service_pid_path(host: str, port: int) -> Path:
+    return _runtime_dir() / f"service-{host.replace('.', '_')}-{port}.pid"
+
+
+def _read_service_pid(host: str, port: int) -> Optional[int]:
+    pid_path = _service_pid_path(host, port)
+    if not pid_path.exists():
+        return None
+    try:
+        return int(pid_path.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _write_service_pid(host: str, port: int, pid: int) -> None:
+    _service_pid_path(host, port).write_text(str(pid), encoding="utf-8")
+
+
+def _clear_service_pid(host: str, port: int) -> None:
+    _service_pid_path(host, port).unlink(missing_ok=True)
+
+
+def _pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
 
 
 def _apply_legacy_threshold(
@@ -92,12 +135,10 @@ def _service_available(host: str, port: int) -> bool:
         return False
 
 
-def _start_service_process(host: str, port: int) -> None:
-    runtime_dir = Path.home() / ".keepgpu"
-    runtime_dir.mkdir(parents=True, exist_ok=True)
-    log_path = runtime_dir / f"service-{host.replace('.', '_')}-{port}.log"
+def _start_service_process(host: str, port: int) -> int:
+    log_path = _service_log_path(host, port)
     with log_path.open("ab") as log_file:
-        subprocess.Popen(
+        process = subprocess.Popen(
             [
                 sys.executable,
                 "-m",
@@ -114,11 +155,17 @@ def _start_service_process(host: str, port: int) -> None:
             stderr=log_file,
             start_new_session=True,
         )
+    _write_service_pid(host, port, process.pid)
+    return process.pid
 
 
-def _ensure_service_running(host: str, port: int, auto_start: bool = True) -> None:
+def _ensure_service_running(host: str, port: int, auto_start: bool = True) -> bool:
     if _service_available(host, port):
-        return
+        return False
+
+    stale_pid = _read_service_pid(host, port)
+    if stale_pid and not _pid_alive(stale_pid):
+        _clear_service_pid(host, port)
 
     if not auto_start:
         raise RuntimeError(
@@ -128,12 +175,35 @@ def _ensure_service_running(host: str, port: int, auto_start: bool = True) -> No
     _start_service_process(host, port)
     for _ in range(30):
         if _service_available(host, port):
-            return
+            return True
         time.sleep(0.2)
 
     raise RuntimeError(
         f"Failed to auto-start KeepGPU service at {host}:{port}. Try `keep-gpu serve` manually."
     )
+
+
+def _stop_service_process(host: str, port: int, timeout: float = 3.0) -> bool:
+    pid = _read_service_pid(host, port)
+    if pid is None:
+        return False
+
+    if not _pid_alive(pid):
+        _clear_service_pid(host, port)
+        return True
+
+    os.kill(pid, signal.SIGTERM)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not _pid_alive(pid):
+            _clear_service_pid(host, port)
+            return True
+        time.sleep(0.1)
+
+    os.kill(pid, signal.SIGKILL)
+    time.sleep(0.1)
+    _clear_service_pid(host, port)
+    return True
 
 
 def _rpc_call(
@@ -256,6 +326,10 @@ def serve(
     ),
 ):
     """Run KeepGPU local service (HTTP + JSON-RPC + dashboard)."""
+    console.print(f"[bold cyan]Service URL:[/bold cyan] http://{host}:{port}/")
+    console.print(
+        "[dim]Press Ctrl+C to stop the foreground service, or use `keep-gpu service-stop` for auto-started daemons.[/dim]"
+    )
     run_http(KeepGPUServer(), host=host, port=port)
 
 
@@ -290,9 +364,13 @@ def start(
         help="Auto-start local service when unavailable.",
     ),
 ):
-    """Start a non-blocking keep session and return a job id."""
+    """Start a non-blocking keep session and return a job id.
+
+    Use `keep-gpu stop --job-id <id>` to release this session and
+    `keep-gpu service-stop` to stop the local service daemon.
+    """
     try:
-        _ensure_service_running(host, port, auto_start=auto_start)
+        auto_started = _ensure_service_running(host, port, auto_start=auto_start)
         result = _rpc_call(
             "start_keep",
             {
@@ -305,8 +383,19 @@ def start(
             host,
             port,
         )
+        if auto_started:
+            console.print(
+                f"[bold cyan]Auto-started KeepGPU service[/bold cyan] at http://{host}:{port}/"
+            )
         console.print(
             f"[bold green]Started keep session[/bold green] job_id={result['job_id']}"
+        )
+        console.print(f"[cyan]Dashboard:[/cyan] http://{host}:{port}/")
+        console.print(
+            f"[dim]Next: keep-gpu status --job-id {result['job_id']} | keep-gpu stop --job-id {result['job_id']}[/dim]"
+        )
+        console.print(
+            "[dim]When all sessions are done, stop daemon with: keep-gpu service-stop[/dim]"
         )
     except (RuntimeError, typer.BadParameter, URLError) as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
@@ -372,6 +461,41 @@ def list_gpus(
     try:
         result = _rpc_call("list_gpus", {}, host, port)
         console.print_json(data=json.dumps(result))
+    except (RuntimeError, URLError) as exc:
+        console.print(f"[bold red]Error: {exc}[/bold red]")
+        raise typer.Exit(code=1) from exc
+
+
+@app.command("service-stop")
+def service_stop(
+    host: str = typer.Option(DEFAULT_SERVICE_HOST, "--host", help="Service host."),
+    port: int = typer.Option(DEFAULT_SERVICE_PORT, "--port", help="Service port."),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Stop service even if active sessions exist.",
+    ),
+):
+    """Stop local KeepGPU service daemon started by auto-start logic."""
+    try:
+        if _service_available(host, port):
+            status = _rpc_call("status", {}, host, port)
+            active_jobs = status.get("active_jobs", [])
+            if active_jobs and not force:
+                raise RuntimeError(
+                    "Active keep sessions detected. Stop sessions first (`keep-gpu stop --all`) or re-run with --force."
+                )
+            _rpc_call("stop_keep", {}, host, port)
+
+        stopped = _stop_service_process(host, port)
+        if not stopped:
+            raise RuntimeError(
+                "No managed daemon PID found. If service was started in foreground, stop it with Ctrl+C in that terminal."
+            )
+
+        console.print(
+            f"[bold green]Stopped KeepGPU service daemon[/bold green] at http://{host}:{port}/"
+        )
     except (RuntimeError, URLError) as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
         raise typer.Exit(code=1) from exc

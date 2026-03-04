@@ -97,6 +97,7 @@ Use when users intentionally want one foreground process and manual `Ctrl+C` sto
 keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
 keep-gpu status
 keep-gpu stop --all
+keep-gpu service-stop
 ```
 
 `start` auto-starts local service when unavailable.
@@ -122,7 +123,7 @@ Legacy compatibility:
    - non-blocking mode for agent pipelines (default recommendation).
 3. Choose safe defaults when unspecified: `--vram 1GiB`, `--interval 60-120`, `--busy-threshold 25`.
 4. Provide command sequence with verification and stop command.
-5. For non-blocking mode, include `status` and `stop` commands using `job_id`.
+5. For non-blocking mode, include `status`, `stop`, and daemon shutdown (`service-stop`).
 
 ## Command templates
 
@@ -144,6 +145,7 @@ Agent-friendly non-blocking sequence:
 keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
 keep-gpu status
 keep-gpu stop --job-id <job_id>
+keep-gpu service-stop
 ```
 
 Open dashboard:
@@ -184,7 +186,7 @@ Suggested response shape:
 
 1. Install: `pip install "git+https://github.com/Wangmerlyn/KeepGPU.git"`
 2. Run: `keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25`
-3. Verify: `keep-gpu status` or dashboard `http://127.0.0.1:8765/`; stop with `keep-gpu stop --job-id <job_id>`.
+3. Verify: `keep-gpu status` or dashboard `http://127.0.0.1:8765/`; stop session with `keep-gpu stop --job-id <job_id>` and daemon with `keep-gpu service-stop`.
 
 ## Limitations
 
