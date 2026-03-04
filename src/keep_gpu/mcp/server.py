@@ -1,12 +1,22 @@
-"""
-Minimal MCP-style JSON-RPC server for KeepGPU.
+"""KeepGPU local service.
 
-Run over stdin/stdout (default) or a lightweight HTTP server.
-Supported methods:
+Supports JSON-RPC over stdio/HTTP and REST-style HTTP endpoints.
+
+JSON-RPC methods:
   - start_keep(gpu_ids, vram, interval, busy_threshold, job_id)
   - stop_keep(job_id=None)  # None stops all
   - status(job_id=None)     # None lists all
   - list_gpus()
+
+HTTP endpoints:
+  - GET /health
+  - GET /api/gpus
+  - GET /api/sessions
+  - GET /api/sessions/{job_id}
+  - POST /api/sessions
+  - DELETE /api/sessions
+  - DELETE /api/sessions/{job_id}
+  - GET / (dashboard static assets)
 """
 
 from __future__ import annotations
@@ -17,16 +27,20 @@ import sys
 import uuid
 import argparse
 import threading
+import mimetypes
 from http.server import BaseHTTPRequestHandler
 from socketserver import TCPServer
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+from urllib.parse import unquote, urlparse
 
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
 from keep_gpu.utilities.gpu_info import get_gpu_info
 from keep_gpu.utilities.logger import setup_logger
 
 logger = setup_logger(__name__)
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 @dataclass
@@ -190,6 +204,67 @@ def _handle_request(server: KeepGPUServer, payload: Dict[str, Any]) -> Dict[str,
 class _JSONRPCHandler(BaseHTTPRequestHandler):
     server_version = "KeepGPU-MCP/0.1"
 
+    def _json_response(self, status: int, payload: Dict[str, Any]) -> None:
+        data = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _read_json_body(self) -> Dict[str, Any]:
+        length = int(self.headers.get("content-length", "0"))
+        body = self.rfile.read(length).decode("utf-8")
+        return json.loads(body)
+
+    def _serve_static(self, request_path: str) -> None:
+        if request_path in ("/", ""):
+            relative = "index.html"
+        else:
+            relative = request_path.lstrip("/")
+
+        requested = (STATIC_DIR / unquote(relative)).resolve()
+        static_root = STATIC_DIR.resolve()
+        if static_root not in requested.parents and requested != static_root:
+            self._json_response(403, {"error": {"message": "Forbidden"}})
+            return
+
+        if not requested.exists() or requested.is_dir():
+            # SPA fallback for client-side routes.
+            requested = static_root / "index.html"
+            if not requested.exists():
+                self._json_response(404, {"error": {"message": "UI not built"}})
+                return
+
+        content = requested.read_bytes()
+        content_type, _ = mimetypes.guess_type(str(requested))
+        self.send_response(200)
+        self.send_header("content-type", content_type or "application/octet-stream")
+        self.send_header("content-length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
+    def do_GET(self):  # noqa: N802
+        parsed = urlparse(self.path)
+        path = parsed.path
+        server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
+
+        if path == "/health":
+            self._json_response(200, {"ok": True})
+            return
+        if path == "/api/gpus":
+            self._json_response(200, server_ref.list_gpus())
+            return
+        if path == "/api/sessions":
+            self._json_response(200, server_ref.status())
+            return
+        if path.startswith("/api/sessions/"):
+            job_id = unquote(path.rsplit("/", 1)[-1])
+            self._json_response(200, server_ref.status(job_id=job_id))
+            return
+
+        self._serve_static(path)
+
     def do_POST(self):  # noqa: N802
         """
         Handle an HTTP JSON-RPC request and write a JSON response.
@@ -197,22 +272,39 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         Expects application/json bodies containing {"method", "params", "id"}.
         Returns 400 with an error object if parsing fails.
         """
+        parsed = urlparse(self.path)
+        path = parsed.path
+        server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
         try:
-            length = int(self.headers.get("content-length", "0"))
-            body = self.rfile.read(length).decode("utf-8")
-            payload = json.loads(body)
-            server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
-            response = _handle_request(server_ref, payload)
-            status = 200
+            payload = self._read_json_body()
+            if path == "/api/sessions":
+                result = server_ref.start_keep(**payload)
+                self._json_response(200, result)
+                return
+
+            # JSON-RPC compatibility endpoint.
+            if path in ("/", "/rpc"):
+                response = _handle_request(server_ref, payload)
+                self._json_response(200, response)
+                return
+
+            self._json_response(404, {"error": {"message": "Unknown endpoint"}})
         except (json.JSONDecodeError, ValueError, UnicodeDecodeError) as exc:
-            response = {"error": {"message": f"Bad request: {exc}"}}
-            status = 400
-        data = json.dumps(response).encode()
-        self.send_response(status)
-        self.send_header("content-type", "application/json")
-        self.send_header("content-length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+            self._json_response(400, {"error": {"message": f"Bad request: {exc}"}})
+
+    def do_DELETE(self):  # noqa: N802
+        parsed = urlparse(self.path)
+        path = parsed.path
+        server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
+
+        if path == "/api/sessions":
+            self._json_response(200, server_ref.stop_keep(job_id=None))
+            return
+        if path.startswith("/api/sessions/"):
+            job_id = unquote(path.rsplit("/", 1)[-1])
+            self._json_response(200, server_ref.stop_keep(job_id=job_id))
+            return
+        self._json_response(404, {"error": {"message": "Unknown endpoint"}})
 
     def log_message(self, format, *args):  # noqa: A003
         """Suppress default request logging."""

@@ -1,6 +1,6 @@
 # SkillCheck Free Report: gpu-keepalive-with-keepgpu
 
-Validation method: applied the SkillCheck Free rule set from `skill-check/SKILL.md` in <https://github.com/olgasafonova/skillcheck-free> after updating the skill to focus on KeepGPU CLI usage and installation instructions.
+Validation method: applied the SkillCheck Free rule set from `skill-check/SKILL.md` in <https://github.com/olgasafonova/skillcheck-free> after updating the skill to cover blocking and non-blocking KeepGPU workflows, including dashboard usage.
 
 ## Summary
 

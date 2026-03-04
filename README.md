@@ -20,7 +20,7 @@ On many clusters, idle GPUs are reaped or silently shared after a short grace pe
 - **Polite** – Uses NVML to read utilization and backs off when the GPU is busy.
 - **Portable** – Typer/Rich CLI for humans; Python API for orchestrators and notebooks.
 - **Observable** – Structured logging and optional file logs for auditing what kept the GPU alive.
-- **Power-aware** – Uses intervalled elementwise ops instead of heavy matmul floods to present “busy” utilization while keeping power and thermals lower (see `CudaGPUController._run_mat_batch` for the loop).
+- **Power-aware** – Uses intervalled elementwise ops instead of heavy matmul floods to present “busy” utilization while keeping power and thermals lower (see `CudaGPUController._run_relu_batch` for the loop).
 - **NVML-backed** – GPU telemetry comes from `nvidia-ml-py` (the `pynvml` module), with optional `rocm-smi` support when you install the `rocm` extra.
 
 ## Quick start (CLI)
@@ -30,6 +30,16 @@ pip install keep-gpu
 
 # Hold GPU 0 with 1 GiB VRAM and throttle if utilization exceeds 25%
 keep-gpu --gpu-ids 0 --vram 1GiB --busy-threshold 25 --interval 60
+
+# Non-blocking mode for agent workflows (auto-starts local service)
+keep-gpu start --gpu-ids 0 --vram 1GiB --busy-threshold 25 --interval 60
+keep-gpu status
+```
+
+Open the dashboard while service mode is running:
+
+```text
+http://127.0.0.1:8765/
 ```
 
 ### Platform installs at a glance
@@ -52,10 +62,17 @@ keep-gpu --gpu-ids 0 --vram 1GiB --busy-threshold 25 --interval 60
 
 Flags that matter:
 
-- `--vram` (`1GiB`, `750MB`, or bytes): how much memory to pin.
-- `--interval` (seconds): sleep between keep-alive bursts.
-- `--busy-threshold`: skip work when NVML reports higher utilization.
-- `--gpu-ids`: target a subset; otherwise all visible GPUs are guarded.
+- Blocking mode knobs:
+  - `--vram` (`1GiB`, `750MB`, or bytes): how much memory to pin.
+  - `--interval` (seconds): sleep between keep-alive bursts.
+  - `--busy-threshold`: skip work when NVML reports higher utilization.
+  - `--gpu-ids`: target a subset; otherwise all visible GPUs are guarded.
+- Service mode commands:
+  - `keep-gpu serve`: run local service (HTTP + dashboard).
+  - `keep-gpu start`: create keep session and return immediately.
+  - `keep-gpu status`: inspect active sessions.
+  - `keep-gpu stop --job-id <id>` or `keep-gpu stop --all`: release sessions.
+  - `keep-gpu list-gpus`: fetch telemetry from local service.
 
 ## Embed in Python
 
@@ -91,21 +108,27 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 - ROCm-only tests carry `@pytest.mark.rocm`; run with `pytest --run-rocm tests/rocm_controller`.
 - Markers: `rocm` (needs ROCm stack) and `large_memory` (opt-in locally).
 
-### MCP endpoint (experimental)
+### MCP and service API
 
 - Start a simple JSON-RPC server on stdin/stdout (default):
   ```bash
   keep-gpu-mcp-server
   ```
-- Or expose it over HTTP (JSON-RPC 2.0 by way of POST):
+- Or expose it over HTTP (JSON-RPC + REST + dashboard):
   ```bash
   keep-gpu-mcp-server --mode http --host 0.0.0.0 --port 8765
   ```
-- Example request (one per line):
+- JSON-RPC request example:
   ```json
   {"id": 1, "method": "start_keep", "params": {"gpu_ids": [0], "vram": "512MB", "interval": 60, "busy_threshold": 20}}
   ```
+- REST examples:
+  ```bash
+  curl http://127.0.0.1:8765/health
+  curl http://127.0.0.1:8765/api/sessions
+  ```
 - Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info).
+- Dashboard: `http://127.0.0.1:8765/`
 - Minimal client config (stdio MCP):
   ```yaml
   servers:

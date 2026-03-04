@@ -1,3 +1,3 @@
 display_name: KeepGPU CLI Operator
-short_description: Install and operate keep-gpu CLI commands safely on shared GPU machines.
-default_prompt: Use this skill to install KeepGPU and build run-ready keep-gpu commands with sensible defaults, verification steps, and troubleshooting.
+short_description: Install and operate KeepGPU blocking and non-blocking workflows with dashboard support.
+default_prompt: Use this skill to install KeepGPU and build run-ready keep-gpu command sequences (start/status/stop or blocking mode), including verification and troubleshooting.
