@@ -16,8 +16,6 @@ from urllib.request import Request, urlopen
 import typer
 from rich.console import Console
 
-from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
-from keep_gpu.mcp.server import KeepGPUServer, run_http
 from keep_gpu.utilities.logger import setup_logger
 
 DEFAULT_SERVICE_HOST = "127.0.0.1"
@@ -217,6 +215,7 @@ def _rpc_call(
     params: Optional[Dict[str, Any]],
     host: str,
     port: int,
+    timeout: float = 8.0,
 ) -> Dict[str, Any]:
     payload = {
         "id": int(time.time() * 1000),
@@ -224,12 +223,31 @@ def _rpc_call(
         "params": params or {},
     }
     response = _http_json_request(
-        "POST", f"{_service_base_url(host, port)}/rpc", payload
+        "POST", f"{_service_base_url(host, port)}/rpc", payload, timeout=timeout
     )
     if "error" in response:
         error = response["error"]
         raise RuntimeError(error.get("message", str(error)))
     return response.get("result", {})
+
+
+def _stop_all_sessions_with_fallback(host: str, port: int) -> Dict[str, Any]:
+    try:
+        return _rpc_call("stop_keep", {}, host, port, timeout=45.0)
+    except RuntimeError as exc:
+        managed_pid = _read_service_pid(host, port)
+        if managed_pid and _pid_alive(managed_pid):
+            _stop_service_process(host, port)
+            return {
+                "stopped": [],
+                "message": (
+                    "Service stop RPC timed out; force-stopped local daemon "
+                    f"pid={managed_pid}. Reserved VRAM should be released by process exit."
+                ),
+            }
+        raise RuntimeError(
+            f"{exc}. If service is unresponsive, run `keep-gpu service-stop --force`."
+        ) from exc
 
 
 def _run_blocking(
@@ -239,6 +257,10 @@ def _run_blocking(
     legacy_threshold: Optional[str],
     busy_threshold: int,
 ) -> None:
+    import torch
+
+    from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
+
     vram, busy_threshold, legacy_mode = _apply_legacy_threshold(
         vram, legacy_threshold, busy_threshold
     )
@@ -257,8 +279,6 @@ def _run_blocking(
         logger.info("Using specified GPUs: %s", gpu_id_list)
         gpu_count = len(gpu_id_list)
     else:
-        import torch
-
         gpu_count = torch.cuda.device_count()
         logger.info("Using all available GPUs")
 
@@ -334,6 +354,8 @@ def serve(
     ),
 ):
     """Run KeepGPU local service (HTTP + JSON-RPC + dashboard)."""
+    from keep_gpu.mcp.server import KeepGPUServer, run_http
+
     console.print(f"[bold cyan]Service URL:[/bold cyan] http://{host}:{port}/")
     console.print(
         "[dim]Press Ctrl+C to stop the foreground service, or use `keep-gpu service-stop` for auto-started daemons.[/dim]"
@@ -448,12 +470,16 @@ def stop(
     try:
         if not job_id and not all_sessions:
             raise RuntimeError("Provide --job-id or use --all.")
-        result = _rpc_call(
-            "stop_keep",
-            {} if all_sessions else {"job_id": job_id},
-            host,
-            port,
-        )
+        if all_sessions:
+            result = _stop_all_sessions_with_fallback(host, port)
+        else:
+            result = _rpc_call(
+                "stop_keep",
+                {"job_id": job_id},
+                host,
+                port,
+                timeout=45.0,
+            )
         console.print_json(data=json.dumps(result))
     except RuntimeError as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
@@ -486,14 +512,25 @@ def service_stop(
 ):
     """Stop local KeepGPU service daemon started by auto-start logic."""
     try:
+        if force:
+            stopped = _stop_service_process(host, port)
+            if not stopped:
+                raise RuntimeError(
+                    "No managed daemon PID found. If service was started in foreground, stop it with Ctrl+C in that terminal."
+                )
+            console.print(
+                f"[bold green]Force-stopped KeepGPU service daemon[/bold green] at http://{host}:{port}/"
+            )
+            return
+
         if _service_available(host, port):
             status = _rpc_call("status", {}, host, port)
             active_jobs = status.get("active_jobs", [])
-            if active_jobs and not force:
+            if active_jobs:
                 raise RuntimeError(
                     "Active keep sessions detected. Stop sessions first (`keep-gpu stop --all`) or re-run with --force."
                 )
-            _rpc_call("stop_keep", {}, host, port)
+            _rpc_call("stop_keep", {}, host, port, timeout=45.0)
 
         stopped = _stop_service_process(host, port)
         if not stopped:

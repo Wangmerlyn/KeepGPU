@@ -105,7 +105,7 @@ def test_service_stop_refuses_active_sessions_without_force(monkeypatch):
     monkeypatch.setattr(
         cli,
         "_rpc_call",
-        lambda method, params, host, port: (
+        lambda method, params, host, port, timeout=8.0: (
             {"active_jobs": [{"job_id": "j1"}]}
             if method == "status"
             else {"stopped": []}
@@ -120,18 +120,57 @@ def test_service_stop_refuses_active_sessions_without_force(monkeypatch):
 
 
 def test_stop_handles_service_timeout_without_traceback(monkeypatch):
-    def fake_rpc(method, params, host, port):
+    def fake_rpc(method, params, host, port, timeout=8.0):
         raise RuntimeError(
             "Cannot reach KeepGPU service at http://127.0.0.1:8765/rpc: timed out"
         )
 
     monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: None)
 
     result = runner.invoke(cli.app, ["stop", "--all"])
 
     assert result.exit_code == 1
     assert "Cannot reach KeepGPU service" in result.output
+    assert "service-stop --force" in result.output
     assert "Traceback" not in result.output
+
+
+def test_cli_module_avoids_eager_gpu_imports():
+    assert not hasattr(cli, "GlobalGPUController")
+    assert not hasattr(cli, "KeepGPUServer")
+
+
+def test_stop_all_fallback_force_stops_managed_daemon(monkeypatch):
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        raise RuntimeError("timed out")
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: 1234)
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+    monkeypatch.setattr(cli, "_stop_service_process", lambda host, port: True)
+
+    result = runner.invoke(cli.app, ["stop", "--all"])
+
+    assert result.exit_code == 0
+    assert "force-stopped local daemon" in result.output
+
+
+def test_service_stop_force_skips_rpc(monkeypatch):
+    called = {"rpc": 0}
+
+    def fake_rpc(*args, **kwargs):
+        called["rpc"] += 1
+        return {}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_service_process", lambda host, port: True)
+
+    result = runner.invoke(cli.app, ["service-stop", "--force"])
+
+    assert result.exit_code == 0
+    assert "Force-stopped KeepGPU service daemon" in result.output
+    assert called["rpc"] == 0
 
 
 def test_http_json_request_wraps_timeout(monkeypatch):
