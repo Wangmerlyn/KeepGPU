@@ -116,10 +116,21 @@ All visible GPUs with lighter load:
 keep-gpu --vram 512MB --interval 180
 ```
 
-Background execution on remote shell:
+Remote sessions (preferred: `tmux` for visibility and control):
+
+```bash
+tmux new -s keepgpu
+keep-gpu --gpu-ids 0 --vram 1GiB --interval 300
+# Detach with Ctrl+b then d; reattach with: tmux attach -t keepgpu
+```
+
+Fallback when `tmux` is unavailable:
 
 ```bash
 nohup keep-gpu --gpu-ids 0 --vram 1GiB --interval 300 > keepgpu.log 2>&1 &
+echo $! > keepgpu.pid
+# Monitor: tail -f keepgpu.log
+# Stop: kill "$(cat keepgpu.pid)"
 ```
 
 ## Troubleshooting
