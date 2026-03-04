@@ -1,5 +1,5 @@
 ---
-name: keepgpu-repo-workflow
+name: gpu-keepalive-with-keepgpu
 description: Install and operate the KeepGPU CLI to keep reserved GPUs active during data prep, debugging, and orchestration downtime. Use when users ask for keep-gpu command construction, tuning (--vram, --interval, --busy-threshold), installation from this repository, or runtime troubleshooting of keep-gpu sessions; do not use for repository development, code refactoring, or unrelated Python tooling.
 ---
 
