@@ -147,9 +147,17 @@ venv.bak/
 
 # mkdocs documentation
 /site
+
+# Planning files (created by planning-with-files skill)
 /task_plan.md
 /findings.md
 /progress.md
+task_plan.md
+findings.md
+progress.md
+**/task_plan.md
+**/findings.md
+**/progress.md
 
 # mypy
 .mypy_cache/
