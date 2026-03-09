@@ -49,6 +49,9 @@ dev = [
 rocm = [
   "rocm-smi",
 ]
+macm = [
+  "psutil",  # For system memory query on Apple Silicon
+]
 
 [project.urls]
 bugs = "https://github.com/Wangmerlyn/KeepGPU/issues"

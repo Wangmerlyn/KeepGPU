@@ -49,7 +49,14 @@ class GlobalGPUController:
             )
 
         if self.computing_platform == ComputingPlatform.MACM:
-            self.gpu_ids = [0]
+            if gpu_ids is None:
+                self.gpu_ids = [0]
+            elif gpu_ids == [0]:
+                self.gpu_ids = gpu_ids
+            else:
+                raise ValueError(
+                    f"MACM platform only supports gpu_ids=[0] or None, got {gpu_ids}"
+                )
         elif gpu_ids is None:
             self.gpu_ids = list(range(torch.cuda.device_count()))
         else:
