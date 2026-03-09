@@ -61,6 +61,12 @@ http://127.0.0.1:8765/
   pip install torch
   pip install keep-gpu
   ```
+- **Mac M series (M1/M2/M3/M4)**
+  ```bash
+  pip install torch
+  pip install keep-gpu[macm]
+  ```
+  Uses Metal Performance Shaders (MPS) backend on Apple Silicon.
 
 Flags that matter:
 
@@ -132,6 +138,9 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
   ```
 - Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info).
 - Dashboard: `http://127.0.0.1:8765/`
+- **Mac M series limitations:**
+  - GPU utilization monitoring is not available on macOS.
+  - `busy_threshold` parameter is accepted for API compatibility but has no effect.
 - Minimal client config (stdio MCP):
   ```yaml
   servers:

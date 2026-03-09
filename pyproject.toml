@@ -144,5 +144,6 @@ force-single-line = false
 [tool.pytest.ini_options]
 markers = [
   "rocm: tests that require ROCm stack",
+  "macm: tests that require Apple Silicon with MPS",
   "large_memory: tests that use large VRAM",
 ]

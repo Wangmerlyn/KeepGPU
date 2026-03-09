@@ -37,12 +37,20 @@ class GlobalGPUController:
             )
 
             controller_cls = RocmGPUController
+        elif self.computing_platform == ComputingPlatform.MACM:
+            from keep_gpu.single_gpu_controller.macm_gpu_controller import (
+                MacMGPUController,
+            )
+
+            controller_cls = MacMGPUController
         else:
             raise NotImplementedError(
                 f"GlobalGPUController not implemented for platform {self.computing_platform}"
             )
 
-        if gpu_ids is None:
+        if self.computing_platform == ComputingPlatform.MACM:
+            self.gpu_ids = [0]
+        elif gpu_ids is None:
             self.gpu_ids = list(range(torch.cuda.device_count()))
         else:
             self.gpu_ids = gpu_ids

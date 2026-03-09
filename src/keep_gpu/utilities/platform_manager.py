@@ -1,4 +1,6 @@
 import os
+import sys
+import platform
 from enum import Enum
 from typing import Callable, List, Tuple
 
@@ -13,6 +15,7 @@ class ComputingPlatform(Enum):
     CPU = "cpu"
     CUDA = "cuda"
     ROCM = "rocm"
+    MACM = "macm"
 
 
 def _check_cuda():
@@ -60,9 +63,27 @@ def _check_cpu():
     return True
 
 
+def _check_macm():
+    """Return True if running on Apple Silicon Mac (Mac M) with MPS support."""
+    try:
+        # macOS (darwin) on Apple Silicon (arm64) with PyTorch MPS backend available
+        if sys.platform != "darwin":
+            return False
+        if platform.machine() != "arm64":
+            return False
+        # PyTorch MPS availability
+        if torch.backends.mps.is_available():
+            return True
+        return False
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("MACM detection failed: %s", exc)
+        return False
+
+
 _PLATFORM_CHECKS: List[Tuple[ComputingPlatform, Callable[[], bool]]] = [
     (ComputingPlatform.CUDA, _check_cuda),
     (ComputingPlatform.ROCM, _check_rocm),
+    (ComputingPlatform.MACM, _check_macm),
     (ComputingPlatform.CPU, _check_cpu),
 ]
 
@@ -105,5 +126,4 @@ def get_platform():
 
 
 if __name__ == "__main__":
-
     print("Current platform:", get_platform().value)
