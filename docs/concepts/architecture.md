@@ -7,12 +7,12 @@ schedulers that the GPU is still busy, without burning a full training workload.
 ## Components
 
 1. **CLI (Typer/Rich)** – Parses options, validates GPU IDs, and configures the logger.
-2. **`GlobalGPUController`** – Detects the current platform (CUDA, ROCm, 
+2. **`GlobalGPUController`** – Detects the current platform (CUDA, ROCm,
    or Mac M series) and instantiates one single-GPU controller per selected device.
-3. **`CudaGPUController`** / **`RocmGPUController`** / **`MacMGPUController`** – 
+3. **`CudaGPUController`** / **`RocmGPUController`** / **`MacMGPUController`** –
    Platform-specific implementations for per-GPU keep-alive loops.
 4. **GPU monitor (NVML/ROCm)** – Wraps `nvidia-ml-py` (the `pynvml` module) for CUDA
-   telemetry and optionally `rocm-smi` when installed by way of the `rocm` extra. 
+   telemetry and optionally `rocm-smi` when installed by way of the `rocm` extra.
    Mac M series does not support direct GPU utilization monitoring.
 5. **Utilities** – `parse_size` turns strings like `1GiB` into bytes, while
    `setup_logger` wires both console and file logging with optional colors.
@@ -54,5 +54,5 @@ Matrix multiplies:
 
 ## Platform detection
 
-`get_platform()` inspects the system and enables the CUDA, ROCm, or Mac M series 
+`get_platform()` inspects the system and enables the CUDA, ROCm, or Mac M series
 (MPS) path. Detection order: CUDA → ROCm → Mac M → CPU fallback.
