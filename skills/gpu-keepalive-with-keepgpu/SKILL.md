@@ -73,6 +73,23 @@ For ROCm users from local checkout:
 pip install -e ".[rocm]"
 ```
 
+### Option D: Mac M series install
+
+```bash
+# Install PyTorch with MPS support
+pip install torch
+
+# Install KeepGPU with Mac M extras
+pip install "keep_gpu[macm] @ git+https://github.com/Wangmerlyn/KeepGPU.git"
+```
+
+**Note for Mac M users:**
+- Uses Metal Performance Shaders (MPS) backend automatically on Apple Silicon
+- GPU utilization monitoring is **not available** on macOS (the system doesn't provide this API)
+- The `--busy-threshold` parameter is accepted for API compatibility but has no effect
+- Only device 0 is supported (MPS limitation)
+- Memory allocation uses the unified memory architecture (shared with system RAM)
+
 Verify installation:
 
 ```bash
@@ -179,6 +196,8 @@ echo $! > keepgpu.pid
 - Allocation failure / OOM: reduce `--vram` or free memory first.
 - No utilization telemetry: ensure `nvidia-ml-py` works and `nvidia-smi` is available.
 - No GPUs detected: verify drivers, CUDA/ROCm runtime, and `torch.cuda.device_count()`.
+- Mac M series issues: ensure you're on macOS 12.3+ and PyTorch is built with MPS support (`torch.backends.mps.is_available()` should return True)
+- Memory allocation failures on Mac: the unified memory architecture may show different behavior than discrete GPUs; try reducing `--vram` values
 
 ## Example
 

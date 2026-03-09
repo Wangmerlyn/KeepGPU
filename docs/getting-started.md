@@ -11,8 +11,9 @@ understand the minimum knobs you need to keep a GPU occupied.
 
 !!! info "Platforms"
     CUDA is the primary path; ROCm is supported by way of the `rocm` extra
-    (requires a ROCm-enabled PyTorch build). CPU-only environments can import
-    the package but controllers will not start.
+    (requires a ROCm-enabled PyTorch build); Mac M series (M1/M2/M3/M4) is
+    supported by way of the `macm` extra using Metal Performance Shaders (MPS).
+    CPU-only environments can import the package but controllers will not start.
 
 ## Install
 
@@ -47,6 +48,15 @@ understand the minimum knobs you need to keep a GPU occupied.
     pip install -e .[dev]
     ```
 
+=== "Mac M series (M1/M2/M3/M4)"
+    ```bash
+    pip install torch
+    pip install keep-gpu[macm]
+    ```
+    MPS (Metal Performance Shaders) backend will be used automatically on
+    Apple Silicon Macs. Note: GPU utilization monitoring is not available
+    on macOS.
+
 ## Pick your interface
 
 - **CLI** – fastest way to reserve GPUs from a shell; see [CLI Playbook](guides/cli.md).
@@ -60,6 +70,13 @@ understand the minimum knobs you need to keep a GPU occupied.
    python -c "import torch; print(torch.cuda.device_count())"
    ```
    A non-zero integer indicates CUDA is available.
+
+   On Mac M series:
+   ```bash
+   python -c "import torch; print(torch.backends.mps.is_available())"
+   ```
+   Should print `True` on Apple Silicon Macs.
+
 2. Run the CLI in dry form (press `Ctrl+C` after a few seconds):
    ```bash
    keep-gpu --interval 30 --vram 512MB
