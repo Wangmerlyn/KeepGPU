@@ -81,10 +81,10 @@ The dashboard provides:
 
 | Option | Meaning | Default |
 | --- | --- | --- |
-| `--gpu-ids` | Comma-separated GPU IDs. Omit to use all visible devices. | all |
-| `--vram` | Per-GPU memory target (`512MB`, `1GiB`, bytes). | `1GiB` |
-| `--interval` | Seconds between keep-alive cycles. | `300` |
-| `--busy-threshold` / `--util-threshold` | Back off when utilization exceeds this value. | `-1` |
+| `--gpu-ids` | Comma-separated non-negative GPU IDs. Omit to use all visible devices. | all |
+| `--vram` | Per-GPU memory target (`512MB`, `1GiB`, or bare bytes). | `1GiB` |
+| `--interval` | Positive seconds between keep-alive cycles. | `300` |
+| `--busy-threshold` / `--util-threshold` | Back off when utilization exceeds this value; `-1` disables utilization backoff. | `-1` |
 
 ## Remote sessions
 

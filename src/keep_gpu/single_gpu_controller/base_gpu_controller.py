@@ -1,6 +1,7 @@
 from typing import Union
 
 from keep_gpu.utilities.humanized_input import parse_vram_to_elements
+from keep_gpu.utilities.session_config import validate_interval
 
 
 class BaseGPUController:
@@ -15,7 +16,7 @@ class BaseGPUController:
             interval (float): Time interval (in seconds) between keep-alive cycles.
         """
         self.vram_to_keep = parse_vram_to_elements(vram_to_keep)
-        self.interval = interval
+        self.interval = validate_interval(interval)
 
     def monitor(self):
         """

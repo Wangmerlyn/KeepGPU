@@ -14,6 +14,7 @@ Make CLI, Python service, REST, and JSON-RPC use the same humane validation and 
 - Treat digit-only VRAM strings and public integer `vram_to_keep` values as bytes.
 - Convert public bytes to internal float32 element counts once, close to controller setup.
 - Treat negative `busy_threshold` as "utilization backoff disabled" instead of "always back off".
+- Preserve subsecond positive intervals for the Python controller API.
 - Reject non-positive intervals and negative GPU IDs consistently across CLI, direct service calls, REST, and JSON-RPC.
 - Update docs and AGENTS guidance for the clarified public contract.
 

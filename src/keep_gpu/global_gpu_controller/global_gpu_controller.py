@@ -4,7 +4,11 @@ from typing import List, Optional, Union
 import torch
 
 from keep_gpu.utilities.humanized_input import parse_size
-from keep_gpu.utilities.session_config import validate_gpu_ids, validate_interval
+from keep_gpu.utilities.session_config import (
+    validate_busy_threshold,
+    validate_gpu_ids,
+    validate_interval,
+)
 from keep_gpu.utilities.platform_manager import ComputingPlatform, get_platform
 
 
@@ -18,6 +22,7 @@ class GlobalGPUController:
     ):
         self.computing_platform = get_platform()
         self.interval = validate_interval(interval)
+        self.busy_threshold = validate_busy_threshold(busy_threshold)
         self.vram_to_keep = vram_to_keep
         gpu_ids = validate_gpu_ids(gpu_ids)
         if self.computing_platform == ComputingPlatform.CUDA:
@@ -62,7 +67,7 @@ class GlobalGPUController:
                 rank=i,
                 interval=self.interval,
                 vram_to_keep=self.vram_to_keep,
-                busy_threshold=busy_threshold,
+                busy_threshold=self.busy_threshold,
             )
             for i in self.gpu_ids
         ]

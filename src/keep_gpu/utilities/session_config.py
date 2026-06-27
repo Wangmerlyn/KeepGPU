@@ -1,8 +1,12 @@
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 
 def _is_plain_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_plain_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 def validate_gpu_ids(gpu_ids: Any) -> Optional[List[int]]:
@@ -18,9 +22,9 @@ def validate_gpu_ids(gpu_ids: Any) -> Optional[List[int]]:
     return list(gpu_ids)
 
 
-def validate_interval(interval: Any) -> int:
+def validate_interval(interval: Any) -> Union[int, float]:
     """Validate public interval input in seconds."""
-    if not _is_plain_int(interval) or interval <= 0:
+    if not _is_plain_number(interval) or interval <= 0:
         raise ValueError("interval must be positive")
     return interval
 
