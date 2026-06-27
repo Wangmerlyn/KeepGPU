@@ -163,6 +163,17 @@ class JSONRPCError(Exception):
         self.message = message
 
 
+class SessionInputError(ValueError):
+    """Public session input validation error."""
+
+
+def _validate_public_session_input(validator: Callable[..., Any], *args: Any) -> Any:
+    try:
+        return validator(*args)
+    except (TypeError, ValueError) as exc:
+        raise SessionInputError(str(exc)) from exc
+
+
 class KeepGPUServer:
     def __init__(
         self,
@@ -246,12 +257,14 @@ class KeepGPUServer:
         Raises:
             ValueError: If the provided job_id already exists.
         """
-        gpu_ids = validate_gpu_ids(gpu_ids)
-        interval = validate_interval(interval)
-        busy_threshold = validate_busy_threshold(busy_threshold)
-        parse_vram_to_elements(vram)
+        gpu_ids = _validate_public_session_input(validate_gpu_ids, gpu_ids)
+        interval = _validate_public_session_input(validate_interval, interval)
+        busy_threshold = _validate_public_session_input(
+            validate_busy_threshold, busy_threshold
+        )
+        _validate_public_session_input(parse_vram_to_elements, vram)
 
-        job_id = validate_job_id(job_id)
+        job_id = _validate_public_session_input(validate_job_id, job_id)
         if job_id is None:
             job_id = str(uuid.uuid4())
         params = {
@@ -262,7 +275,7 @@ class KeepGPUServer:
         }
         with self._sessions_lock:
             if job_id in self._sessions or job_id in self._starting_job_ids:
-                raise ValueError(f"job_id {job_id} already exists")
+                raise SessionInputError(f"job_id {job_id} already exists")
             self._starting_job_ids.add(job_id)
             self._starting_params[job_id] = params
 
@@ -360,7 +373,7 @@ class KeepGPUServer:
             Dict with "stopped", "timed_out", "failed", and "errors" fields.
             If a specific job_id was not found, a "message" field explains the miss.
         """
-        job_id = validate_job_id(job_id)
+        job_id = _validate_public_session_input(validate_job_id, job_id)
         if job_id is not None:
             with self._sessions_lock:
                 while job_id in self._starting_job_ids:
@@ -480,7 +493,7 @@ class KeepGPUServer:
         return self._finalize_stop_result(result)
 
     def status(self, job_id: Optional[str] = None) -> Dict[str, Any]:
-        job_id = validate_job_id(job_id)
+        job_id = _validate_public_session_input(validate_job_id, job_id)
         if job_id is not None:
             with self._sessions_lock:
                 session = self._sessions.get(job_id)
@@ -550,17 +563,42 @@ def _jsonrpc_error(req_id: Any, code: int, message: str) -> Dict[str, Any]:
     }
 
 
+_DIRECT_METHOD_PARAMS = {
+    "start_keep": {"gpu_ids", "vram", "interval", "busy_threshold", "job_id"},
+    "stop_keep": {"job_id"},
+    "status": {"job_id"},
+    "list_gpus": set(),
+}
+
+
+def _validate_direct_method_params(method: str, params: Dict[str, Any]) -> None:
+    allowed = _DIRECT_METHOD_PARAMS.get(method)
+    if allowed is None:
+        return
+    unknown = sorted(set(params) - allowed)
+    if unknown:
+        joined = ", ".join(unknown)
+        raise JSONRPCError(
+            JSONRPC_INVALID_PARAMS,
+            f"Unknown params for {method}: {joined}",
+        )
+
+
 def _call_keepgpu_method(
     server: KeepGPUServer, method: str, params: Dict[str, Any]
 ) -> Dict[str, Any]:
-    if method == "start_keep":
-        return server.start_keep(**params)
-    if method == "stop_keep":
-        return server.stop_keep(**params)
-    if method == "status":
-        return server.status(**params)
-    if method == "list_gpus":
-        return server.list_gpus()
+    _validate_direct_method_params(method, params)
+    try:
+        if method == "start_keep":
+            return server.start_keep(**params)
+        if method == "stop_keep":
+            return server.stop_keep(**params)
+        if method == "status":
+            return server.status(**params)
+        if method == "list_gpus":
+            return server.list_gpus()
+    except SessionInputError as exc:
+        raise JSONRPCError(JSONRPC_INVALID_PARAMS, str(exc)) from exc
     raise JSONRPCError(JSONRPC_METHOD_NOT_FOUND, f"Unknown method: {method}")
 
 
