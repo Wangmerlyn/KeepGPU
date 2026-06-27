@@ -171,7 +171,7 @@ def test_service_stop_refuses_active_sessions_without_force(monkeypatch):
     result = runner.invoke(cli.app, ["service-stop"])
 
     assert result.exit_code == 1
-    assert "Active keep sessions detected" in result.output
+    assert "Tracked keep sessions detected" in result.output
 
 
 def test_stop_handles_service_timeout_without_traceback(monkeypatch):
