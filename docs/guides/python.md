@@ -53,7 +53,8 @@ with GlobalGPUController(
 ```
 
 - Each `CudaGPUController` runs in its own thread.
-- `busy_threshold` throttles the keep-alive loop when utilization spikes. When
+- `busy_threshold` accepts `-1` or a percentage in `0..100`. Non-negative
+  thresholds throttle the keep-alive loop when utilization spikes. When
   utilization telemetry is unavailable, non-negative thresholds sleep instead of
   running compute; use `busy_threshold=-1` only for explicit unconditional
   keepalive work.

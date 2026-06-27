@@ -83,6 +83,24 @@ def test_jsonrpc_rejects_non_positive_interval():
     assert server.status()["active_jobs"] == []
 
 
+def test_jsonrpc_rejects_busy_threshold_above_percent_range():
+    server = make_server()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"gpu_ids": [0], "interval": 1, "busy_threshold": 101},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert (
+        "busy_threshold must be -1 or an integer between 0 and 100"
+        in resp["error"]["message"]
+    )
+    assert server.status()["active_jobs"] == []
+
+
 def test_stop_all():
     server = make_server()
     job_a = server.start_keep()["job_id"]

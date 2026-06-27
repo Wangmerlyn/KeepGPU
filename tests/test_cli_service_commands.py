@@ -90,6 +90,28 @@ def test_start_command_rejects_non_positive_interval(monkeypatch):
     assert "interval must be positive" in result.output
 
 
+def test_start_command_rejects_busy_threshold_above_percent_range(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "_ensure_service_running",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("service should not be started")
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("RPC should not be called")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["start", "--busy-threshold", "101"])
+
+    assert result.exit_code == 1
+    assert "busy_threshold must be -1 or an integer between 0 and 100" in result.output
+
+
 def test_stop_requires_job_id_or_all():
     result = runner.invoke(cli.app, ["stop"])
     assert result.exit_code == 1

@@ -27,3 +27,15 @@ def test_apply_legacy_threshold_memory_string():
     assert vram == "2GiB"
     assert threshold == -1
     assert mode == "vram"
+
+
+def test_validate_cli_busy_threshold_rejects_legacy_value_above_percent_range():
+    vram, threshold, mode = cli._apply_legacy_threshold("1GiB", "101", -1)
+
+    assert vram == "1GiB"
+    assert threshold == 101
+    assert mode == "busy"
+    with pytest.raises(
+        Exception, match="busy_threshold must be -1 or an integer between 0 and 100"
+    ):
+        cli._validate_cli_busy_threshold(threshold)

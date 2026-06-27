@@ -93,9 +93,10 @@ The dashboard provides live telemetry, tracked session state, and start/stop con
 CUDA and ROCm devices include memory and utilization when the platform APIs are
 available. Mac M series devices report best-effort MPS memory counters and use
 `null` for unsupported fields such as utilization.
-When utilization is unavailable and `busy_threshold` is non-negative, controllers
-sleep instead of running keepalive compute; `busy_threshold=-1` is the explicit
-unconditional mode.
+Valid `busy_threshold` values are `-1` or `0..100`. When utilization is
+unavailable and `busy_threshold` is non-negative, controllers sleep instead of
+running keepalive compute; `busy_threshold=-1` is the explicit unconditional
+mode.
 Stop controls show timed-out or failed releases instead of claiming success when
 the backend keeps a session visible for follow-up cleanup. Retained session cards
 show `Releasing` or `Release failed` with the backend error detail when present.

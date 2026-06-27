@@ -18,7 +18,7 @@ import typer
 from rich.console import Console
 
 from keep_gpu.utilities.logger import setup_logger
-from keep_gpu.utilities.session_config import validate_interval
+from keep_gpu.utilities.session_config import validate_busy_threshold, validate_interval
 
 DEFAULT_SERVICE_HOST = "127.0.0.1"
 DEFAULT_SERVICE_PORT = 8765
@@ -232,6 +232,13 @@ def _parse_gpu_ids(gpu_ids: Optional[str]) -> Optional[List[int]]:
 def _validate_cli_interval(interval: int) -> int:
     try:
         return validate_interval(interval)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+def _validate_cli_busy_threshold(busy_threshold: int) -> int:
+    try:
+        return validate_busy_threshold(busy_threshold)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
 
@@ -480,6 +487,7 @@ def _run_blocking(
         console.print(
             "[yellow]`--threshold` for utilization is deprecated; use `--busy-threshold`.[/yellow]"
         )
+    busy_threshold = _validate_cli_busy_threshold(busy_threshold)
 
     gpu_id_list = _parse_gpu_ids(gpu_ids)
     if gpu_id_list is not None:
@@ -616,6 +624,7 @@ def start(
     """
     try:
         interval = _validate_cli_interval(interval)
+        busy_threshold = _validate_cli_busy_threshold(busy_threshold)
         parsed_gpu_ids = _parse_gpu_ids(gpu_ids)
         auto_started = _ensure_service_running(host, port, auto_start=auto_start)
         result = _rpc_call(
