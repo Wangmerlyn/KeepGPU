@@ -56,7 +56,7 @@ Starts a keep session and returns immediately with `job_id`.
 
 | Option | Description |
 | --- | --- |
-| `--job-id` | Optional session id; omit to list all tracked sessions, including in-progress or failed releases. |
+| `--job-id` | Optional session id; omit to list all tracked sessions, including in-progress starts, in-progress releases, or failed releases. |
 | `--host`, `--port` | Service host/port. |
 
 ### `keep-gpu stop`
@@ -97,8 +97,8 @@ digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
 | --- | --- | --- |
 | `/health` | GET | Service liveness probe. |
 | `/api/gpus` | GET | GPU telemetry (`id`, `name`, memory, utilization; unsupported fields are `null`). |
-| `/api/sessions` | GET | Tracked keep sessions, including `state` and `last_error` for in-progress or failed stops. |
-| `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active. |
+| `/api/sessions` | GET | Tracked keep sessions, including `state="starting"` during startup and `state`/`last_error` for in-progress or failed stops. |
+| `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active or starting. |
 | `/api/sessions` | POST | Start session (`gpu_ids`, `vram`, `interval`, `busy_threshold`, `job_id`); omitted `gpu_ids` means all GPUs visible to the service process, and empty, duplicate, or out-of-range selections are invalid. |
 | `/api/sessions` | DELETE | Stop all sessions; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/api/sessions/{job_id}` | DELETE | Stop one session; returns `stopped`, `timed_out`, `failed`, and `errors`. |

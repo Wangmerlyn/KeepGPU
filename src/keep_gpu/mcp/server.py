@@ -66,6 +66,7 @@ class KeepGPUServer:
     ) -> None:
         self._sessions: Dict[str, Session] = {}
         self._starting_job_ids: set[str] = set()
+        self._starting_params: Dict[str, Dict[str, Any]] = {}
         self._sessions_lock = threading.RLock()
         self._sessions_cond = threading.Condition(self._sessions_lock)
         self._controller_factory = controller_factory or GlobalGPUController
@@ -148,10 +149,17 @@ class KeepGPUServer:
         job_id = validate_job_id(job_id)
         if job_id is None:
             job_id = str(uuid.uuid4())
+        params = {
+            "gpu_ids": gpu_ids,
+            "vram": vram,
+            "interval": interval,
+            "busy_threshold": busy_threshold,
+        }
         with self._sessions_lock:
             if job_id in self._sessions or job_id in self._starting_job_ids:
                 raise ValueError(f"job_id {job_id} already exists")
             self._starting_job_ids.add(job_id)
+            self._starting_params[job_id] = params
 
         try:
             controller = self._controller_factory(
@@ -164,19 +172,16 @@ class KeepGPUServer:
         except Exception:
             with self._sessions_lock:
                 self._starting_job_ids.discard(job_id)
+                self._starting_params.pop(job_id, None)
                 self._sessions_cond.notify_all()
             raise
 
         with self._sessions_lock:
             self._starting_job_ids.discard(job_id)
+            params = self._starting_params.pop(job_id, params)
             self._sessions[job_id] = Session(
                 controller=controller,
-                params={
-                    "gpu_ids": gpu_ids,
-                    "vram": vram,
-                    "interval": interval,
-                    "busy_threshold": busy_threshold,
-                },
+                params=params,
             )
             self._sessions_cond.notify_all()
         logger.info("Started keep session %s on GPUs %s", job_id, gpu_ids)
@@ -375,6 +380,15 @@ class KeepGPUServer:
             with self._sessions_lock:
                 session = self._sessions.get(job_id)
                 if not session:
+                    params = self._starting_params.get(job_id)
+                    if params is not None:
+                        return {
+                            "active": True,
+                            "job_id": job_id,
+                            "params": params,
+                            "state": "starting",
+                            "last_error": None,
+                        }
                     return {"active": False, "job_id": job_id}
                 return {
                     "active": True,
@@ -388,12 +402,21 @@ class KeepGPUServer:
                 "active_jobs": [
                     {
                         "job_id": jid,
+                        "params": params,
+                        "state": "starting",
+                        "last_error": None,
+                    }
+                    for jid, params in self._starting_params.items()
+                ]
+                + [
+                    {
+                        "job_id": jid,
                         "params": sess.params,
                         "state": sess.state,
                         "last_error": sess.last_error,
                     }
                     for jid, sess in self._sessions.items()
-                ]
+                ],
             }
 
     def list_gpus(self) -> Dict[str, Any]:

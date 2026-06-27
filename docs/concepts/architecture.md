@@ -63,10 +63,11 @@ Elementwise keep-alive batches:
   shutdown time bounded even with many GPUs.
 - Service stop-all releases independent sessions concurrently after taking its
   session snapshot, while aggregating results in deterministic snapshot order.
-- Service session state is intentionally conservative: `stop_keep` removes a
-  session only after release succeeds. Timed-out sessions stay visible as
-  `state="stopping"` until the background release finishes; failed releases stay
-  visible as `state="stop_failed"` with `last_error`.
+- Service session state is intentionally conservative: `status` shows reserved
+  jobs as `state="starting"` while controller startup is in progress, and
+  `stop_keep` removes a session only after release succeeds. Timed-out sessions
+  stay visible as `state="stopping"` until the background release finishes;
+  failed releases stay visible as `state="stop_failed"` with `last_error`.
 - Errors inside a worker are logged but do not bring the whole process down;
   the loop retries after clearing the CUDA cache.
 
