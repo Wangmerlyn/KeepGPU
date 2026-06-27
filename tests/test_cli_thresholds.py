@@ -1,4 +1,11 @@
+import pytest
+
 from keep_gpu import cli
+
+
+def test_parse_gpu_ids_rejects_negative_values():
+    with pytest.raises(Exception, match="non-negative integers"):
+        cli._parse_gpu_ids("0,-1")
 
 
 def test_apply_legacy_threshold_none():

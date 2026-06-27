@@ -4,6 +4,7 @@ from typing import List, Optional, Union
 import torch
 
 from keep_gpu.utilities.humanized_input import parse_size
+from keep_gpu.utilities.session_config import validate_gpu_ids, validate_interval
 from keep_gpu.utilities.platform_manager import ComputingPlatform, get_platform
 
 
@@ -16,15 +17,9 @@ class GlobalGPUController:
         busy_threshold: int = 10,
     ):
         self.computing_platform = get_platform()
-        self.interval = interval
+        self.interval = validate_interval(interval)
         self.vram_to_keep = vram_to_keep
-        if isinstance(self.vram_to_keep, str):
-            try:
-                self.vram_to_keep = parse_size(self.vram_to_keep)
-            except ValueError as e:
-                raise ValueError(
-                    f"Invalid vram_to_keep value: {self.vram_to_keep}. Must be an integer (bytes) or a string like '1GiB', '2MiB' etc."
-                ) from e
+        gpu_ids = validate_gpu_ids(gpu_ids)
         if self.computing_platform == ComputingPlatform.CUDA:
             from keep_gpu.single_gpu_controller.cuda_gpu_controller import (
                 CudaGPUController,
@@ -65,7 +60,7 @@ class GlobalGPUController:
         self.controllers = [
             controller_cls(
                 rank=i,
-                interval=interval,
+                interval=self.interval,
                 vram_to_keep=self.vram_to_keep,
                 busy_threshold=busy_threshold,
             )

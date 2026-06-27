@@ -22,7 +22,7 @@ def test_large_vram_allocation():
         rank=0,
         interval=0.5,
         relu_iterations=100,
-        vram_to_keep=vram_elements,
+        vram_to_keep=required_bytes,
         busy_threshold=10,
     )
 

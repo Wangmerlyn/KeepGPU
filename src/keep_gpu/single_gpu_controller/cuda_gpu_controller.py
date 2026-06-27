@@ -182,7 +182,7 @@ class CudaGPUController(BaseGPUController):
         while not stop_evt.is_set():
             try:
                 gpu_utilization = self._monitor_utilization(self.rank)
-                if gpu_utilization > self.busy_threshold:
+                if not self._should_run_batch(gpu_utilization, self.busy_threshold):
                     logger.debug(
                         "rank %s: GPU busy (%d%%), sleeping longer",
                         self.rank,
@@ -237,3 +237,8 @@ class CudaGPUController(BaseGPUController):
         """
         utilization = get_gpu_utilization(rank)
         return utilization if utilization is not None else 0
+
+    @staticmethod
+    def _should_run_batch(gpu_utilization: int, busy_threshold: int) -> bool:
+        """Return whether keep-alive compute should run for this utilization."""
+        return busy_threshold < 0 or gpu_utilization <= busy_threshold

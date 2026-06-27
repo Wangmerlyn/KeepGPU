@@ -65,6 +65,8 @@ This file defines how coding agents should work in this repository.
 
 - Keep platform detection and environment probing centralized in `src/keep_gpu/utilities/platform_manager.py`.
 - Keep GPU telemetry helpers in `src/keep_gpu/utilities/gpu_info.py` and related utility modules.
+- Keep public session input validation centralized in `src/keep_gpu/utilities/session_config.py`; CLI, Python, REST, and JSON-RPC entry points must share the same contract.
+- Keep human VRAM parsing centralized in `src/keep_gpu/utilities/humanized_input.py`; public integer values and digit-only strings mean bytes, while controllers may convert to internal tensor element counts.
 - Avoid scattering platform-specific branching across unrelated modules; prefer one clear decision path then platform-specific controller classes.
 - Preserve simple controller flow: global controller orchestrates per-GPU controllers; single-GPU controllers handle device-level keep/release loops.
 

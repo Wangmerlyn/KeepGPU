@@ -14,8 +14,9 @@ schedulers that the GPU is still busy, without burning a full training workload.
 4. **GPU monitor (NVML/ROCm)** – Wraps `nvidia-ml-py` (the `pynvml` module) for CUDA
    telemetry and optionally `rocm-smi` when installed by way of the `rocm` extra.
    Mac M series does not support direct GPU utilization monitoring.
-5. **Utilities** – `parse_size` turns strings like `1GiB` into bytes, while
-   `setup_logger` wires both console and file logging with optional colors.
+5. **Utilities** – `parse_size` turns strings like `1GiB` or bare byte values into
+   internal float32 tensor element counts, while `setup_logger` wires both console
+   and file logging with optional colors.
 
 ```text
 CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
@@ -28,21 +29,21 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
 1. The CLI (or your Python code) instantiates `GlobalGPUController`.
 2. During `keep()` / `__enter__`, each Cuda worker:
    - Allocates a tensor sized by way of `vram_to_keep`.
-   - Starts a daemon thread that performs `matmul_iterations` fused activations.
+   - Starts a daemon thread that performs intervalled lightweight elementwise batches.
    - Calls `_monitor_utilization` (by way of NVML) to detect real activity.
 3. If utilization exceeds `busy_threshold`, the worker just sleeps for one more
    `interval`. Otherwise it runs a new batch of ops.
 4. When you call `release()` (or exit the context), every worker sets a stop
    event, joins the thread, and clears the CUDA cache.
 
-## Why matmuls?
+## Why lightweight elementwise batches?
 
-Matrix multiplies:
+Elementwise keep-alive batches:
 
 - Allocate continuous VRAM quickly, which is what schedulers monitor.
 - Exercise compute units enough to show non-zero utilization spikes.
-- Are deterministic and easy to tune—adjust `matmul_iterations` to trade power
-  draw for stronger “busy” signals.
+- Are deterministic and easy to tune with interval and iteration settings, trading
+  power draw for stronger “busy” signals.
 
 ## Threading & responsiveness
 

@@ -6,6 +6,16 @@ import torch
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 
 
+def test_negative_busy_threshold_disables_backoff_without_gpu():
+    assert CudaGPUController._should_run_batch(0, -1) is True
+    assert CudaGPUController._should_run_batch(100, -1) is True
+
+
+def test_non_negative_busy_threshold_backs_off_above_limit_without_gpu():
+    assert CudaGPUController._should_run_batch(10, 10) is True
+    assert CudaGPUController._should_run_batch(11, 10) is False
+
+
 @pytest.mark.skipif(
     not torch.cuda.is_available(),
     reason="Only run CUDA tests when CUDA is available",
