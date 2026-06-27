@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 
-import { buildSessionPayload, isSessionStopping } from "./lib/session"
+import { buildSessionPayload, formatStopResultMessage, isSessionStopping } from "./lib/session"
 
 const defaultForm = {
   gpuIds: "",
@@ -152,8 +152,8 @@ export default function App() {
     })
 
     try {
-      await api("DELETE", `/api/sessions/${jobId}`)
-      setMessage(`Session released: ${jobId}`)
+      const result = await api("DELETE", `/api/sessions/${jobId}`)
+      setMessage(formatStopResultMessage(result))
       await refresh()
     } catch (error) {
       setMessage(`Release failed (${jobId}): ${error.message}`)
@@ -170,8 +170,8 @@ export default function App() {
     setStoppingAll(true)
 
     try {
-      await api("DELETE", "/api/sessions")
-      setMessage("All sessions released.")
+      const result = await api("DELETE", "/api/sessions")
+      setMessage(formatStopResultMessage(result))
       await refresh()
     } catch (error) {
       setMessage(`Stop-all failed: ${error.message}`)

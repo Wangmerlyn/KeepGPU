@@ -137,6 +137,9 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
   curl http://127.0.0.1:8765/api/sessions
   ```
 - Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info).
+- Stop responses distinguish completed cleanup from partial cleanup:
+  `stopped` means released, while `timed_out` and `failed` sessions remain
+  visible in status with `state` and `last_error`.
 - Dashboard: `http://127.0.0.1:8765/`
 - **Mac M series limitations:**
   - GPU utilization monitoring is not available on macOS.

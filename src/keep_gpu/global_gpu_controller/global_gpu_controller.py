@@ -4,12 +4,15 @@ from typing import List, Optional, Union
 import torch
 
 from keep_gpu.utilities.humanized_input import parse_size
+from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
 )
 from keep_gpu.utilities.platform_manager import ComputingPlatform, get_platform
+
+logger = setup_logger(__name__)
 
 
 class GlobalGPUController:
@@ -73,8 +76,22 @@ class GlobalGPUController:
         ]
 
     def keep(self) -> None:
+        started = []
         for ctrl in self.controllers:
-            ctrl.keep()
+            try:
+                ctrl.keep()
+            except Exception:
+                for started_ctrl in reversed(started):
+                    try:
+                        started_ctrl.release()
+                    except Exception as cleanup_exc:
+                        logger.warning(
+                            "Failed to roll back controller rank %s after start failure: %s",
+                            getattr(started_ctrl, "rank", "unknown"),
+                            cleanup_exc,
+                        )
+                raise
+            started.append(ctrl)
 
     @staticmethod
     def parse_size(text: str) -> int:
@@ -82,12 +99,25 @@ class GlobalGPUController:
 
     def release(self) -> None:
         threads = []
+        errors = []
+        errors_lock = threading.Lock()
+
+        def _release_controller(ctrl) -> None:
+            try:
+                ctrl.release()
+            except Exception as exc:
+                with errors_lock:
+                    errors.append((getattr(ctrl, "rank", "unknown"), exc))
+
         for ctrl in self.controllers:
-            t = threading.Thread(target=ctrl.release)
+            t = threading.Thread(target=_release_controller, args=(ctrl,))
             t.start()
             threads.append(t)
         for t in threads:
             t.join()
+        if errors:
+            details = "; ".join(f"rank {rank}: {exc}" for rank, exc in errors)
+            raise RuntimeError(f"Failed to release GPU controllers: {details}")
 
     def __enter__(self) -> "GlobalGPUController":
         self.keep()

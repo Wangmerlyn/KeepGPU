@@ -47,3 +47,57 @@ export function buildSessionPayload(form) {
 export function isSessionStopping(jobId, stoppingIds, stoppingAll) {
   return stoppingAll || stoppingIds.has(jobId)
 }
+
+function asArray(value) {
+  return Array.isArray(value) ? value : []
+}
+
+function sessionLabel(count) {
+  return count === 1 ? "session" : "sessions"
+}
+
+function formatIds(ids) {
+  return ids.join(", ")
+}
+
+function formatErrors(errors) {
+  if (Array.isArray(errors)) {
+    return errors.map((error) => String(error))
+  }
+
+  if (errors && typeof errors === "object") {
+    return Object.entries(errors).map(([jobId, error]) => `${jobId}: ${String(error)}`)
+  }
+
+  return []
+}
+
+export function formatStopResultMessage(result) {
+  const stopped = asArray(result?.stopped)
+  const timedOut = asArray(result?.timed_out)
+  const failed = asArray(result?.failed)
+  const errors = formatErrors(result?.errors)
+  const parts = []
+
+  if (timedOut.length > 0) {
+    parts.push(
+      `Timed out stopping ${sessionLabel(timedOut.length)}: ${formatIds(timedOut)}.`
+    )
+  }
+
+  if (failed.length > 0) {
+    parts.push(
+      `Failed to release ${sessionLabel(failed.length)}: ${formatIds(failed)}.`
+    )
+  }
+
+  if (stopped.length > 0) {
+    parts.push(`Released ${sessionLabel(stopped.length)}: ${formatIds(stopped)}.`)
+  }
+
+  if (errors.length > 0) {
+    parts.push(`Errors: ${errors.join("; ")}.`)
+  }
+
+  return parts.length > 0 ? parts.join(" ") : "No sessions were released."
+}

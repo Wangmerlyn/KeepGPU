@@ -138,6 +138,29 @@ def test_stop_keep_returns_timeout_payload(monkeypatch):
     assert result["stopped"] == []
     assert result["timed_out"] == [job_id]
     assert "Timed out" in result["message"]
+    status = server.status(job_id)
+    assert status["active"] is True
+    assert status["state"] == "stopping"
+    assert "Timed out" in status["last_error"]
+
+
+def test_stop_keep_returns_failed_payload_and_retains_session(monkeypatch):
+    server = make_server()
+    job_id = server.start_keep()["job_id"]
+
+    def fail_release(controller):
+        raise RuntimeError("release exploded")
+
+    monkeypatch.setattr(server, "_release_with_timeout", fail_release)
+
+    result = server.stop_keep(job_id)
+    assert result["stopped"] == []
+    assert result["failed"] == [job_id]
+    assert result["errors"] == {job_id: "release exploded"}
+    status = server.status(job_id)
+    assert status["active"] is True
+    assert status["state"] == "stop_failed"
+    assert status["last_error"] == "release exploded"
 
 
 def test_stop_all_tracks_timeouts(monkeypatch):
@@ -155,3 +178,31 @@ def test_stop_all_tracks_timeouts(monkeypatch):
     result = server.stop_keep()
     assert result["stopped"] == [job_a]
     assert result["timed_out"] == [job_b]
+    assert server.status(job_a)["active"] is False
+    status_b = server.status(job_b)
+    assert status_b["active"] is True
+    assert status_b["state"] == "stopping"
+
+
+def test_stop_all_reports_failures_and_continues(monkeypatch):
+    server = make_server()
+    job_a = server.start_keep(gpu_ids=[0])["job_id"]
+    job_b = server.start_keep(gpu_ids=[1])["job_id"]
+    job_c = server.start_keep(gpu_ids=[2])["job_id"]
+
+    def release_outcome(controller):
+        if controller.gpu_ids == [1]:
+            raise RuntimeError("release failed")
+        return True
+
+    monkeypatch.setattr(server, "_release_with_timeout", release_outcome)
+
+    result = server.stop_keep()
+    assert result["stopped"] == [job_a, job_c]
+    assert result["failed"] == [job_b]
+    assert result["errors"] == {job_b: "release failed"}
+    assert server.status(job_a)["active"] is False
+    assert server.status(job_c)["active"] is False
+    status_b = server.status(job_b)
+    assert status_b["active"] is True
+    assert status_b["state"] == "stop_failed"

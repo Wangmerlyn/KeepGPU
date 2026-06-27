@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildSessionPayload,
+  formatStopResultMessage,
   isSessionStopping,
   parseBusyThreshold,
   parseGpuIds,
@@ -62,5 +63,37 @@ describe("isSessionStopping", () => {
     expect(isSessionStopping("job-a", stoppingIds, false)).toBe(true)
     expect(isSessionStopping("job-b", stoppingIds, false)).toBe(false)
     expect(isSessionStopping("job-b", stoppingIds, true)).toBe(true)
+  })
+})
+
+describe("formatStopResultMessage", () => {
+  it("reports released sessions when every stop succeeded", () => {
+    expect(formatStopResultMessage({ stopped: ["job-a", "job-b"] })).toBe(
+      "Released sessions: job-a, job-b."
+    )
+  })
+
+  it("reports timed-out sessions instead of claiming full success", () => {
+    expect(
+      formatStopResultMessage({ stopped: ["job-a"], timed_out: ["job-b"] })
+    ).toBe("Timed out stopping session: job-b. Released session: job-a.")
+  })
+
+  it("reports failed sessions with backend errors", () => {
+    expect(
+      formatStopResultMessage({
+        stopped: [],
+        failed: ["job-a"],
+        errors: ["job-a: release raised RuntimeError"]
+      })
+    ).toBe(
+      "Failed to release session: job-a. Errors: job-a: release raised RuntimeError."
+    )
+  })
+
+  it("reports when no sessions were released", () => {
+    expect(formatStopResultMessage({ stopped: [], timed_out: [], failed: [] })).toBe(
+      "No sessions were released."
+    )
   })
 })

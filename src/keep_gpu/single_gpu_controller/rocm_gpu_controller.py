@@ -71,32 +71,33 @@ class RocmGPUController(BaseGPUController):
         logger.info("rank %s: ROCm keep thread started", self.rank)
 
     def release(self) -> None:
-        if self._thread and self._thread.is_alive():
-            stop_evt = self._stop_evt
-            if stop_evt is None:
-                logger.warning(
-                    "rank %s: stop event missing; skipping release", self.rank
-                )
-                return
-            assert stop_evt is not None
-            stop_evt.set()
-            join_timeout = max(2.0, min(float(self.interval) + 2.0, 30.0))
-            self._thread.join(timeout=join_timeout)
-            if self._thread.is_alive():
-                logger.warning(
-                    "rank %s: ROCm keep thread did not stop within %.1fs",
-                    self.rank,
-                    join_timeout,
-                )
-                return
-            torch.cuda.empty_cache()
-        else:
-            logger.warning("rank %s: keep thread not running", self.rank)
-        if self._rocm_smi:
-            try:
-                self._rocm_smi.rsmi_shut_down()
-            except Exception as exc:  # pragma: no cover - best effort
-                logger.debug("rsmi_shut_down failed: %s", exc)
+        try:
+            if self._thread and self._thread.is_alive():
+                stop_evt = self._stop_evt
+                if stop_evt is None:
+                    raise RuntimeError(f"rank {self.rank}: stop event missing")
+                assert stop_evt is not None
+                stop_evt.set()
+                join_timeout = max(2.0, min(float(self.interval) + 2.0, 30.0))
+                self._thread.join(timeout=join_timeout)
+                if self._thread.is_alive():
+                    logger.warning(
+                        "rank %s: ROCm keep thread did not stop within %.1fs",
+                        self.rank,
+                        join_timeout,
+                    )
+                    raise TimeoutError(
+                        f"rank {self.rank}: ROCm keep thread did not stop within {join_timeout:.1f}s"
+                    )
+                torch.cuda.empty_cache()
+            else:
+                logger.warning("rank %s: keep thread not running", self.rank)
+        finally:
+            if self._rocm_smi:
+                try:
+                    self._rocm_smi.rsmi_shut_down()
+                except Exception as exc:  # pragma: no cover - best effort
+                    logger.debug("rsmi_shut_down failed: %s", exc)
         logger.info("rank %s: keep thread stopped & cache cleared", self.rank)
 
     def __enter__(self):

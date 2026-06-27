@@ -86,11 +86,11 @@ Stops local daemon process created by auto-start logic.
 | --- | --- | --- |
 | `/health` | GET | Service liveness probe. |
 | `/api/gpus` | GET | GPU telemetry (`id`, `name`, memory, utilization; unsupported fields are `null`). |
-| `/api/sessions` | GET | Active keep sessions. |
-| `/api/sessions/{job_id}` | GET | One session status. |
+| `/api/sessions` | GET | Active keep sessions, including `state` and `last_error` for in-progress or failed stops. |
+| `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active. |
 | `/api/sessions` | POST | Start session (`gpu_ids`, `vram`, `interval`, `busy_threshold`, `job_id`). |
-| `/api/sessions` | DELETE | Stop all sessions. |
-| `/api/sessions/{job_id}` | DELETE | Stop one session. |
+| `/api/sessions` | DELETE | Stop all sessions; returns `stopped`, `timed_out`, `failed`, and `errors`. |
+| `/api/sessions/{job_id}` | DELETE | Stop one session; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/rpc` | POST | JSON-RPC compatibility endpoint. |
 | `/` | GET | Dashboard UI. |
 
