@@ -80,8 +80,9 @@ This file defines how coding agents should work in this repository.
 - Stop requests must not miss starting sessions; wait for startup to settle before returning `not found` or taking a stop-all snapshot.
 - Stop-all may release independent sessions concurrently, but must not duplicate release work for `stopping` sessions and must keep deterministic additive result fields.
 - Keep utilization backoff eco-safe: valid `busy_threshold` values are `-1` or `0..100`; public defaults must use the shared `DEFAULT_BUSY_THRESHOLD` (`25`), and when telemetry is unavailable with `busy_threshold >= 0`, controllers should sleep instead of running keepalive compute. Only `busy_threshold=-1` is the explicit unconditional mode.
-- Treat public `gpu_ids` as visible device ordinals after any user-supplied `CUDA_VISIBLE_DEVICES` filtering. Do not rewrite `CUDA_VISIBLE_DEVICES` inside KeepGPU command paths; reject explicit CUDA/ROCm ordinals outside the current visible device count before starting keep workers.
+- Treat public `gpu_ids` as visible device ordinals after user-supplied CUDA or ROCm visibility filtering. Do not rewrite visibility masks inside KeepGPU command paths; reject explicit CUDA/ROCm ordinals outside the current visible device count before starting keep workers.
 - Keep CUDA telemetry aligned with visible CUDA ordinals: `get_gpu_utilization(index)` receives the visible rank used by `CudaGPUController`, and `gpu_monitor.py` resolves `CUDA_VISIBLE_DEVICES` numeric/UUID tokens to the correct NVML handle. If that mapping is ambiguous or unsupported, return `None` rather than falling back to a possibly wrong physical index.
+- Keep ROCm telemetry aligned with visible ROCm ordinals: resolve `ROCR_VISIBLE_DEVICES` as the base mask and one matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm SMI. If the mapping is malformed, conflicting, unsupported, or out of range, return unavailable utilization rather than querying a guessed SMI index.
 - Keep GPU listing IDs aligned with start APIs: `list_gpus`/`/api/gpus` must expose `id` as the visible ordinal users can pass as `gpu_ids`; physical/vendor identifiers belong in explicit metadata fields such as `physical_id` and must not be accepted implicitly as selection IDs.
 - Global controller startup must fail clearly when GPU selection resolves to zero or duplicate devices; do not create silent no-op or duplicate-worker keep sessions.
 - Avoid scattering platform-specific branching across unrelated modules; prefer one clear decision path then platform-specific controller classes.
@@ -101,6 +102,7 @@ This file defines how coding agents should work in this repository.
   - `pytest tests/cuda_controller tests/global_controller tests/utilities/test_platform_manager.py`
   - `pytest tests -k threshold`
   - `pytest tests/mcp tests/utilities/test_gpu_info.py`
+  - `pytest tests/rocm_controller/test_rocm_utilization.py tests/utilities/test_gpu_info.py`
   - `pytest --run-rocm tests/rocm_controller` (only on ROCm-capable machines)
 - Respect existing pytest markers:
   - `rocm` for ROCm-only tests

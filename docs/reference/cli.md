@@ -111,6 +111,8 @@ digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
 
 | Variable | Effect |
 | --- | --- |
-| `CUDA_VISIBLE_DEVICES` | Standard CUDA filtering. Set it before starting KeepGPU; `--gpu-ids` selects visible ordinals after filtering, and service mode uses the daemon process environment. CUDA utilization telemetry maps visible ordinals through numeric or UUID tokens before querying NVML, and unresolved mappings report unavailable telemetry. |
+| `CUDA_VISIBLE_DEVICES` | Standard CUDA filtering, and a HIP-compatible ROCm overlay when `HIP_VISIBLE_DEVICES` is unset. Set it before starting KeepGPU; `--gpu-ids` selects visible ordinals after filtering, and service mode uses the daemon process environment. CUDA utilization telemetry maps visible ordinals through numeric or UUID tokens before querying NVML, and unresolved mappings report unavailable telemetry. ROCm utilization treats this as one overlay on top of `ROCR_VISIBLE_DEVICES` and reports unavailable telemetry when it conflicts with `HIP_VISIBLE_DEVICES`. |
+| `ROCR_VISIBLE_DEVICES` | ROCm base visibility mask. KeepGPU keeps `gpu_ids` as visible ordinals while resolving this mask before querying ROCm SMI telemetry. Unsupported, malformed, duplicate, or out-of-range numeric masks report unavailable utilization instead of guessing a physical SMI index. |
+| `HIP_VISIBLE_DEVICES` | ROCm HIP-layer visibility overlay. If both `HIP_VISIBLE_DEVICES` and `CUDA_VISIBLE_DEVICES` are set, they must describe the same numeric overlay for ROCm telemetry to query ROCm SMI; otherwise utilization is unavailable and non-negative `busy_threshold` values sleep for that cycle. |
 | `CONSOLE_LOG_LEVEL` | Console log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `no`). |
 | `FILE_LOG_LEVEL` | File log level; writes logs under `./logs/` when enabled. |

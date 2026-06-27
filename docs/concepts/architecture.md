@@ -15,7 +15,11 @@ schedulers that the GPU is still busy, without burning a full training workload.
 4. **GPU monitor (NVML/ROCm/MPS)** – Wraps `nvidia-ml-py` (the `pynvml`
    module) for CUDA telemetry, optionally `rocm-smi` when installed by way of
    the `rocm` extra, and best-effort MPS memory counters on Mac M series.
-   Utilization can be unavailable on some platforms and is reported as `null`.
+   CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` before querying NVML. ROCm
+   telemetry resolves `ROCR_VISIBLE_DEVICES` plus one matching
+   `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm
+   SMI. Utilization can be unavailable on some platforms and is reported as
+   `null`.
 5. **Utilities** – `parse_size` turns strings like `1GiB` or bare byte values into
    internal float32 tensor element counts, while `setup_logger` wires both console
    and file logging with optional colors.
@@ -39,12 +43,17 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
      The monitor receives the CUDA visible rank and resolves
      `CUDA_VISIBLE_DEVICES` numeric or UUID tokens before querying NVML, so
      telemetry follows the same device the worker keeps.
-4. If utilization exceeds `busy_threshold`, or if utilization is unavailable
+4. Each ROCm worker follows the same visible-rank contract. The controller keeps
+   the visible rank selected by the user, while ROCm SMI telemetry is queried by
+   the resolved physical SMI index when the environment masks are numeric,
+   unique, and unambiguous. If the mapping cannot be resolved, telemetry is
+   unavailable for that cycle.
+5. If utilization exceeds `busy_threshold`, or if utilization is unavailable
    while `busy_threshold` is non-negative, the worker just sleeps for one more
    `interval`. Otherwise it runs a new batch of ops. Public defaults use
    `busy_threshold=25`. Valid thresholds are `-1` or `0..100`;
    `busy_threshold=-1` is the explicit unconditional mode.
-5. When you call `release()` (or exit the context), every worker sets a stop
+6. When you call `release()` (or exit the context), every worker sets a stop
    event, joins the thread, and clears the device cache. Release attempts every
    worker and then raises a summary if any worker failed to stop.
 
