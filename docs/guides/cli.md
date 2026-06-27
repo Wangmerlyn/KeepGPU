@@ -84,7 +84,7 @@ The dashboard provides:
 | `--gpu-ids` | Comma-separated non-negative GPU IDs. Omit to use all visible devices. | all |
 | `--vram` | Per-GPU memory target (`512MB`, `1GiB`, or bare bytes). | `1GiB` |
 | `--interval` | Positive seconds between keep-alive cycles. | `300` |
-| `--busy-threshold` / `--util-threshold` | Back off when utilization exceeds this value; `-1` disables utilization backoff. | `-1` |
+| `--busy-threshold` / `--util-threshold` | Back off when utilization exceeds this value or telemetry is unavailable; `-1` disables utilization backoff. | `-1` |
 
 ## Remote sessions
 
@@ -104,4 +104,4 @@ of `keep-gpu status`.
 - **Start cannot reach service**: run `keep-gpu serve --host 127.0.0.1 --port 8765`.
 - **Need to close background service**: run `keep-gpu stop --all` first, then `keep-gpu service-stop` (or use `keep-gpu service-stop --force`).
 - **OOM during keep**: reduce `--vram` or free GPU memory before starting.
-- **No utilization data**: on CUDA, ensure `nvidia-ml-py` works and `nvidia-smi` is available; on ROCm, check the optional `rocm-smi` extra; on Mac M series, utilization is expected to be `null`.
+- **No utilization data**: on CUDA, ensure `nvidia-ml-py` works and `nvidia-smi` is available; on ROCm, check the optional `rocm-smi` extra. With non-negative `busy_threshold`, KeepGPU sleeps when utilization is unavailable. On Mac M series, utilization is expected to be `null`, so use `--busy-threshold -1` only when you intentionally want unconditional keepalive compute.

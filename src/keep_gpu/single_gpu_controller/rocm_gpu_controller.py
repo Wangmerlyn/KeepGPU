@@ -176,14 +176,14 @@ class RocmGPUController(BaseGPUController):
         while not stop_evt.is_set():
             try:
                 util = self._query_utilization()
-                if (
-                    util is not None
-                    and self.busy_threshold >= 0
-                    and util > self.busy_threshold
-                ):
-                    logger.debug("rank %s: GPU busy (%d%%), sleeping", self.rank, util)
-                else:
+                if self._should_run_batch(util, self.busy_threshold):
                     self._run_batch(tensor)
+                else:
+                    logger.debug(
+                        "rank %s: GPU utilization unavailable or busy (%s), sleeping",
+                        self.rank,
+                        "n/a" if util is None else f"{util}%",
+                    )
                 if stop_evt.wait(self.interval):
                     break
             except RuntimeError as exc:

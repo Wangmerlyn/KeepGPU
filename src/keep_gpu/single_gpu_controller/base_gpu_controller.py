@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 from keep_gpu.utilities.humanized_input import parse_vram_to_elements
 from keep_gpu.utilities.session_config import validate_interval
@@ -52,3 +52,17 @@ class BaseGPUController:
         This is a placeholder for subclasses to implement their logic.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+    @staticmethod
+    def _should_run_batch(gpu_utilization: Optional[int], busy_threshold: int) -> bool:
+        """
+        Return whether keep-alive compute should run for current utilization.
+
+        A negative busy threshold is the explicit unconditional mode. Otherwise,
+        unknown telemetry is treated conservatively as a reason to sleep.
+        """
+        if busy_threshold < 0:
+            return True
+        if gpu_utilization is None:
+            return False
+        return gpu_utilization <= busy_threshold

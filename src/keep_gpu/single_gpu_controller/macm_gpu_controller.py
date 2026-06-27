@@ -41,12 +41,6 @@ class MacMGPUController(BaseGPUController):
         self._thread: Optional[threading.Thread] = None
         self._num_elements: Optional[int] = None
 
-        logger.debug(
-            "rank %s: busy_threshold=%s ignored on macOS MPS (API compatibility)",
-            self.rank,
-            self.busy_threshold,
-        )
-
     def keep(self) -> None:
         if self._thread and self._thread.is_alive():
             logger.warning("rank %s: keep thread already running", self.rank)
@@ -134,7 +128,14 @@ class MacMGPUController(BaseGPUController):
 
         while not stop_evt.is_set():
             try:
-                self._run_batch(tensor)
+                if self._should_run_batch(None, self.busy_threshold):
+                    self._run_batch(tensor)
+                else:
+                    logger.debug(
+                        "rank %s: MPS utilization unavailable; sleeping because busy_threshold=%s",
+                        self.rank,
+                        self.busy_threshold,
+                    )
                 if stop_evt.wait(self.interval):
                     break
             except RuntimeError as exc:

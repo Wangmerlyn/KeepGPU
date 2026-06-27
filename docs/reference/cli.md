@@ -23,7 +23,7 @@ These options apply when you run `keep-gpu` without subcommands.
 | `--interval INTEGER` | seconds | Sleep duration between utilization checks and keep-alive batches. |
 | `--gpu-ids TEXT` | comma-separated non-negative ints | Subset of GPUs to guard (for example, `0,2`). Omit to use all visible GPUs. |
 | `--vram TEXT` | human size or bare bytes | Amount of memory each GPU controller allocates (`512MB`, `1GiB`, `1073741824`). |
-| `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | Back off when utilization is above this value; `-1` disables utilization backoff. |
+| `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | Back off when utilization is above this value or unavailable; `-1` disables utilization backoff. |
 | `--threshold TEXT` | deprecated | Legacy alias: numeric values map to busy-threshold, size strings map to vram. |
 
 ## Service mode
@@ -46,7 +46,7 @@ Starts a keep session and returns immediately with `job_id`.
 | `--gpu-ids` | all | Comma-separated GPU IDs. |
 | `--vram` | `1GiB` | Per-GPU keep memory target. |
 | `--interval` | `300` | Keep cycle interval in seconds. |
-| `--busy-threshold` / `--util-threshold` | `-1` | Backoff threshold. |
+| `--busy-threshold` / `--util-threshold` | `-1` | Back off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
 | `--job-id` | auto | Optional custom id. |
 | `--host` | `127.0.0.1` | Service host to contact. |
 | `--port` | `8765` | Service port to contact. |

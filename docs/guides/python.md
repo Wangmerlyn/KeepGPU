@@ -53,7 +53,10 @@ with GlobalGPUController(
 ```
 
 - Each `CudaGPUController` runs in its own thread.
-- `busy_threshold` throttles the keep-alive loop when utilization spikes.
+- `busy_threshold` throttles the keep-alive loop when utilization spikes. When
+  utilization telemetry is unavailable, non-negative thresholds sleep instead of
+  running compute; use `busy_threshold=-1` only for explicit unconditional
+  keepalive work.
 - `release()` uses threads too, so all GPUs free up quickly.
 
 ## Combine with schedulers or callbacks
