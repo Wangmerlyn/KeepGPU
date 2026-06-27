@@ -144,6 +144,63 @@ def test_http_session_lifecycle():
         thread.join(timeout=2)
 
 
+def test_http_session_start_defaults_to_eco_safe_busy_threshold():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, start_payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "job_id": "http-default",
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 20,
+            },
+        )
+
+        assert status_code == 200
+        assert start_payload == {"job_id": "http-default"}
+        _, status_payload = _request_json("GET", f"{base}/api/sessions/http-default")
+        assert status_payload["params"]["busy_threshold"] == 25
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_session_start_preserves_explicit_unconditional_busy_threshold():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, start_payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "job_id": "http-unconditional",
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 20,
+                "busy_threshold": -1,
+            },
+        )
+
+        assert status_code == 200
+        assert start_payload == {"job_id": "http-unconditional"}
+        _, status_payload = _request_json(
+            "GET", f"{base}/api/sessions/http-unconditional"
+        )
+        assert status_payload["params"]["busy_threshold"] == -1
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
 def test_http_start_validates_gpu_ids_against_listed_visible_ids(monkeypatch):
     controllers = []
 

@@ -75,10 +75,11 @@ Methods:
 - `status(job_id?)`
 - `list_gpus()`
 
-Omitting `gpu_ids` means all GPUs visible to the service process. Explicit
-values are visible device ordinals in that same process environment. Empty,
-duplicate, or out-of-range lists are invalid, and startup returns an error if
-the resolved selection contains zero devices.
+Omitting `gpu_ids` means all GPUs visible to the service process. Omitting
+`busy_threshold` uses the eco-safe default `25`. Explicit GPU values are visible
+device ordinals in that same process environment. Empty, duplicate, or
+out-of-range lists are invalid, and startup returns an error if the resolved
+selection contains zero devices.
 
 Custom `job_id` values are unique across active and starting sessions. If a
 duplicate arrives while the original start is still creating controller work,
@@ -150,10 +151,10 @@ physical/vendor metadata.
 CUDA and ROCm devices include memory and utilization when the platform APIs are
 available. Mac M series devices report best-effort MPS memory counters and use
 `null` for unsupported fields such as utilization.
-Valid `busy_threshold` values are `-1` or `0..100`. When utilization is
-unavailable and `busy_threshold` is non-negative, controllers sleep instead of
-running keepalive compute; `busy_threshold=-1` is the explicit unconditional
-mode.
+Valid `busy_threshold` values are `-1` or `0..100`, and omitted API values
+default to `25`. When utilization is unavailable and `busy_threshold` is
+non-negative, controllers sleep instead of running keepalive compute;
+`busy_threshold=-1` is the explicit unconditional mode.
 Stop controls show timed-out or failed releases instead of claiming success when
 the backend keeps a session visible for follow-up cleanup. Retained session cards
 show `Releasing` or `Release failed` with the backend error detail when present.

@@ -9,7 +9,10 @@ from keep_gpu.utilities.gpu_monitor import get_gpu_utilization
 from keep_gpu.utilities.humanized_input import parse_size
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.platform_manager import ComputingPlatform
-from keep_gpu.utilities.session_config import validate_busy_threshold
+from keep_gpu.utilities.session_config import (
+    DEFAULT_BUSY_THRESHOLD,
+    validate_busy_threshold,
+)
 
 logger = setup_logger(__name__)
 
@@ -46,7 +49,7 @@ class CudaGPUController(BaseGPUController):
         relu_iterations: int = 5000,
         matmul_iterations: Optional[int] = None,
         vram_to_keep: str | int = "1000 MB",
-        busy_threshold: int = 10,
+        busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
     ):
         """
         Args:
@@ -61,9 +64,10 @@ class CudaGPUController(BaseGPUController):
                 e.g. `"1000 MB"`, `"20 GB"`, or an integer like `1000 * 1000`.
                 This represents the total size of the matrix allocated to
                 occupy the GPU.
-            busy_threshold (int, optional): If current utilisation (%) exceeds
-                this threshold, the worker will insert extra sleeps to avoid
-                hogging the GPU.
+            busy_threshold (int, optional): Defaults to 25. If current
+                utilization (%) exceeds this threshold, or utilization is
+                unavailable, the worker inserts extra sleeps to avoid hogging
+                the GPU. Use -1 only to disable utilization backoff.
 
         """
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)

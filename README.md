@@ -73,7 +73,7 @@ Flags that matter:
 - Blocking mode knobs:
   - `--vram` (`1GiB`, `750MB`, or bare bytes like `1073741824`): how much memory to pin.
   - `--interval` (positive seconds): sleep between keep-alive bursts.
-  - `--busy-threshold`: `0..100` skips work when telemetry reports higher utilization or cannot report utilization; `-1` disables utilization backoff.
+  - `--busy-threshold`: defaults to `25`; `0..100` skips work when telemetry reports higher utilization or cannot report utilization; `-1` disables utilization backoff.
   - `--gpu-ids`: target unique non-negative visible device ordinals after any user-supplied `CUDA_VISIBLE_DEVICES` filtering; otherwise all visible GPUs are guarded. Empty, duplicate, or out-of-range selections are invalid, and startup fails if no GPUs resolve.
 - Service mode commands:
   - `keep-gpu serve`: run local service (HTTP + dashboard).
@@ -113,7 +113,7 @@ devices.
 ## What you get
 
 - Battle-tested keep-alive loop built on PyTorch.
-- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`. Valid `busy_threshold` values are `-1` or `0..100`; if utilization is unavailable and the threshold is non-negative, KeepGPU sleeps for that cycle instead of running compute. CUDA utilization checks use visible CUDA ordinals, so with `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads NVML telemetry for physical GPU `5`; ambiguous mappings are treated as unavailable telemetry.
+- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`. Public entry points default `busy_threshold` to `25`. Valid values are `-1` or `0..100`; if utilization is unavailable and the threshold is non-negative, KeepGPU sleeps for that cycle instead of running compute. CUDA utilization checks use visible CUDA ordinals, so with `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads NVML telemetry for physical GPU `5`; ambiguous mappings are treated as unavailable telemetry.
 - CLI + API parity: same controllers power both code paths.
 - Continuous docs + CI: mkdocs + mkdocstrings build in CI to keep guidance up to date.
 
@@ -151,7 +151,7 @@ devices.
   curl http://127.0.0.1:8765/health
   curl http://127.0.0.1:8765/api/sessions
   ```
-- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). Omitting `gpu_ids` uses all visible GPUs, but explicit values must be unique visible ordinals in the service process environment. `list_gpus` returns those same start-compatible ordinals as `id`/`visible_id`; `physical_id` and `uuid` are informational metadata, not valid substitutes for `gpu_ids`. Empty, duplicate, or out-of-range lists are invalid and startup fails if no GPUs resolve. Custom `job_id` values must be unique across active and starting sessions, and only `null`/omitted means generated or all-sessions; custom IDs must be non-empty strings containing only letters, digits, `.`, `_`, `-`, or `~`. Status responses include reserved jobs as `state="starting"` while controller startup is still in progress.
+- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). Omitting `gpu_ids` uses all visible GPUs, and omitting `busy_threshold` uses the eco-safe default `25`; explicit values must be unique visible ordinals in the service process environment. `list_gpus` returns those same start-compatible ordinals as `id`/`visible_id`; `physical_id` and `uuid` are informational metadata, not valid substitutes for `gpu_ids`. Empty, duplicate, or out-of-range lists are invalid and startup fails if no GPUs resolve. Custom `job_id` values must be unique across active and starting sessions, and only `null`/omitted means generated or all-sessions; custom IDs must be non-empty strings containing only letters, digits, `.`, `_`, `-`, or `~`. Status responses include reserved jobs as `state="starting"` while controller startup is still in progress.
 - Stop responses distinguish completed cleanup from partial cleanup:
   `stopped` means released, while `timed_out` sessions remain visible as
   `stopping` until background cleanup completes and `failed` sessions remain
@@ -172,7 +172,7 @@ devices.
 - Dashboard: `http://127.0.0.1:8765/`
 - **Mac M series limitations:**
   - GPU utilization monitoring is not available on macOS.
-  - Non-negative `busy_threshold` values therefore keep MPS in conservative sleep-only mode; set `busy_threshold=-1` to opt into unconditional keepalive compute.
+  - The default `busy_threshold=25` keeps MPS in conservative sleep-only mode; set `busy_threshold=-1` to opt into unconditional keepalive compute.
   - `list-gpus` reports best-effort MPS memory counters and `null` for unsupported telemetry fields.
 - Minimal client config (stdio MCP):
   ```yaml

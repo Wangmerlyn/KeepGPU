@@ -86,7 +86,7 @@ pip install "keep_gpu[macm] @ git+https://github.com/Wangmerlyn/KeepGPU.git"
 **Note for Mac M users:**
 - Uses Metal Performance Shaders (MPS) backend automatically on Apple Silicon
 - GPU utilization monitoring is **not available** on macOS (the system doesn't provide this API)
-- The `--busy-threshold` parameter is accepted for API compatibility but has no effect
+- The default `--busy-threshold 25` keeps MPS conservative because telemetry is unavailable; use `--busy-threshold -1` only for explicit unconditional keepalive compute
 - Only device 0 is supported (MPS limitation)
 - Memory allocation uses the unified memory architecture (shared with system RAM)
 
@@ -126,7 +126,7 @@ CLI options to tune:
 - `--gpu-ids`: comma-separated IDs (`0`, `0,1`). If omitted, KeepGPU uses all visible GPUs.
 - `--vram`: VRAM to hold per GPU (`512MB`, `1GiB`, or raw bytes).
 - `--interval`: seconds between keep-alive cycles.
-- `--busy-threshold` (`--util-threshold` alias): if utilization is above this percent, KeepGPU backs off.
+- `--busy-threshold` (`--util-threshold` alias): defaults to `25`; if utilization is above this percent or unavailable, KeepGPU backs off. Use `-1` only to disable utilization backoff.
 
 Legacy compatibility:
 

@@ -46,7 +46,7 @@ Starts a keep session and returns immediately with `job_id`.
 | `--gpu-ids` | all | Comma-separated unique visible device ordinals in the service process environment. |
 | `--vram` | `1GiB` | Per-GPU keep memory target. |
 | `--interval` | `300` | Keep cycle interval in seconds. |
-| `--busy-threshold` / `--util-threshold` | `-1` | `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
+| `--busy-threshold` / `--util-threshold` | `25` | `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
 | `--job-id` | auto | Optional custom id. Must be unique across active and starting sessions. |
 | `--host` | `127.0.0.1` | Service host to contact. |
 | `--port` | `8765` | Service port to contact. |
@@ -101,7 +101,7 @@ digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
 | `/api/gpus` | GET | GPU telemetry (`id`/`visible_id` are start-compatible visible ordinals; optional `physical_id`/`uuid` are metadata; unsupported fields are `null`). |
 | `/api/sessions` | GET | Tracked keep sessions, including `state="starting"` during startup and `state`/`last_error` for in-progress or failed stops. |
 | `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active or starting. |
-| `/api/sessions` | POST | Start session (`gpu_ids`, `vram`, `interval`, `busy_threshold`, `job_id`); omitted `gpu_ids` means all GPUs visible to the service process, and empty, duplicate, or out-of-range selections are invalid. |
+| `/api/sessions` | POST | Start session (`gpu_ids`, `vram`, `interval`, `busy_threshold`, `job_id`); omitted `gpu_ids` means all GPUs visible to the service process, omitted `busy_threshold` uses `25`, and empty, duplicate, or out-of-range selections are invalid. |
 | `/api/sessions` | DELETE | Stop all sessions; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/api/sessions/{job_id}` | DELETE | Stop one session; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/rpc` | POST | JSON-RPC compatibility endpoint. |

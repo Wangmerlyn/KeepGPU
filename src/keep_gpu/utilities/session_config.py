@@ -2,6 +2,7 @@ import re
 from typing import Any, List, Optional, Union
 
 _JOB_ID_PATTERN = re.compile(r"^[A-Za-z0-9._~-]+$")
+DEFAULT_BUSY_THRESHOLD = 25
 
 
 def _is_plain_int(value: Any) -> bool:

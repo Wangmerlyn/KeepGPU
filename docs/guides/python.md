@@ -61,11 +61,11 @@ with GlobalGPUController(
   ordinals after any `CUDA_VISIBLE_DEVICES` filtering. Empty, duplicate, or
   out-of-range lists are invalid, and startup raises `ValueError` if the
   resolved selection contains zero devices.
-- `busy_threshold` accepts `-1` or a percentage in `0..100`. Non-negative
-  thresholds throttle the keep-alive loop when utilization spikes. When
-  utilization telemetry is unavailable, non-negative thresholds sleep instead of
-  running compute; use `busy_threshold=-1` only for explicit unconditional
-  keepalive work.
+- `busy_threshold` defaults to `25` and accepts `-1` or a percentage in
+  `0..100`. Non-negative thresholds throttle the keep-alive loop when
+  utilization spikes. When utilization telemetry is unavailable, non-negative
+  thresholds sleep instead of running compute; use `busy_threshold=-1` only for
+  explicit unconditional keepalive work.
 - `release()` uses threads too, so all GPUs free up quickly.
 
 ## Combine with schedulers or callbacks

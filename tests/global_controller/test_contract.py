@@ -1,7 +1,24 @@
+import inspect
+
 import pytest
 
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
+from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
+from keep_gpu.single_gpu_controller.macm_gpu_controller import MacMGPUController
+from keep_gpu.single_gpu_controller.rocm_gpu_controller import RocmGPUController
 from keep_gpu.utilities import platform_manager as pm
+
+
+def test_python_controller_defaults_use_eco_safe_busy_threshold():
+    controllers = [
+        GlobalGPUController,
+        CudaGPUController,
+        RocmGPUController,
+        MacMGPUController,
+    ]
+
+    for controller in controllers:
+        assert inspect.signature(controller).parameters["busy_threshold"].default == 25
 
 
 def test_global_controller_rejects_busy_threshold_below_minus_one(monkeypatch):
