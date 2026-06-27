@@ -682,9 +682,9 @@ def status(
             host,
             port,
         )
-        console.print_json(data=json.dumps(result))
+        console.print_json(data=result)
     except RuntimeError as exc:
-        console.print(f"[bold red]Error: {exc}[/bold red]")
+        console.print_json(data={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
 
@@ -716,9 +716,9 @@ def stop(
                 port,
                 timeout=45.0,
             )
-        console.print_json(data=json.dumps(result))
+        console.print_json(data=result)
     except RuntimeError as exc:
-        console.print(f"[bold red]Error: {exc}[/bold red]")
+        console.print_json(data={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
 
@@ -730,9 +730,9 @@ def list_gpus(
     """List GPU telemetry from local service."""
     try:
         result = _rpc_call("list_gpus", {}, host, port)
-        console.print_json(data=json.dumps(result))
+        console.print_json(data=result)
     except RuntimeError as exc:
-        console.print(f"[bold red]Error: {exc}[/bold red]")
+        console.print_json(data={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
 
