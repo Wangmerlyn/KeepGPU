@@ -92,6 +92,7 @@ class RocmGPUController(BaseGPUController):
                 torch.cuda.empty_cache()
             else:
                 logger.warning("rank %s: keep thread not running", self.rank)
+                return
         finally:
             if self._rocm_smi:
                 try:

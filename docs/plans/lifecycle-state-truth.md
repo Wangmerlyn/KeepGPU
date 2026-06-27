@@ -24,15 +24,20 @@ Make start/stop/release state truthful across the Python controller API, JSON-RP
 - [x] Add failing server tests showing timed-out and failed stops remain visible in session status.
 - [x] Add failing REST parity tests for timed-out stop outcomes.
 - [x] Add failing dashboard helper tests for stop result messages.
+- [x] Add failing repeat-stop tests so duplicate stop requests cannot launch concurrent releases.
+- [x] Add failing ROCm release contract test for the no-worker path.
+- [x] Add failing dashboard helper test for backend `state="stopping"` after refresh.
 - [x] Implement controller rollback and release error aggregation.
 - [x] Implement per-device release timeout exceptions.
 - [x] Implement server session state retention and additive stop result fields.
 - [x] Implement dashboard stop outcome helper and wire it into session/all-session release messages.
+- [x] Make repeated stop requests idempotent while a release is already `stopping`.
+- [x] Surface backend lifecycle state and retained release errors in dashboard session cards.
 - [x] Update AGENTS.md and docs for lifecycle state semantics.
 - [x] Run targeted tests, full tests, dashboard tests/build, docs build, and pre-commit.
-  - `PYTHONPATH=$PWD/src pytest tests/global_controller tests/single_gpu_controller tests/mcp tests/test_cli_service_commands.py -q`: 43 passed, 1 skipped.
-  - `PYTHONPATH=$PWD/src pytest tests -q`: 72 passed, 12 skipped.
-  - `npm test` in `web/dashboard`: 11 passed.
+  - `PYTHONPATH=$PWD/src pytest tests/global_controller tests/single_gpu_controller tests/mcp tests/test_cli_service_commands.py -q`: 46 passed, 1 skipped.
+  - `PYTHONPATH=$PWD/src pytest tests -q`: 75 passed, 12 skipped.
+  - `npm test` in `web/dashboard`: 14 passed.
   - `npm run build` in `web/dashboard`: passed and refreshed packaged static dashboard assets.
   - `PYTHONPATH=$PWD/src mkdocs build`: passed with existing Material warning and unnav'd docs notices.
   - `pre-commit run --all-files`: passed after Black reformatted `src/keep_gpu/mcp/server.py`.

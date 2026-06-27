@@ -43,3 +43,20 @@ def test_release_raises_timeout_when_worker_thread_survives(
 
     assert controller._stop_evt.is_set()
     assert controller._thread.join_timeout >= 2.0
+
+
+def test_rocm_release_without_worker_does_not_log_stopped(monkeypatch):
+    controller = RocmGPUController.__new__(RocmGPUController)
+    controller.rank = 0
+    controller._thread = None
+    controller._rocm_smi = None
+    info_messages = []
+
+    monkeypatch.setattr(
+        "keep_gpu.single_gpu_controller.rocm_gpu_controller.logger.info",
+        lambda message, *args: info_messages.append(message % args),
+    )
+
+    controller.release()
+
+    assert info_messages == []

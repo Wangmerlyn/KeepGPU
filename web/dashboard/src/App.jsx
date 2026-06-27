@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 
-import { buildSessionPayload, formatStopResultMessage, isSessionStopping } from "./lib/session"
+import {
+  buildSessionPayload,
+  formatSessionState,
+  formatSessionStateDetail,
+  formatStopResultMessage,
+  isSessionStopping
+} from "./lib/session"
 
 const defaultForm = {
   gpuIds: "",
@@ -92,7 +98,7 @@ export default function App() {
 
   const stats = useMemo(() => {
     const gpuCount = gpus.length
-    const activeCount = sessions.length
+    const trackedCount = sessions.length
     const averageUtilization =
       gpus.length === 0
         ? null
@@ -102,7 +108,7 @@ export default function App() {
 
     return {
       gpuCount,
-      activeCount,
+      trackedCount,
       averageUtilization
     }
   }, [gpus, sessions])
@@ -218,9 +224,11 @@ export default function App() {
           </article>
           <article className="rounded-xl border border-white/10 bg-panel px-4 py-4 shadow-soft">
             <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-shell-500">
-              Active Sessions
+              Tracked Sessions
             </p>
-            <p className="mt-3 text-3xl font-semibold text-shell-50">{stats.activeCount}</p>
+            <p className="mt-3 text-3xl font-semibold text-shell-50">
+              {stats.trackedCount}
+            </p>
           </article>
           <article className="rounded-xl border border-white/10 bg-panel px-4 py-4 shadow-soft">
             <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-shell-500">
@@ -314,9 +322,9 @@ export default function App() {
 
           <section className="rounded-2xl border border-white/10 bg-panel p-5 shadow-soft lg:col-span-7">
             <div className="flex items-center justify-between">
-              <h2 className="font-serif text-xl font-medium text-shell-50">Active Sessions</h2>
+              <h2 className="font-serif text-xl font-medium text-shell-50">Tracked Sessions</h2>
               <span className="rounded-full border border-white/10 px-3 py-1 font-mono text-xs text-shell-400">
-                {sessions.length} active
+                {sessions.length} tracked
               </span>
             </div>
 
@@ -327,11 +335,9 @@ export default function App() {
                 </p>
               ) : (
                 sessions.map((session) => {
-                  const currentlyStopping = isSessionStopping(
-                    session.job_id,
-                    stoppingIds,
-                    stoppingAll
-                  )
+                  const currentlyStopping = isSessionStopping(session, stoppingIds, stoppingAll)
+                  const stateLabel = formatSessionState(session)
+                  const stateDetail = formatSessionStateDetail(session)
 
                   return (
                     <article
@@ -339,11 +345,23 @@ export default function App() {
                       className="flex flex-col gap-3 rounded-xl border border-white/10 bg-shell-900/60 p-4 md:flex-row md:items-center md:justify-between"
                     >
                       <div>
-                        <h3 className="font-mono text-sm text-shell-100">{session.job_id}</h3>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-mono text-sm text-shell-100">
+                            {session.job_id}
+                          </h3>
+                          <span className="rounded-full border border-white/10 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.1em] text-shell-400">
+                            {stateLabel}
+                          </span>
+                        </div>
                         <p className="mt-1 text-sm text-shell-400">
                           GPUs {formatGpuTarget(session.params.gpu_ids)} · {session.params.vram}
                           · {session.params.interval}s · threshold {session.params.busy_threshold}%
                         </p>
+                        {stateDetail ? (
+                          <p className="mt-2 max-w-xl text-xs leading-relaxed text-shell-500">
+                            {stateDetail}
+                          </p>
+                        ) : null}
                       </div>
                       <button
                         type="button"

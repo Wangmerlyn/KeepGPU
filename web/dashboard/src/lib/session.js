@@ -44,8 +44,35 @@ export function buildSessionPayload(form) {
   }
 }
 
-export function isSessionStopping(jobId, stoppingIds, stoppingAll) {
-  return stoppingAll || stoppingIds.has(jobId)
+export function isSessionStopping(sessionOrJobId, stoppingIds, stoppingAll) {
+  const isSession = typeof sessionOrJobId === "object" && sessionOrJobId !== null
+  const jobId = isSession ? sessionOrJobId.job_id : sessionOrJobId
+  return stoppingAll || sessionOrJobId?.state === "stopping" || stoppingIds.has(jobId)
+}
+
+export function formatSessionState(session) {
+  switch (session?.state) {
+    case undefined:
+    case null:
+    case "active":
+      return "Active"
+    case "stopping":
+      return "Releasing"
+    case "stop_failed":
+      return "Release failed"
+    default:
+      return String(session.state)
+  }
+}
+
+export function formatSessionStateDetail(session) {
+  if (session?.state === "stopping") {
+    return session.last_error || "Release is still completing in the background."
+  }
+  if (session?.state === "stop_failed") {
+    return session.last_error || "Release failed. Inspect the session before retrying."
+  }
+  return null
 }
 
 function asArray(value) {

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildSessionPayload,
+  formatSessionState,
+  formatSessionStateDetail,
   formatStopResultMessage,
   isSessionStopping,
   parseBusyThreshold,
@@ -63,6 +65,29 @@ describe("isSessionStopping", () => {
     expect(isSessionStopping("job-a", stoppingIds, false)).toBe(true)
     expect(isSessionStopping("job-b", stoppingIds, false)).toBe(false)
     expect(isSessionStopping("job-b", stoppingIds, true)).toBe(true)
+  })
+
+  it("treats backend stopping sessions as stopping after refresh", () => {
+    expect(
+      isSessionStopping({ job_id: "job-a", state: "stopping" }, new Set(), false)
+    ).toBe(true)
+  })
+})
+
+describe("session state formatting", () => {
+  it("labels backend lifecycle states for display", () => {
+    expect(formatSessionState({ state: "active" })).toBe("Active")
+    expect(formatSessionState({ state: "stopping" })).toBe("Releasing")
+    expect(formatSessionState({ state: "stop_failed" })).toBe("Release failed")
+  })
+
+  it("surfaces retained release error details", () => {
+    expect(
+      formatSessionStateDetail({
+        state: "stop_failed",
+        last_error: "release exploded"
+      })
+    ).toBe("release exploded")
   })
 })
 

@@ -77,12 +77,13 @@ Open:
 http://127.0.0.1:8765/
 ```
 
-The dashboard provides live telemetry, active sessions, and start/stop controls.
+The dashboard provides live telemetry, tracked session state, and start/stop controls.
 CUDA and ROCm devices include memory and utilization when the platform APIs are
 available. Mac M series devices report best-effort MPS memory counters and use
 `null` for unsupported fields such as utilization.
 Stop controls show timed-out or failed releases instead of claiming success when
-the backend keeps a session visible for follow-up cleanup.
+the backend keeps a session visible for follow-up cleanup. Retained session cards
+show `Releasing` or `Release failed` with the backend error detail when present.
 
 ## Remote and security notes
 

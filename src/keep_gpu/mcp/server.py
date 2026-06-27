@@ -232,6 +232,10 @@ class KeepGPUServer:
         if job_id:
             with self._sessions_lock:
                 session = self._sessions.get(job_id)
+                if session and session.state == "stopping":
+                    result = self._empty_stop_result()
+                    result["timed_out"].append(job_id)
+                    return self._finalize_stop_result(result)
                 if session:
                     session.state = "stopping"
                     session.last_error = None
@@ -277,11 +281,16 @@ class KeepGPUServer:
 
         with self._sessions_lock:
             session_items = list(self._sessions.items())
-            for _, session in session_items:
+            releasable_items = []
+            result = self._empty_stop_result()
+            for job_id, session in session_items:
+                if session.state == "stopping":
+                    result["timed_out"].append(job_id)
+                    continue
                 session.state = "stopping"
                 session.last_error = None
-        result = self._empty_stop_result()
-        for job_id, session in session_items:
+                releasable_items.append((job_id, session))
+        for job_id, session in releasable_items:
             try:
                 released = self._release_with_timeout(
                     session.controller,
