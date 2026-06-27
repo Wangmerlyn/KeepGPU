@@ -138,6 +138,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Project-local agent worktrees
+.worktrees/
+
 # Spyder project settings
 .spyderproject
 .spyproject
