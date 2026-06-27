@@ -2,6 +2,8 @@ import threading
 import time
 from typing import Any, cast
 
+import pytest
+
 from keep_gpu.mcp.server import KeepGPUServer, _handle_request
 
 
@@ -155,6 +157,64 @@ def test_jsonrpc_rejects_busy_threshold_above_percent_range():
         in resp["error"]["message"]
     )
     assert server.status()["active_jobs"] == []
+
+
+@pytest.mark.parametrize("job_id", ["", " ", 123, "job/123", "job?123", "job#123"])
+def test_start_keep_rejects_invalid_job_id_before_starting_controller(job_id):
+    controllers = []
+
+    class TrackingController(DummyController):
+        def __init__(self, **kwargs):
+            controllers.append(self)
+            super().__init__(**kwargs)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: TrackingController(**kwargs))
+    )
+
+    with pytest.raises(ValueError, match="job_id"):
+        server.start_keep(job_id=job_id)
+
+    assert controllers == []
+    assert server.status()["active_jobs"] == []
+
+
+@pytest.mark.parametrize("job_id", ["", " ", 123, "job/123", "job?123", "job#123"])
+def test_status_rejects_invalid_job_id_without_changing_sessions(job_id):
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+
+    with pytest.raises(ValueError, match="job_id"):
+        server.status(job_id=job_id)
+
+    assert server.status(active_job_id)["active"] is True
+
+
+@pytest.mark.parametrize("job_id", ["", " ", 123, "job/123", "job?123", "job#123"])
+def test_stop_keep_rejects_invalid_job_id_without_stopping_sessions(job_id):
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    controller = server._sessions[active_job_id].controller
+
+    with pytest.raises(ValueError, match="job_id"):
+        server.stop_keep(job_id=job_id)
+
+    assert server.status(active_job_id)["active"] is True
+    assert controller.released is False
+
+
+def test_jsonrpc_stop_keep_rejects_empty_job_id_without_stopping_sessions():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    controller = server._sessions[active_job_id].controller
+    req = {"id": 1, "method": "stop_keep", "params": {"job_id": ""}}
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert "job_id" in resp["error"]["message"]
+    assert server.status(active_job_id)["active"] is True
+    assert controller.released is False
 
 
 def test_stop_all():

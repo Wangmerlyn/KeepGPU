@@ -1,4 +1,7 @@
+import re
 from typing import Any, List, Optional, Union
+
+_JOB_ID_PATTERN = re.compile(r"^[A-Za-z0-9._~-]+$")
 
 
 def _is_plain_int(value: Any) -> bool:
@@ -40,3 +43,14 @@ def validate_busy_threshold(busy_threshold: Any) -> int:
     ):
         raise ValueError("busy_threshold must be -1 or an integer between 0 and 100")
     return busy_threshold
+
+
+def validate_job_id(job_id: Any) -> Optional[str]:
+    """Validate public session job_id input."""
+    if job_id is None:
+        return None
+    if not isinstance(job_id, str):
+        raise ValueError("job_id must be a URL-path-safe non-empty string")
+    if not job_id.strip() or not _JOB_ID_PATTERN.fullmatch(job_id):
+        raise ValueError("job_id must be a URL-path-safe non-empty string")
+    return job_id

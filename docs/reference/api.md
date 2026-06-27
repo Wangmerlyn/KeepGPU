@@ -8,6 +8,11 @@ For global sessions, `gpu_ids=None` means all visible GPUs. Passing an empty or
 duplicate list is invalid, and startup raises `ValueError` if discovery resolves
 to zero devices.
 
+For service session IDs, `job_id=None` is the only omitted/all-sessions
+sentinel. Custom IDs must be non-empty strings containing only letters, digits,
+`.`, `_`, `-`, or `~`; invalid values raise `ValueError` before session state
+changes.
+
 ::: keep_gpu.cli
     options:
       show_source: true

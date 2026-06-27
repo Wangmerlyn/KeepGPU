@@ -89,6 +89,10 @@ Stops the ownership-verified local daemon process created by auto-start logic.
 
 ## Service HTTP endpoints
 
+Only omitted/`null` `job_id` values mean generated IDs or all-sessions, depending
+on the method. Custom IDs must be non-empty strings containing only letters,
+digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
+
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
 | `/health` | GET | Service liveness probe. |

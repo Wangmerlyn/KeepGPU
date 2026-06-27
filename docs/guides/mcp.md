@@ -44,6 +44,10 @@ devices.
 Custom `job_id` values are unique across active and starting sessions. If a
 duplicate arrives while the original start is still creating controller work,
 the duplicate is rejected before another controller begins keep-alive work.
+Only `null`/omitted means "generate an ID" for `start_keep` or "all sessions"
+for `status` and `stop_keep`. Custom IDs must be non-empty strings containing
+only letters, digits, `.`, `_`, `-`, or `~`; invalid IDs return an error before
+session state changes.
 
 `stop_keep` returns additive outcome fields:
 

@@ -1,5 +1,8 @@
+import uuid
+
 import pytest
 
+from keep_gpu.utilities import session_config
 from keep_gpu.utilities.session_config import (
     validate_busy_threshold,
     validate_gpu_ids,
@@ -53,3 +56,35 @@ def test_validate_busy_threshold_rejects_non_plain_integers(value):
         ValueError, match="busy_threshold must be -1 or an integer between 0 and 100"
     ):
         validate_busy_threshold(value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [None, "job-123", "job_123", "job.123", "job~123", str(uuid.uuid4())],
+)
+def test_validate_job_id_accepts_omitted_and_url_path_safe_strings(value):
+    assert session_config.validate_job_id(value) == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        " ",
+        "\t",
+        123,
+        True,
+        ["job-123"],
+        "job/123",
+        "job?123",
+        "job#123",
+        "job 123",
+        " job-123",
+        "job-123 ",
+        "job%123",
+        "job:123",
+    ],
+)
+def test_validate_job_id_rejects_invalid_custom_ids(value):
+    with pytest.raises(ValueError, match="job_id"):
+        session_config.validate_job_id(value)
