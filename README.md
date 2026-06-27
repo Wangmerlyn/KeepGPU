@@ -17,7 +17,7 @@
 On many clusters, idle GPUs are reaped or silently shared after a short grace period. The cost of losing your reservation (or discovering another job has taken your card) can dwarf the cost of a tiny keep-alive loop. KeepGPU is a minimal, auditable guardrail:
 
 - **Predictable** – Single-purpose controller with explicit resource knobs (VRAM size, interval, utilization backoff).
-- **Polite** – Uses NVML to read utilization and backs off when the GPU is busy.
+- **Polite** – Uses telemetry to read utilization and backs off when the GPU is busy or utilization is unavailable.
 - **Portable** – Typer/Rich CLI for humans; Python API for orchestrators and notebooks.
 - **Observable** – Structured logging and optional file logs for auditing what kept the GPU alive.
 - **Power-aware** – Uses intervalled elementwise ops instead of heavy matmul floods to present “busy” utilization while keeping power and thermals lower (see `CudaGPUController._run_relu_batch` for the loop).
@@ -73,7 +73,7 @@ Flags that matter:
 - Blocking mode knobs:
   - `--vram` (`1GiB`, `750MB`, or bare bytes like `1073741824`): how much memory to pin.
   - `--interval` (positive seconds): sleep between keep-alive bursts.
-  - `--busy-threshold`: skip work when telemetry reports higher utilization; `-1` disables utilization backoff.
+  - `--busy-threshold`: skip work when telemetry reports higher utilization or cannot report utilization; `-1` disables utilization backoff.
   - `--gpu-ids`: target a non-negative subset; otherwise all visible GPUs are guarded.
 - Service mode commands:
   - `keep-gpu serve`: run local service (HTTP + dashboard).
@@ -106,7 +106,7 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 ## What you get
 
 - Battle-tested keep-alive loop built on PyTorch.
-- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`.
+- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`. If utilization is unavailable and `busy_threshold` is non-negative, KeepGPU sleeps for that cycle instead of running compute.
 - CLI + API parity: same controllers power both code paths.
 - Continuous docs + CI: mkdocs + mkdocstrings build in CI to keep guidance up to date.
 
@@ -147,7 +147,7 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 - Dashboard: `http://127.0.0.1:8765/`
 - **Mac M series limitations:**
   - GPU utilization monitoring is not available on macOS.
-  - `busy_threshold` parameter is accepted for API compatibility but has no effect.
+  - Non-negative `busy_threshold` values therefore keep MPS in conservative sleep-only mode; set `busy_threshold=-1` to opt into unconditional keepalive compute.
   - `list-gpus` reports best-effort MPS memory counters and `null` for unsupported telemetry fields.
 - Minimal client config (stdio MCP):
   ```yaml

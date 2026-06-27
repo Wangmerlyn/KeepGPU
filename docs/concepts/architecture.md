@@ -35,8 +35,10 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
    - Allocates a tensor sized by way of `vram_to_keep`.
    - Starts a daemon thread that performs intervalled lightweight elementwise batches.
    - Calls `_monitor_utilization` (by way of NVML) to detect real activity.
-4. If utilization exceeds `busy_threshold`, the worker just sleeps for one more
-   `interval`. Otherwise it runs a new batch of ops.
+4. If utilization exceeds `busy_threshold`, or if utilization is unavailable
+   while `busy_threshold` is non-negative, the worker just sleeps for one more
+   `interval`. Otherwise it runs a new batch of ops. `busy_threshold=-1` is the
+   explicit unconditional mode.
 5. When you call `release()` (or exit the context), every worker sets a stop
    event, joins the thread, and clears the device cache. Release attempts every
    worker and then raises a summary if any worker failed to stop.
