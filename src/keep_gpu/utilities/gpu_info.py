@@ -84,9 +84,8 @@ def _nvml_info_for_handle(
         "memory_used": int(mem.used),
         "utilization": int(util),
     }
-    resolved_physical_id = _nvml_physical_id(pynvml, handle, physical_id)
-    if resolved_physical_id is not None:
-        info["physical_id"] = resolved_physical_id
+    if physical_id is not None:
+        info["physical_id"] = physical_id
     uuid = _nvml_uuid(pynvml, handle)
     if uuid is not None:
         info["uuid"] = uuid
@@ -125,12 +124,10 @@ def _query_nvml() -> List[Dict[str, Any]]:
                 return []
 
             resolved_physical_id = _nvml_physical_id(pynvml, handle, physical_id)
-            if (
-                resolved_physical_id is not None
-                and resolved_physical_id in seen_physical_ids
-            ):
-                return []
-            seen_physical_ids.add(resolved_physical_id)
+            if resolved_physical_id is not None:
+                if resolved_physical_id in seen_physical_ids:
+                    return []
+                seen_physical_ids.add(resolved_physical_id)
             visible_handles.append((visible_id, handle, resolved_physical_id))
 
         for visible_id, handle, physical_id in visible_handles:
