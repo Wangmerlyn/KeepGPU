@@ -75,6 +75,7 @@ Methods:
 - `status(job_id?)`
 - `list_gpus()`
 
+REST session creation accepts a JSON object body, not arrays or scalar values.
 Omitting `gpu_ids` means all GPUs visible to the service process. Omitting
 `busy_threshold` uses the eco-safe default `25`. Explicit GPU values are visible
 device ordinals in that same process environment. Empty, duplicate, or

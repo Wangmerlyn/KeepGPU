@@ -101,7 +101,7 @@ digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
 | `/api/gpus` | GET | GPU telemetry (`id`/`visible_id` are start-compatible visible ordinals; optional `physical_id`/`uuid` are metadata; unsupported fields are `null`). |
 | `/api/sessions` | GET | Tracked keep sessions, including `state="starting"` during startup and `state`/`last_error` for in-progress or failed stops. |
 | `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active or starting. |
-| `/api/sessions` | POST | Start session (`gpu_ids`, `vram`, finite positive `interval`, `busy_threshold`, `job_id`); omitted `gpu_ids` means all GPUs visible to the service process, omitted `busy_threshold` uses `25`, and empty, duplicate, or out-of-range selections are invalid. |
+| `/api/sessions` | POST | Start session with a JSON object body (`gpu_ids`, `vram`, finite positive `interval`, `busy_threshold`, `job_id`); omitted `gpu_ids` means all GPUs visible to the service process, omitted `busy_threshold` uses `25`, and empty, duplicate, or out-of-range selections are invalid. |
 | `/api/sessions` | DELETE | Stop all sessions; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/api/sessions/{job_id}` | DELETE | Stop one session; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/rpc` | POST | JSON-RPC compatibility endpoint. |
