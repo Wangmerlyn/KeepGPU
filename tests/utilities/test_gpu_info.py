@@ -360,7 +360,7 @@ def test_get_gpu_info_rocm_unresolved_mask_keeps_visible_records_without_utiliza
 
     assert [info["id"] for info in infos] == [0, 1]
     assert [info["visible_id"] for info in infos] == [0, 1]
-    assert [info.get("physical_id") for info in infos] == [None, None]
+    assert all("physical_id" not in info for info in infos)
     assert [info["utilization"] for info in infos] == [None, None]
     assert dummy_rocm.queried_indexes == []
     assert dummy_rocm.shutdown_calls == 1

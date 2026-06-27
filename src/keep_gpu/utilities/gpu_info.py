@@ -174,9 +174,10 @@ def _query_rocm() -> List[Dict[str, Any]]:
             )
             util = None
             if physical_id is not None:
+                # ROCm SMI utilization probes are best effort.
                 try:
                     util = int(rocm_smi.rsmi_dev_busy_percent_get(physical_id))
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     logger.debug("ROCm util query failed for %s: %s", physical_id, exc)
 
             try:

@@ -25,9 +25,10 @@ def rocm_monitor_device_count(rocm_smi) -> Optional[int]:
     count_fn = getattr(rocm_smi, "rsmi_num_monitor_devices", None)
     if count_fn is None:
         return None
+    # ROCm SMI probes can fail with vendor-specific errors.
     try:
         count = int(count_fn())
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
     return count if count >= 0 else None
 
