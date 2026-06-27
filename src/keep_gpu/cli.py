@@ -296,6 +296,9 @@ def _stop_all_sessions_with_fallback(host: str, port: int) -> Dict[str, Any]:
             _stop_service_process(host, port)
             return {
                 "stopped": [],
+                "timed_out": [],
+                "failed": [],
+                "errors": {},
                 "message": (
                     "Service stop RPC timed out; force-stopped local daemon "
                     f"pid={managed_pid}. Reserved VRAM should be released by process exit."
@@ -567,7 +570,7 @@ def service_stop(
     force: bool = typer.Option(
         False,
         "--force",
-        help="Stop service even if active sessions exist.",
+        help="Stop service even if tracked sessions exist.",
     ),
 ):
     """Stop local KeepGPU service daemon started by auto-start logic."""
@@ -588,7 +591,7 @@ def service_stop(
             active_jobs = status.get("active_jobs", [])
             if active_jobs:
                 raise RuntimeError(
-                    "Active keep sessions detected. Stop sessions first (`keep-gpu stop --all`) or re-run with --force."
+                    "Tracked keep sessions detected. Stop sessions first (`keep-gpu stop --all`) or re-run with --force."
                 )
             _rpc_call("stop_keep", {}, host, port, timeout=45.0)
 

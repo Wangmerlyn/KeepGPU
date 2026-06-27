@@ -1,8 +1,71 @@
 import time
+
 import pytest
 import torch
+
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
 from keep_gpu.utilities import platform_manager as pm
+
+
+def test_global_keep_rolls_back_started_controllers(monkeypatch):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
+
+    instances = []
+
+    class DummyController:
+        def __init__(self, *, rank, interval, vram_to_keep, busy_threshold):
+            self.rank = rank
+            self.kept = False
+            self.released = False
+            instances.append(self)
+
+        def keep(self):
+            if self.rank == 1:
+                raise RuntimeError("rank 1 failed to start")
+            self.kept = True
+
+        def release(self):
+            self.released = True
+
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    monkeypatch.setattr(cuda_module, "CudaGPUController", DummyController)
+
+    controller = GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="8MB")
+
+    with pytest.raises(RuntimeError, match="rank 1 failed to start"):
+        controller.keep()
+
+    assert instances[0].kept is True
+    assert instances[0].released is True
+    assert instances[1].kept is False
+    assert instances[1].released is False
+
+
+def test_global_release_attempts_all_controllers_and_reports_failures():
+    class DummyController:
+        def __init__(self, rank, error=None):
+            self.rank = rank
+            self.error = error
+            self.released = False
+
+        def release(self):
+            self.released = True
+            if self.error:
+                raise self.error
+
+    controllers = [
+        DummyController(0),
+        DummyController(1, RuntimeError("release failed")),
+        DummyController(2),
+    ]
+    controller = GlobalGPUController.__new__(GlobalGPUController)
+    controller.controllers = controllers
+
+    with pytest.raises(RuntimeError, match="rank 1: release failed"):
+        controller.release()
+
+    assert [ctrl.released for ctrl in controllers] == [True, True, True]
 
 
 def test_global_controller_accepts_fractional_interval(monkeypatch):

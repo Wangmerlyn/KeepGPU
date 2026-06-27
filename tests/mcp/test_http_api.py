@@ -119,6 +119,48 @@ def test_http_session_lifecycle():
         thread.join(timeout=2)
 
 
+def test_http_stop_timeout_keeps_session_visible(monkeypatch):
+    server = make_server()
+    monkeypatch.setattr(server, "_release_with_timeout", lambda controller, **_: False)
+
+    class _Server(TCPServer):
+        allow_reuse_address = True
+
+    httpd = _Server(("127.0.0.1", 0), _JSONRPCHandler)
+    httpd.keepgpu_server = server  # type: ignore[attr-defined]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+
+    try:
+        _, start_payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 20,
+                "busy_threshold": 5,
+            },
+        )
+        job_id = start_payload["job_id"]
+
+        _, stop_payload = _request_json("DELETE", f"{base}/api/sessions/{job_id}")
+        assert stop_payload["stopped"] == []
+        assert stop_payload["timed_out"] == [job_id]
+
+        _, status_payload = _request_json("GET", f"{base}/api/sessions/{job_id}")
+        assert status_payload["active"] is True
+        assert status_payload["state"] == "stopping"
+        assert "Timed out" in status_payload["last_error"]
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
 def test_http_session_trailing_slash_rejected():
     server = make_server()
 

@@ -28,14 +28,18 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
 ## Lifecycle
 
 1. The CLI (or your Python code) instantiates `GlobalGPUController`.
-2. During `keep()` / `__enter__`, each Cuda worker:
+2. During `keep()` / `__enter__`, `GlobalGPUController` starts each worker.
+   If a later worker fails to start, already-started workers are released before
+   the original start error is re-raised.
+3. Each CUDA worker:
    - Allocates a tensor sized by way of `vram_to_keep`.
    - Starts a daemon thread that performs intervalled lightweight elementwise batches.
    - Calls `_monitor_utilization` (by way of NVML) to detect real activity.
-3. If utilization exceeds `busy_threshold`, the worker just sleeps for one more
+4. If utilization exceeds `busy_threshold`, the worker just sleeps for one more
    `interval`. Otherwise it runs a new batch of ops.
-4. When you call `release()` (or exit the context), every worker sets a stop
-   event, joins the thread, and clears the CUDA cache.
+5. When you call `release()` (or exit the context), every worker sets a stop
+   event, joins the thread, and clears the device cache. Release attempts every
+   worker and then raises a summary if any worker failed to stop.
 
 ## Why lightweight elementwise batches?
 
@@ -51,6 +55,10 @@ Elementwise keep-alive batches:
 - The keep-alive loop runs on daemon threads so the main process can exit fast.
 - `GlobalGPUController.release()` stops workers concurrently by way of threads, keeping
   shutdown time bounded even with many GPUs.
+- Service session state is intentionally conservative: `stop_keep` removes a
+  session only after release succeeds. Timed-out sessions stay visible as
+  `state="stopping"` until the background release finishes; failed releases stay
+  visible as `state="stop_failed"` with `last_error`.
 - Errors inside a worker are logged but do not bring the whole process down;
   the loop retries after clearing the CUDA cache.
 

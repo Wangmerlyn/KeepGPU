@@ -78,7 +78,7 @@ Flags that matter:
 - Service mode commands:
   - `keep-gpu serve`: run local service (HTTP + dashboard).
   - `keep-gpu start`: create keep session and return immediately.
-  - `keep-gpu status`: inspect active sessions.
+  - `keep-gpu status`: inspect tracked sessions, including in-progress or failed releases.
   - `keep-gpu stop --job-id <id>` or `keep-gpu stop --all`: release sessions.
   - `keep-gpu service-stop`: stop auto-started local daemon.
   - `keep-gpu list-gpus`: fetch telemetry from local service.
@@ -137,6 +137,13 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
   curl http://127.0.0.1:8765/api/sessions
   ```
 - Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info).
+- Stop responses distinguish completed cleanup from partial cleanup:
+  `stopped` means released, while `timed_out` sessions remain visible as
+  `stopping` until background cleanup completes and `failed` sessions remain
+  visible with `state` and `last_error`.
+- Dashboard cards mirror that lifecycle state so a retained session shows
+  `Releasing` or `Release failed` instead of being presented as a fully active
+  keepalive.
 - Dashboard: `http://127.0.0.1:8765/`
 - **Mac M series limitations:**
   - GPU utilization monitoring is not available on macOS.

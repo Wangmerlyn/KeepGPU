@@ -72,8 +72,7 @@ class MacMGPUController(BaseGPUController):
 
         stop_evt = self._stop_evt
         if stop_evt is None:
-            logger.warning("rank %s: stop event missing; skipping release", self.rank)
-            return
+            raise RuntimeError(f"rank {self.rank}: stop event missing")
 
         stop_evt.set()
         join_timeout = max(2.0, min(float(self.interval) + 2.0, 30.0))
@@ -84,7 +83,9 @@ class MacMGPUController(BaseGPUController):
                 self.rank,
                 join_timeout,
             )
-            return
+            raise TimeoutError(
+                f"rank {self.rank}: MPS keep thread did not stop within {join_timeout:.1f}s"
+            )
 
         torch.mps.empty_cache()
         gc.collect()

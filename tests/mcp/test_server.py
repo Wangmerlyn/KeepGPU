@@ -1,3 +1,5 @@
+import threading
+import time
 from typing import Any, cast
 
 from keep_gpu.mcp.server import KeepGPUServer, _handle_request
@@ -25,6 +27,15 @@ def dummy_factory(**kwargs):
 
 def make_server() -> KeepGPUServer:
     return KeepGPUServer(controller_factory=cast(Any, dummy_factory))
+
+
+def _wait_until(condition, timeout_s=1.0):
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if condition():
+            return True
+        time.sleep(0.01)
+    return condition()
 
 
 def test_start_status_stop_cycle():
@@ -132,12 +143,35 @@ def test_stop_keep_returns_timeout_payload(monkeypatch):
     server = make_server()
     job_id = server.start_keep()["job_id"]
 
-    monkeypatch.setattr(server, "_release_with_timeout", lambda controller: False)
+    monkeypatch.setattr(server, "_release_with_timeout", lambda controller, **_: False)
 
     result = server.stop_keep(job_id)
     assert result["stopped"] == []
     assert result["timed_out"] == [job_id]
     assert "Timed out" in result["message"]
+    status = server.status(job_id)
+    assert status["active"] is True
+    assert status["state"] == "stopping"
+    assert "Timed out" in status["last_error"]
+
+
+def test_stop_keep_returns_failed_payload_and_retains_session(monkeypatch):
+    server = make_server()
+    job_id = server.start_keep()["job_id"]
+
+    def fail_release(controller, **_):
+        raise RuntimeError("release exploded")
+
+    monkeypatch.setattr(server, "_release_with_timeout", fail_release)
+
+    result = server.stop_keep(job_id)
+    assert result["stopped"] == []
+    assert result["failed"] == [job_id]
+    assert result["errors"] == {job_id: "release exploded"}
+    status = server.status(job_id)
+    assert status["active"] is True
+    assert status["state"] == "stop_failed"
+    assert status["last_error"] == "release exploded"
 
 
 def test_stop_all_tracks_timeouts(monkeypatch):
@@ -149,9 +183,188 @@ def test_stop_all_tracks_timeouts(monkeypatch):
     monkeypatch.setattr(
         server,
         "_release_with_timeout",
-        lambda controller: next(outcomes),
+        lambda controller, **_: next(outcomes),
     )
 
     result = server.stop_keep()
     assert result["stopped"] == [job_a]
     assert result["timed_out"] == [job_b]
+    assert server.status(job_a)["active"] is False
+    status_b = server.status(job_b)
+    assert status_b["active"] is True
+    assert status_b["state"] == "stopping"
+
+
+def test_timed_out_stop_removes_session_after_background_release_succeeds(monkeypatch):
+    release_gate = threading.Event()
+
+    class SlowSuccessController(DummyController):
+        def release(self):
+            release_gate.wait(timeout=1.0)
+            self.released = True
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: SlowSuccessController(**kwargs))
+    )
+    original_release_with_timeout = server._release_with_timeout
+
+    def short_timeout(controller, **kwargs):
+        kwargs["timeout_s"] = 0.01
+        return original_release_with_timeout(controller, **kwargs)
+
+    monkeypatch.setattr(server, "_release_with_timeout", short_timeout)
+    job_id = server.start_keep()["job_id"]
+
+    result = server.stop_keep(job_id)
+
+    assert result["timed_out"] == [job_id]
+    assert server.status(job_id)["state"] == "stopping"
+
+    release_gate.set()
+    assert _wait_until(lambda: server.status(job_id)["active"] is False)
+
+
+def test_timed_out_stop_marks_late_background_release_failure(monkeypatch):
+    release_gate = threading.Event()
+
+    class SlowFailController(DummyController):
+        def release(self):
+            release_gate.wait(timeout=1.0)
+            raise RuntimeError("late release failed")
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: SlowFailController(**kwargs))
+    )
+    original_release_with_timeout = server._release_with_timeout
+
+    def short_timeout(controller, **kwargs):
+        kwargs["timeout_s"] = 0.01
+        return original_release_with_timeout(controller, **kwargs)
+
+    monkeypatch.setattr(server, "_release_with_timeout", short_timeout)
+    job_id = server.start_keep()["job_id"]
+
+    result = server.stop_keep(job_id)
+
+    assert result["timed_out"] == [job_id]
+    release_gate.set()
+    assert _wait_until(lambda: server.status(job_id).get("state") == "stop_failed")
+    status = server.status(job_id)
+    assert status["active"] is True
+    assert status["last_error"] == "late release failed"
+
+
+def test_timed_out_stop_preserves_failure_from_timeout_race(monkeypatch):
+    server = make_server()
+    job_id = server.start_keep()["job_id"]
+
+    def timeout_after_late_failure(controller, **kwargs):
+        kwargs["on_late_result"](RuntimeError("late release failed"))
+        return False
+
+    monkeypatch.setattr(server, "_release_with_timeout", timeout_after_late_failure)
+
+    result = server.stop_keep(job_id)
+
+    assert result["timed_out"] == [job_id]
+    status = server.status(job_id)
+    assert status["active"] is True
+    assert status["state"] == "stop_failed"
+    assert status["last_error"] == "late release failed"
+
+
+def test_repeated_stop_does_not_start_second_release_while_stopping(monkeypatch):
+    release_gate = threading.Event()
+    release_calls = 0
+
+    class SlowController(DummyController):
+        def release(self):
+            nonlocal release_calls
+            release_calls += 1
+            release_gate.wait(timeout=1.0)
+            self.released = True
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: SlowController(**kwargs))
+    )
+    original_release_with_timeout = server._release_with_timeout
+
+    def short_timeout(controller, **kwargs):
+        kwargs["timeout_s"] = 0.01
+        return original_release_with_timeout(controller, **kwargs)
+
+    monkeypatch.setattr(server, "_release_with_timeout", short_timeout)
+    job_id = server.start_keep()["job_id"]
+
+    first = server.stop_keep(job_id)
+    second = server.stop_keep(job_id)
+
+    assert first["timed_out"] == [job_id]
+    assert second["timed_out"] == [job_id]
+    assert release_calls == 1
+
+    release_gate.set()
+    assert _wait_until(lambda: server.status(job_id)["active"] is False)
+
+
+def test_stop_all_does_not_restart_already_stopping_session(monkeypatch):
+    release_gate = threading.Event()
+    release_calls = {}
+
+    class SlowController(DummyController):
+        def release(self):
+            key = self.gpu_ids[0]
+            release_calls[key] = release_calls.get(key, 0) + 1
+            if key == 0:
+                release_gate.wait(timeout=1.0)
+            self.released = True
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: SlowController(**kwargs))
+    )
+    original_release_with_timeout = server._release_with_timeout
+
+    def short_timeout(controller, **kwargs):
+        if controller.gpu_ids == [0]:
+            kwargs["timeout_s"] = 0.01
+        return original_release_with_timeout(controller, **kwargs)
+
+    monkeypatch.setattr(server, "_release_with_timeout", short_timeout)
+    job_a = server.start_keep(gpu_ids=[0])["job_id"]
+    job_b = server.start_keep(gpu_ids=[1])["job_id"]
+
+    first = server.stop_keep(job_a)
+    second = server.stop_keep()
+
+    assert first["timed_out"] == [job_a]
+    assert second["timed_out"] == [job_a]
+    assert second["stopped"] == [job_b]
+    assert release_calls == {0: 1, 1: 1}
+
+    release_gate.set()
+    assert _wait_until(lambda: server.status(job_a)["active"] is False)
+    assert server.status(job_b)["active"] is False
+
+
+def test_stop_all_reports_failures_and_continues(monkeypatch):
+    server = make_server()
+    job_a = server.start_keep(gpu_ids=[0])["job_id"]
+    job_b = server.start_keep(gpu_ids=[1])["job_id"]
+    job_c = server.start_keep(gpu_ids=[2])["job_id"]
+
+    def release_outcome(controller, **_):
+        if controller.gpu_ids == [1]:
+            raise RuntimeError("release failed")
+        return True
+
+    monkeypatch.setattr(server, "_release_with_timeout", release_outcome)
+
+    result = server.stop_keep()
+    assert result["stopped"] == [job_a, job_c]
+    assert result["failed"] == [job_b]
+    assert result["errors"] == {job_b: "release failed"}
+    assert server.status(job_a)["active"] is False
+    assert server.status(job_c)["active"] is False
+    status_b = server.status(job_b)
+    assert status_b["active"] is True
+    assert status_b["state"] == "stop_failed"

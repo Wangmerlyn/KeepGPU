@@ -44,6 +44,94 @@ export function buildSessionPayload(form) {
   }
 }
 
-export function isSessionStopping(jobId, stoppingIds, stoppingAll) {
-  return stoppingAll || stoppingIds.has(jobId)
+export function isSessionStopping(sessionOrJobId, stoppingIds, stoppingAll) {
+  const isSession = typeof sessionOrJobId === "object" && sessionOrJobId !== null
+  const jobId = isSession ? sessionOrJobId.job_id : sessionOrJobId
+  return stoppingAll || sessionOrJobId?.state === "stopping" || stoppingIds.has(jobId)
+}
+
+export function hasReleasableSessions(sessions, stoppingIds, stoppingAll) {
+  return (
+    !stoppingAll &&
+    sessions.some((session) => !isSessionStopping(session, stoppingIds, false))
+  )
+}
+
+export function formatSessionState(session) {
+  switch (session?.state) {
+    case undefined:
+    case null:
+    case "active":
+      return "Active"
+    case "stopping":
+      return "Releasing"
+    case "stop_failed":
+      return "Release failed"
+    default:
+      return String(session.state)
+  }
+}
+
+export function formatSessionStateDetail(session) {
+  if (session?.state === "stopping") {
+    return session.last_error || "Release is still completing in the background."
+  }
+  if (session?.state === "stop_failed") {
+    return session.last_error || "Release failed. Inspect the session before retrying."
+  }
+  return null
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : []
+}
+
+function sessionLabel(count) {
+  return count === 1 ? "session" : "sessions"
+}
+
+function formatIds(ids) {
+  return ids.join(", ")
+}
+
+function formatErrors(errors) {
+  if (Array.isArray(errors)) {
+    return errors.map((error) => String(error))
+  }
+
+  if (errors && typeof errors === "object") {
+    return Object.entries(errors).map(([jobId, error]) => `${jobId}: ${String(error)}`)
+  }
+
+  return []
+}
+
+export function formatStopResultMessage(result) {
+  const stopped = asArray(result?.stopped)
+  const timedOut = asArray(result?.timed_out)
+  const failed = asArray(result?.failed)
+  const errors = formatErrors(result?.errors)
+  const parts = []
+
+  if (timedOut.length > 0) {
+    parts.push(
+      `Timed out stopping ${sessionLabel(timedOut.length)}: ${formatIds(timedOut)}.`
+    )
+  }
+
+  if (failed.length > 0) {
+    parts.push(
+      `Failed to release ${sessionLabel(failed.length)}: ${formatIds(failed)}.`
+    )
+  }
+
+  if (stopped.length > 0) {
+    parts.push(`Released ${sessionLabel(stopped.length)}: ${formatIds(stopped)}.`)
+  }
+
+  if (errors.length > 0) {
+    parts.push(`Errors: ${errors.join("; ")}.`)
+  }
+
+  return parts.length > 0 ? parts.join(" ") : "No sessions were released."
 }

@@ -120,8 +120,7 @@ class CudaGPUController(BaseGPUController):
 
         stop_evt = self._stop_evt
         if stop_evt is None:
-            logger.warning("rank %s: stop event missing; skipping release", self.rank)
-            return
+            raise RuntimeError(f"rank {self.rank}: stop event missing")
         assert stop_evt is not None
 
         stop_evt.set()
@@ -133,7 +132,9 @@ class CudaGPUController(BaseGPUController):
                 self.rank,
                 join_timeout,
             )
-            return
+            raise TimeoutError(
+                f"rank {self.rank}: keep thread did not stop within {join_timeout:.1f}s"
+            )
         torch.cuda.empty_cache()
         logger.info("rank %s: keep thread stopped & cache cleared", self.rank)
 

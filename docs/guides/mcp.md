@@ -37,6 +37,19 @@ Methods:
 - `status(job_id?)`
 - `list_gpus()`
 
+`stop_keep` returns additive outcome fields:
+
+```json
+{"stopped": ["job-a"], "timed_out": [], "failed": [], "errors": {}}
+```
+
+If a release times out, the session remains visible in `status` with
+`state="stopping"` until the background release finishes. If that background
+release later succeeds, the session is removed; if it fails, the session remains
+visible with `state="stop_failed"` and `last_error` describing what happened. A
+job id only appears in `stopped` after cleanup has completed within the stop
+request timeout.
+
 ## REST quick examples
 
 ```bash
@@ -64,10 +77,13 @@ Open:
 http://127.0.0.1:8765/
 ```
 
-The dashboard provides live telemetry, active sessions, and start/stop controls.
+The dashboard provides live telemetry, tracked session state, and start/stop controls.
 CUDA and ROCm devices include memory and utilization when the platform APIs are
 available. Mac M series devices report best-effort MPS memory counters and use
 `null` for unsupported fields such as utilization.
+Stop controls show timed-out or failed releases instead of claiming success when
+the backend keeps a session visible for follow-up cleanup. Retained session cards
+show `Releasing` or `Release failed` with the backend error detail when present.
 
 ## Remote and security notes
 

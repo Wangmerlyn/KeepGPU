@@ -54,6 +54,8 @@ MAX_JSON_BODY_BYTES = 1_000_000
 class Session:
     controller: GlobalGPUController
     params: Dict[str, Any]
+    state: str = "active"
+    last_error: Optional[str] = None
 
 
 class KeepGPUServer:
@@ -70,21 +72,40 @@ class KeepGPUServer:
     def _release_with_timeout(
         controller: GlobalGPUController,
         timeout_s: float = 10.0,
+        on_late_result: Optional[Callable[[Optional[Exception]], None]] = None,
     ) -> bool:
         done = threading.Event()
+        timed_out = threading.Event()
+        callback_called = threading.Event()
         error_holder: Dict[str, Exception] = {}
 
+        def _notify_late_result(error: Optional[Exception]) -> None:
+            if on_late_result is None or callback_called.is_set():
+                return
+            callback_called.set()
+            try:
+                on_late_result(error)
+            except Exception as exc:  # pragma: no cover - defensive callback guard
+                logger.warning("Late release callback failed: %s", exc)
+
         def _release() -> None:
+            error: Optional[Exception] = None
             try:
                 controller.release()
             except Exception as exc:  # pragma: no cover - defensive
+                error = exc
                 error_holder["error"] = exc
             finally:
                 done.set()
+                if timed_out.is_set():
+                    _notify_late_result(error)
 
         thread = threading.Thread(target=_release, daemon=True)
         thread.start()
         if not done.wait(timeout_s):
+            timed_out.set()
+            if done.is_set():
+                _notify_late_result(error_holder.get("error"))
             return False
         if "error" in error_holder:
             raise error_holder["error"]
@@ -147,6 +168,57 @@ class KeepGPUServer:
         logger.info("Started keep session %s on GPUs %s", job_id, gpu_ids)
         return {"job_id": job_id}
 
+    @staticmethod
+    def _empty_stop_result() -> Dict[str, Any]:
+        return {"stopped": [], "timed_out": [], "failed": [], "errors": {}}
+
+    @staticmethod
+    def _timeout_error_message() -> str:
+        return "Timed out while stopping session; release continues in background."
+
+    @staticmethod
+    def _finalize_stop_result(result: Dict[str, Any]) -> Dict[str, Any]:
+        messages = []
+        if result["timed_out"]:
+            messages.append(
+                "Timed out while stopping some sessions; release continues in background."
+            )
+        if result["failed"]:
+            messages.append("Some sessions failed to stop; inspect status for details.")
+        if messages:
+            result["message"] = " ".join(messages)
+        return result
+
+    def _mark_session(
+        self, job_id: str, session: Session, state: str, last_error: Optional[str]
+    ) -> None:
+        with self._sessions_lock:
+            current = self._sessions.get(job_id)
+            if current is session:
+                current.state = state
+                current.last_error = last_error
+
+    def _mark_stop_timeout(self, job_id: str, session: Session) -> None:
+        with self._sessions_lock:
+            current = self._sessions.get(job_id)
+            if current is session and current.state != "stop_failed":
+                current.state = "stopping"
+                current.last_error = self._timeout_error_message()
+
+    def _finalize_late_release(
+        self, job_id: str, session: Session, error: Optional[Exception]
+    ) -> None:
+        if error is None:
+            with self._sessions_lock:
+                if self._sessions.get(job_id) is session:
+                    self._sessions.pop(job_id, None)
+            logger.info("Completed delayed release for keep session %s", job_id)
+            return
+
+        message = str(error)
+        self._mark_session(job_id, session, "stop_failed", message)
+        logger.warning("Delayed release failed for keep session %s: %s", job_id, error)
+
     def stop_keep(
         self, job_id: Optional[str] = None, quiet: bool = False
     ) -> Dict[str, Any]:
@@ -161,14 +233,38 @@ class KeepGPUServer:
             quiet: Suppress informational logs about stopped sessions.
 
         Returns:
-            Dict with a "stopped" list of job ids. If a specific job_id was not
-            found, a "message" field explains the miss.
+            Dict with "stopped", "timed_out", "failed", and "errors" fields.
+            If a specific job_id was not found, a "message" field explains the miss.
         """
         if job_id:
             with self._sessions_lock:
-                session = self._sessions.pop(job_id, None)
+                session = self._sessions.get(job_id)
+                if session and session.state == "stopping":
+                    result = self._empty_stop_result()
+                    result["timed_out"].append(job_id)
+                    return self._finalize_stop_result(result)
+                if session:
+                    session.state = "stopping"
+                    session.last_error = None
             if session:
-                released = self._release_with_timeout(session.controller)
+                result = self._empty_stop_result()
+                try:
+                    released = self._release_with_timeout(
+                        session.controller,
+                        on_late_result=lambda error: self._finalize_late_release(
+                            job_id, session, error
+                        ),
+                    )
+                except Exception as exc:
+                    error = str(exc)
+                    self._mark_session(job_id, session, "stop_failed", error)
+                    result["failed"].append(job_id)
+                    result["errors"][job_id] = error
+                    if not quiet:
+                        logger.warning(
+                            "Failed to stop keep session %s: %s", job_id, exc
+                        )
+                    return self._finalize_stop_result(result)
                 if not quiet:
                     if released:
                         logger.info("Stopped keep session %s", job_id)
@@ -177,54 +273,85 @@ class KeepGPUServer:
                             "Timed out while stopping keep session %s", job_id
                         )
                 if released:
-                    return {"stopped": [job_id]}
-                return {
-                    "stopped": [],
-                    "timed_out": [job_id],
-                    "message": "Timed out while stopping session; release continues in background.",
-                }
-            return {"stopped": [], "message": "job_id not found"}
+                    with self._sessions_lock:
+                        if self._sessions.get(job_id) is session:
+                            self._sessions.pop(job_id, None)
+                    result["stopped"].append(job_id)
+                    return self._finalize_stop_result(result)
+                self._mark_stop_timeout(job_id, session)
+                result["timed_out"].append(job_id)
+                return self._finalize_stop_result(result)
+            result = self._empty_stop_result()
+            result["message"] = "job_id not found"
+            return result
 
         with self._sessions_lock:
             session_items = list(self._sessions.items())
-            self._sessions.clear()
-        stopped_ids = [jid for jid, _ in session_items]
-        timed_out_ids: List[str] = []
-        for job_id, session in session_items:
-            released = self._release_with_timeout(session.controller)
+            releasable_items = []
+            result = self._empty_stop_result()
+            for job_id, session in session_items:
+                if session.state == "stopping":
+                    result["timed_out"].append(job_id)
+                    continue
+                session.state = "stopping"
+                session.last_error = None
+                releasable_items.append((job_id, session))
+        for job_id, session in releasable_items:
+            try:
+                released = self._release_with_timeout(
+                    session.controller,
+                    on_late_result=lambda error, jid=job_id, sess=session: self._finalize_late_release(
+                        jid, sess, error
+                    ),
+                )
+            except Exception as exc:
+                error = str(exc)
+                self._mark_session(job_id, session, "stop_failed", error)
+                result["failed"].append(job_id)
+                result["errors"][job_id] = error
+                continue
+            if released:
+                with self._sessions_lock:
+                    if self._sessions.get(job_id) is session:
+                        self._sessions.pop(job_id, None)
+                result["stopped"].append(job_id)
+                continue
             if not released:
-                timed_out_ids.append(job_id)
-        successful = [jid for jid in stopped_ids if jid not in timed_out_ids]
-        if successful and not quiet:
-            logger.info("Stopped sessions: %s", successful)
-        if timed_out_ids and not quiet:
-            logger.warning("Timed out stopping sessions: %s", timed_out_ids)
-        result: Dict[str, Any] = {"stopped": successful}
-        if timed_out_ids:
-            result["timed_out"] = timed_out_ids
-            result["message"] = (
-                "Some sessions timed out during stop; release continues in background."
-            )
-        return result
+                self._mark_stop_timeout(job_id, session)
+                result["timed_out"].append(job_id)
+        if result["stopped"] and not quiet:
+            logger.info("Stopped sessions: %s", result["stopped"])
+        if result["timed_out"] and not quiet:
+            logger.warning("Timed out stopping sessions: %s", result["timed_out"])
+        if result["failed"] and not quiet:
+            logger.warning("Failed stopping sessions: %s", result["failed"])
+        return self._finalize_stop_result(result)
 
     def status(self, job_id: Optional[str] = None) -> Dict[str, Any]:
         if job_id:
             with self._sessions_lock:
                 session = self._sessions.get(job_id)
-            if not session:
-                return {"active": False, "job_id": job_id}
-            return {
-                "active": True,
-                "job_id": job_id,
-                "params": session.params,
-            }
+                if not session:
+                    return {"active": False, "job_id": job_id}
+                return {
+                    "active": True,
+                    "job_id": job_id,
+                    "params": session.params,
+                    "state": session.state,
+                    "last_error": session.last_error,
+                }
         with self._sessions_lock:
-            session_items = list(self._sessions.items())
-        return {
-            "active_jobs": [
-                {"job_id": jid, "params": sess.params} for jid, sess in session_items
-            ]
-        }
+            return {
+                "active_jobs": [
+                    {
+                        "job_id": jid,
+                        "params": sess.params,
+                        "state": sess.state,
+                        "last_error": sess.last_error,
+                    }
+                    for jid, sess in self._sessions.items()
+                ]
+            }
 
     def list_gpus(self) -> Dict[str, Any]:
         """Return detailed GPU info (id, name, memory, utilization)."""
