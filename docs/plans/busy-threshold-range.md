@@ -30,6 +30,8 @@ and dashboard inputs.
 - [x] Implement the centralized validator change.
 - [x] Add interface-level coverage where cheap to prove CLI/MCP inherit the
       central rule.
+- [x] Close local-review parity gap by updating dashboard validation, rebuilding
+      static assets, and adding REST rejection coverage.
 - [x] Update `AGENTS.md`, README, and CLI/MCP docs with the allowed range.
 - [x] Run targeted threshold tests, full tests, docs build, and pre-commit.
 - [ ] Open a GitHub PR, run local subagent review, resolve all comments, then

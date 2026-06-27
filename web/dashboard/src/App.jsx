@@ -294,6 +294,7 @@ export default function App() {
                   className="field-input"
                   type="number"
                   min="-1"
+                  max="100"
                   value={form.busyThreshold}
                   onChange={(event) =>
                     setForm((previous) => ({
