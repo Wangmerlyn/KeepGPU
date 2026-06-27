@@ -36,6 +36,10 @@ def _check_cuda():
         import pynvml  # provided by nvidia-ml-py
 
         pynvml.nvmlInit()
+        try:
+            pynvml.nvmlShutdown()
+        except Exception as exc:  # pragma: no cover - best effort cleanup
+            logger.debug("NVML shutdown after probe failed: %s", exc)
         return True
     except Exception as exc:
         logger.debug("NVML unavailable: %s", exc)
@@ -52,7 +56,11 @@ def _check_rocm():
     try:
         import rocm_smi
 
-        rocm_smi.rocm_smi_init()
+        rocm_smi.rsmi_init()
+        try:
+            rocm_smi.rsmi_shut_down()
+        except Exception as exc:  # pragma: no cover - best effort cleanup
+            logger.debug("ROCm SMI shutdown after probe failed: %s", exc)
         return True
     except Exception as exc:
         logger.debug("ROCm SMI unavailable: %s", exc)

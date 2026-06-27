@@ -67,6 +67,7 @@ This file defines how coding agents should work in this repository.
 - Keep GPU telemetry helpers in `src/keep_gpu/utilities/gpu_info.py` and related utility modules.
 - Keep public session input validation centralized in `src/keep_gpu/utilities/session_config.py`; CLI, Python, REST, and JSON-RPC entry points must share the same contract.
 - Keep human VRAM parsing centralized in `src/keep_gpu/utilities/humanized_input.py`; public integer values and digit-only strings mean bytes, while controllers may convert to internal tensor element counts.
+- Hardware probes must clean up vendor libraries after detection (for example, NVML shutdown and ROCm SMI shutdown after init).
 - Avoid scattering platform-specific branching across unrelated modules; prefer one clear decision path then platform-specific controller classes.
 - Preserve simple controller flow: global controller orchestrates per-GPU controllers; single-GPU controllers handle device-level keep/release loops.
 
@@ -74,6 +75,7 @@ This file defines how coding agents should work in this repository.
 
 - CUDA telemetry should rely on `nvidia-ml-py` (imported as `pynvml` module), not the deprecated standalone `pynvml` package.
 - ROCm support is optional and should remain guarded (`rocm-smi` in extras). Imports must fail gracefully on non-ROCm machines.
+- Apple Silicon/MPS telemetry is best-effort; return a guarded MACM record with nullable memory/utilization fields rather than hiding the device.
 - CI runners generally do not have GPUs. GPU-dependent logic must have safe fallbacks and tests must avoid hard-failing in no-GPU environments.
 
 ### Testing Expectations in This Repository

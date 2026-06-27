@@ -136,10 +136,47 @@ def _query_torch() -> List[Dict[str, Any]]:
     return infos
 
 
+def _safe_mps_memory_value(method_name: str) -> int | None:
+    try:
+        mps = getattr(torch, "mps")
+        method = getattr(mps, method_name)
+        return int(method())
+    except Exception as exc:
+        logger.debug("MPS memory query %s failed: %s", method_name, exc)
+        return None
+
+
+def _query_mps() -> List[Dict[str, Any]]:
+    try:
+        if not torch.backends.mps.is_available():
+            return []
+    except Exception as exc:
+        logger.debug("MPS availability query failed: %s", exc)
+        return []
+
+    current_allocated = _safe_mps_memory_value("current_allocated_memory")
+    driver_allocated = _safe_mps_memory_value("driver_allocated_memory")
+    recommended_max = _safe_mps_memory_value("recommended_max_memory")
+
+    return [
+        {
+            "id": 0,
+            "platform": "macm",
+            "name": "Apple Silicon GPU",
+            "memory_total": recommended_max,
+            "memory_used": (
+                driver_allocated if driver_allocated is not None else current_allocated
+            ),
+            "utilization": None,
+            "memory_allocated": current_allocated,
+        }
+    ]
+
+
 def get_gpu_info() -> List[Dict[str, Any]]:
     """
     Return a list of GPU info dicts: id, platform, name, memory_total, memory_used, utilization.
-    Tries NVML first (CUDA), then ROCm SMI, then falls back to torch.cuda data.
+    Tries NVML first (CUDA), then ROCm SMI, then torch.cuda, then MPS data.
     """
     try:
         infos = _query_nvml()
@@ -155,7 +192,11 @@ def get_gpu_info() -> List[Dict[str, Any]]:
     except Exception as exc:
         logger.debug("ROCm info failed: %s", exc)
 
-    return _query_torch()
+    infos = _query_torch()
+    if infos:
+        return infos
+
+    return _query_mps()
 
 
 __all__ = ["get_gpu_info"]

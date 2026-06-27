@@ -21,7 +21,7 @@ On many clusters, idle GPUs are reaped or silently shared after a short grace pe
 - **Portable** – Typer/Rich CLI for humans; Python API for orchestrators and notebooks.
 - **Observable** – Structured logging and optional file logs for auditing what kept the GPU alive.
 - **Power-aware** – Uses intervalled elementwise ops instead of heavy matmul floods to present “busy” utilization while keeping power and thermals lower (see `CudaGPUController._run_relu_batch` for the loop).
-- **NVML-backed** – GPU telemetry comes from `nvidia-ml-py` (the `pynvml` module), with optional `rocm-smi` support when you install the `rocm` extra.
+- **Telemetry-aware** – GPU telemetry comes from `nvidia-ml-py` (the `pynvml` module), optional `rocm-smi`, and best-effort MPS memory counters on Mac M series.
 
 ## Quick start (CLI)
 
@@ -141,6 +141,7 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 - **Mac M series limitations:**
   - GPU utilization monitoring is not available on macOS.
   - `busy_threshold` parameter is accepted for API compatibility but has no effect.
+  - `list-gpus` reports best-effort MPS memory counters and `null` for unsupported telemetry fields.
 - Minimal client config (stdio MCP):
   ```yaml
   servers:

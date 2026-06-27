@@ -90,3 +90,49 @@ def test_cuda_detection_falls_back_to_nvml(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "pynvml", DummyNVML)
     assert pm._check_cuda() is True
+
+
+def test_cuda_detection_shuts_down_nvml_probe(monkeypatch):
+    _reset_cache(monkeypatch)
+    monkeypatch.setattr(pm.torch.cuda, "is_available", lambda: False)
+
+    class DummyNVML:
+        init_calls = 0
+        shutdown_calls = 0
+
+        @classmethod
+        def nvmlInit(cls):
+            cls.init_calls += 1
+
+        @classmethod
+        def nvmlShutdown(cls):
+            cls.shutdown_calls += 1
+
+    monkeypatch.setitem(sys.modules, "pynvml", DummyNVML)
+
+    assert pm._check_cuda() is True
+    assert DummyNVML.init_calls == 1
+    assert DummyNVML.shutdown_calls == 1
+
+
+def test_rocm_detection_uses_rsmi_api(monkeypatch):
+    _reset_cache(monkeypatch)
+    monkeypatch.setattr(pm.torch.cuda, "is_available", lambda: False)
+
+    class DummyROCM:
+        init_calls = 0
+        shutdown_calls = 0
+
+        @classmethod
+        def rsmi_init(cls):
+            cls.init_calls += 1
+
+        @classmethod
+        def rsmi_shut_down(cls):
+            cls.shutdown_calls += 1
+
+    monkeypatch.setitem(sys.modules, "rocm_smi", DummyROCM)
+
+    assert pm._check_rocm() is True
+    assert DummyROCM.init_calls == 1
+    assert DummyROCM.shutdown_calls == 1

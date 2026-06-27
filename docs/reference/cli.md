@@ -85,7 +85,7 @@ Stops local daemon process created by auto-start logic.
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
 | `/health` | GET | Service liveness probe. |
-| `/api/gpus` | GET | GPU telemetry (`id`, `name`, memory, utilization). |
+| `/api/gpus` | GET | GPU telemetry (`id`, `name`, memory, utilization; unsupported fields are `null`). |
 | `/api/sessions` | GET | Active keep sessions. |
 | `/api/sessions/{job_id}` | GET | One session status. |
 | `/api/sessions` | POST | Start session (`gpu_ids`, `vram`, `interval`, `busy_threshold`, `job_id`). |
