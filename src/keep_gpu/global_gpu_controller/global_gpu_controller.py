@@ -6,6 +6,7 @@ import torch
 from keep_gpu.utilities.humanized_input import parse_size
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
+    DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
@@ -34,7 +35,7 @@ class GlobalGPUController:
         gpu_ids: Optional[List[int]] = None,
         interval: int = 300,
         vram_to_keep: Union[int, str] = 10 * (2**30),
-        busy_threshold: int = 10,
+        busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
     ):
         self.computing_platform = get_platform()
         self.interval = validate_interval(interval)

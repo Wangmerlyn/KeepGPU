@@ -9,6 +9,10 @@ visible device ordinals after any `CUDA_VISIBLE_DEVICES` filtering. Passing an
 empty, duplicate, or out-of-range list is invalid, and startup raises
 `ValueError` if discovery resolves to zero devices.
 
+Public controller, CLI, REST, JSON-RPC, and MCP defaults use
+`busy_threshold=25`. Pass `busy_threshold=-1` only when you intentionally want
+unconditional keepalive compute without utilization backoff.
+
 For service session IDs, `job_id=None` is the only omitted/all-sessions
 sentinel. Custom IDs must be non-empty strings containing only letters, digits,
 `.`, `_`, `-`, or `~`; invalid values raise `ValueError` before session state

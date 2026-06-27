@@ -41,8 +41,9 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
      telemetry follows the same device the worker keeps.
 4. If utilization exceeds `busy_threshold`, or if utilization is unavailable
    while `busy_threshold` is non-negative, the worker just sleeps for one more
-   `interval`. Otherwise it runs a new batch of ops. Valid thresholds are `-1`
-   or `0..100`; `busy_threshold=-1` is the explicit unconditional mode.
+   `interval`. Otherwise it runs a new batch of ops. Public defaults use
+   `busy_threshold=25`. Valid thresholds are `-1` or `0..100`;
+   `busy_threshold=-1` is the explicit unconditional mode.
 5. When you call `release()` (or exit the context), every worker sets a stop
    event, joins the thread, and clears the device cache. Release attempts every
    worker and then raises a summary if any worker failed to stop.

@@ -6,7 +6,10 @@ import torch
 
 from keep_gpu.single_gpu_controller.base_gpu_controller import BaseGPUController
 from keep_gpu.utilities.logger import setup_logger
-from keep_gpu.utilities.session_config import validate_busy_threshold
+from keep_gpu.utilities.session_config import (
+    DEFAULT_BUSY_THRESHOLD,
+    validate_busy_threshold,
+)
 
 logger = setup_logger(__name__)
 
@@ -23,7 +26,7 @@ class RocmGPUController(BaseGPUController):
         rank: int,
         interval: float = 1.0,
         vram_to_keep: str | int = "1000 MB",
-        busy_threshold: int = 10,
+        busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
         iterations: int = 5000,
         max_allocation_retries: Optional[int] = None,
     ):

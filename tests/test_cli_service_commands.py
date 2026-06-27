@@ -52,6 +52,40 @@ def test_start_command_uses_rpc(monkeypatch):
     assert port == cli.DEFAULT_SERVICE_PORT
 
 
+def test_start_command_defaults_to_eco_safe_busy_threshold(monkeypatch):
+    called = {}
+
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: None)
+
+    def fake_rpc(method, params, host, port):
+        called["params"] = params
+        return {"job_id": "job-default"}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["start"])
+
+    assert result.exit_code == 0
+    assert called["params"]["busy_threshold"] == 25
+
+
+def test_start_command_preserves_explicit_unconditional_busy_threshold(monkeypatch):
+    called = {}
+
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: None)
+
+    def fake_rpc(method, params, host, port):
+        called["params"] = params
+        return {"job_id": "job-unconditional"}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["start", "--busy-threshold", "-1"])
+
+    assert result.exit_code == 0
+    assert called["params"]["busy_threshold"] == -1
+
+
 def test_start_command_rejects_negative_gpu_ids(monkeypatch):
     monkeypatch.setattr(
         cli,
@@ -155,7 +189,7 @@ def test_stop_forwards_explicit_empty_job_id_to_service(monkeypatch):
     assert timeout == 45.0
 
 
-def test_blocking_mode_remains_default(monkeypatch):
+def test_blocking_mode_defaults_to_eco_safe_busy_threshold(monkeypatch):
     called = {}
 
     def fake_run(interval, gpu_ids, vram, legacy_threshold, busy_threshold):
@@ -165,6 +199,31 @@ def test_blocking_mode_remains_default(monkeypatch):
     result = runner.invoke(
         cli.app,
         ["--interval", "120", "--gpu-ids", "0", "--vram", "1GiB"],
+    )
+
+    assert result.exit_code == 0
+    assert called["args"] == (120, "0", "1GiB", None, 25)
+
+
+def test_blocking_mode_preserves_explicit_unconditional_busy_threshold(monkeypatch):
+    called = {}
+
+    def fake_run(interval, gpu_ids, vram, legacy_threshold, busy_threshold):
+        called["args"] = (interval, gpu_ids, vram, legacy_threshold, busy_threshold)
+
+    monkeypatch.setattr(cli, "_run_blocking", fake_run)
+    result = runner.invoke(
+        cli.app,
+        [
+            "--interval",
+            "120",
+            "--gpu-ids",
+            "0",
+            "--vram",
+            "1GiB",
+            "--busy-threshold",
+            "-1",
+        ],
     )
 
     assert result.exit_code == 0

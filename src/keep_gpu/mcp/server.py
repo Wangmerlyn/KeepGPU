@@ -47,6 +47,7 @@ from keep_gpu.utilities.humanized_input import parse_vram_to_elements
 from keep_gpu.utilities.gpu_info import get_gpu_info
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
+    DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
@@ -93,8 +94,8 @@ MCP_TOOLS: List[Dict[str, Any]] = [
                     "type": "integer",
                     "minimum": -1,
                     "maximum": 100,
-                    "default": -1,
-                    "description": "-1 disables utilization backoff; 0..100 backs off.",
+                    "default": DEFAULT_BUSY_THRESHOLD,
+                    "description": "Defaults to 25; -1 disables utilization backoff; 0..100 backs off.",
                 },
                 "job_id": {
                     "type": ["string", "null"],
@@ -223,7 +224,7 @@ class KeepGPUServer:
         gpu_ids: Optional[List[int]] = None,
         vram: str = "1GiB",
         interval: int = 300,
-        busy_threshold: int = -1,
+        busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
         job_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
@@ -233,9 +234,10 @@ class KeepGPUServer:
             gpu_ids: Visible GPU ordinals to target; None uses all visible GPUs.
             vram: Human-readable VRAM size to keep (for example, "1GiB").
             interval: Seconds between controller checks/actions.
-            busy_threshold: Backoff threshold. Non-negative values back off when
-                utilization is above this percent or telemetry is unavailable;
-                ``-1`` disables utilization backoff for unconditional keepalive.
+            busy_threshold: Backoff threshold. Defaults to 25. Non-negative
+                values back off when utilization is above this percent or
+                telemetry is unavailable; ``-1`` disables utilization backoff
+                for unconditional keepalive.
             job_id: Optional session identifier; a UUID is generated if omitted.
 
         Returns:

@@ -19,6 +19,7 @@ from rich.console import Console
 
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
+    DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
@@ -547,7 +548,7 @@ def main(
         help="Deprecated alias: numeric maps to busy-threshold, string maps to vram.",
     ),
     busy_threshold: int = typer.Option(
-        -1,
+        DEFAULT_BUSY_THRESHOLD,
         "--busy-threshold",
         "--util-threshold",
         help=(
@@ -598,7 +599,7 @@ def start(
     vram: str = typer.Option("1GiB", "--vram", help="VRAM to keep per GPU."),
     interval: int = typer.Option(300, help="Interval in seconds between checks."),
     busy_threshold: int = typer.Option(
-        -1,
+        DEFAULT_BUSY_THRESHOLD,
         "--busy-threshold",
         "--util-threshold",
         help=(

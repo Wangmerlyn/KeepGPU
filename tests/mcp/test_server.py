@@ -62,6 +62,31 @@ def test_start_status_stop_cycle():
     assert server.status(job_id)["active"] is False
 
 
+def test_start_keep_defaults_to_eco_safe_busy_threshold():
+    server = make_server()
+
+    res = server.start_keep(job_id="default-threshold", gpu_ids=[0])
+    job_id = res["job_id"]
+
+    status = server.status(job_id)
+    assert status["params"]["busy_threshold"] == 25
+    controller = server._sessions[job_id].controller
+    assert controller.busy_threshold == 25
+
+
+def test_start_keep_preserves_explicit_unconditional_busy_threshold():
+    server = make_server()
+
+    res = server.start_keep(
+        job_id="unconditional-threshold",
+        gpu_ids=[0],
+        busy_threshold=-1,
+    )
+    job_id = res["job_id"]
+
+    assert server.status(job_id)["params"]["busy_threshold"] == -1
+
+
 def test_status_reports_starting_session_during_controller_keep():
     keep_started = threading.Event()
     keep_release = threading.Event()
@@ -228,6 +253,21 @@ def test_jsonrpc_rejects_busy_threshold_above_percent_range():
     assert server.status()["active_jobs"] == []
 
 
+def test_jsonrpc_start_keep_defaults_to_eco_safe_busy_threshold():
+    server = make_server()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"job_id": "jsonrpc-default", "gpu_ids": [0]},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert resp["result"] == {"job_id": "jsonrpc-default"}
+    status = server.status("jsonrpc-default")
+    assert status["params"]["busy_threshold"] == 25
+
+
 @pytest.mark.parametrize("job_id", ["", " ", 123, "job/123", "job?123", "job#123"])
 def test_start_keep_rejects_invalid_job_id_before_starting_controller(job_id):
     controllers = []
@@ -350,7 +390,7 @@ def test_mcp_tools_list_exposes_keepgpu_actions():
     start_schema = tools["start_keep"]["inputSchema"]
     assert start_schema["type"] == "object"
     assert start_schema["properties"]["gpu_ids"]["items"]["type"] == "integer"
-    assert start_schema["properties"]["busy_threshold"]["default"] == -1
+    assert start_schema["properties"]["busy_threshold"]["default"] == 25
     assert tools["status"]["inputSchema"]["properties"]["job_id"]["type"] == [
         "string",
         "null",
