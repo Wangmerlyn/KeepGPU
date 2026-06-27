@@ -41,8 +41,9 @@ unconditional keepalive opt-in.
       guidance where defaults or default semantics are described.
 - [x] Run targeted tests, full tests, docs build, and pre-commit.
 - [x] Request local subagent review before opening the PR.
-- [ ] Open PR, resolve all review comments, wait for clean GitHub checks, then
-      squash merge and clean the worktree.
+- [x] Open PR.
+- [ ] Resolve all review comments, wait for clean GitHub checks, then squash
+      merge and clean the worktree.
 
 ## Verification
 
