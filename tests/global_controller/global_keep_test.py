@@ -9,6 +9,7 @@ from keep_gpu.utilities import platform_manager as pm
 
 def test_global_keep_rolls_back_started_controllers(monkeypatch):
     monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
 
     instances = []
 
@@ -58,6 +59,56 @@ def test_global_controller_rejects_zero_visible_cuda_devices(monkeypatch):
 
     with pytest.raises(ValueError, match="No GPUs available for GlobalGPUController"):
         GlobalGPUController(gpu_ids=None, vram_to_keep="8MB")
+
+    assert instances == []
+
+
+def test_global_controller_rejects_explicit_cuda_id_outside_visible_count(
+    monkeypatch,
+):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+    instances = []
+
+    class DummyController:
+        def __init__(self, *, rank, interval, vram_to_keep, busy_threshold):
+            instances.append(self)
+
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    monkeypatch.setattr(cuda_module, "CudaGPUController", DummyController)
+
+    with pytest.raises(
+        ValueError,
+        match="gpu_ids must be visible device ordinals less than 1",
+    ):
+        GlobalGPUController(gpu_ids=[1], vram_to_keep="8MB")
+
+    assert instances == []
+
+
+def test_global_controller_rejects_explicit_rocm_id_outside_visible_count(
+    monkeypatch,
+):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.ROCM)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
+
+    instances = []
+
+    class DummyController:
+        def __init__(self, *, rank, interval, vram_to_keep, busy_threshold):
+            instances.append(self)
+
+    import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
+
+    monkeypatch.setattr(rocm_module, "RocmGPUController", DummyController)
+
+    with pytest.raises(
+        ValueError,
+        match="gpu_ids must be visible device ordinals less than 2",
+    ):
+        GlobalGPUController(gpu_ids=[2], vram_to_keep="8MB")
 
     assert instances == []
 

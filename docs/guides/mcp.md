@@ -37,9 +37,10 @@ Methods:
 - `status(job_id?)`
 - `list_gpus()`
 
-Omitting `gpu_ids` means all visible GPUs. Explicit empty or duplicate lists are
-invalid, and startup returns an error if the resolved selection contains zero
-devices.
+Omitting `gpu_ids` means all GPUs visible to the service process. Explicit
+values are visible device ordinals in that same process environment. Empty,
+duplicate, or out-of-range lists are invalid, and startup returns an error if
+the resolved selection contains zero devices.
 
 Custom `job_id` values are unique across active and starting sessions. If a
 duplicate arrives while the original start is still creating controller work,

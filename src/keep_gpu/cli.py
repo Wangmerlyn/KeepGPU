@@ -496,8 +496,7 @@ def _run_blocking(
 
     gpu_id_list = _parse_gpu_ids(gpu_ids)
     if gpu_id_list is not None:
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpu_id_list))
-        logger.info("Using specified GPUs: %s", gpu_id_list)
+        logger.info("Using specified visible GPU ordinals: %s", gpu_id_list)
         gpu_count = len(gpu_id_list)
     else:
         gpu_count = torch.cuda.device_count()
@@ -533,7 +532,7 @@ def main(
     ),
     gpu_ids: Optional[str] = typer.Option(
         None,
-        help="Comma-separated GPU IDs for blocking mode (default: all).",
+        help="Comma-separated visible GPU ordinals for blocking mode (default: all).",
     ),
     vram: str = typer.Option(
         "1GiB",
@@ -591,7 +590,10 @@ def serve(
 
 @app.command("start")
 def start(
-    gpu_ids: Optional[str] = typer.Option(None, help="Comma-separated GPU IDs."),
+    gpu_ids: Optional[str] = typer.Option(
+        None,
+        help="Comma-separated visible GPU ordinals.",
+    ),
     vram: str = typer.Option("1GiB", "--vram", help="VRAM to keep per GPU."),
     interval: int = typer.Option(300, help="Interval in seconds between checks."),
     busy_threshold: int = typer.Option(

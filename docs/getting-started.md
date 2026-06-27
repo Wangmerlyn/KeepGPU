@@ -97,7 +97,9 @@ keep-gpu --interval 120 --gpu-ids 0 --vram 1GiB
 ```
 
 - `--interval` controls the sleep between utilization checks (seconds).
-- `--gpu-ids` limits the job to a subset of visible devices.
+- `--gpu-ids` limits the job to a subset of visible device ordinals. Set
+  `CUDA_VISIBLE_DEVICES` before starting KeepGPU if you need physical-device
+  filtering.
 - `--vram` accepts human-readable sizes or bare bytes; KeepGPU allocates one
   tensor of that size.
 
@@ -144,6 +146,9 @@ from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUContro
 with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=60):
     run_cpu_bound_stage()
 ```
+
+Those `gpu_ids` are visible device ordinals after any `CUDA_VISIBLE_DEVICES`
+filtering.
 
 From here, jump to the CLI Playbook for scenario-driven guidance or the API
 recipes if you need to embed KeepGPU in orchestration scripts.

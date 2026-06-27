@@ -57,9 +57,10 @@ with GlobalGPUController(
 ```
 
 - Each `CudaGPUController` runs in its own thread.
-- `gpu_ids=None` means all visible GPUs. Explicit empty or duplicate lists are
-  invalid, and startup raises `ValueError` if the resolved selection contains
-  zero devices.
+- `gpu_ids=None` means all visible GPUs. Explicit values are visible device
+  ordinals after any `CUDA_VISIBLE_DEVICES` filtering. Empty, duplicate, or
+  out-of-range lists are invalid, and startup raises `ValueError` if the
+  resolved selection contains zero devices.
 - `busy_threshold` accepts `-1` or a percentage in `0..100`. Non-negative
   thresholds throttle the keep-alive loop when utilization spikes. When
   utilization telemetry is unavailable, non-negative thresholds sleep instead of
