@@ -18,7 +18,11 @@ import typer
 from rich.console import Console
 
 from keep_gpu.utilities.logger import setup_logger
-from keep_gpu.utilities.session_config import validate_busy_threshold, validate_interval
+from keep_gpu.utilities.session_config import (
+    validate_busy_threshold,
+    validate_gpu_ids,
+    validate_interval,
+)
 
 DEFAULT_SERVICE_HOST = "127.0.0.1"
 DEFAULT_SERVICE_PORT = 8765
@@ -224,9 +228,10 @@ def _parse_gpu_ids(gpu_ids: Optional[str]) -> Optional[List[int]]:
         raise typer.BadParameter(
             f"Invalid characters in --gpu-ids '{gpu_ids}'. Use comma-separated integers."
         ) from exc
-    if any(gpu_id < 0 for gpu_id in parsed):
-        raise typer.BadParameter("gpu_ids must contain non-negative integers")
-    return parsed
+    try:
+        return validate_gpu_ids(parsed)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 def _validate_cli_interval(interval: int) -> int:

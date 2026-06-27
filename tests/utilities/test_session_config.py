@@ -2,6 +2,7 @@ import pytest
 
 from keep_gpu.utilities.session_config import (
     validate_busy_threshold,
+    validate_gpu_ids,
     validate_interval,
 )
 
@@ -15,6 +16,16 @@ def test_validate_interval_rejects_non_positive_values():
         validate_interval(0)
     with pytest.raises(ValueError, match="interval must be positive"):
         validate_interval(-0.1)
+
+
+def test_validate_gpu_ids_rejects_empty_list():
+    with pytest.raises(ValueError, match="gpu_ids must select at least one GPU"):
+        validate_gpu_ids([])
+
+
+def test_validate_gpu_ids_rejects_duplicates():
+    with pytest.raises(ValueError, match="gpu_ids must not contain duplicate values"):
+        validate_gpu_ids([0, 1, 0])
 
 
 def test_validate_busy_threshold_only_allows_minus_one_as_negative():

@@ -37,6 +37,10 @@ Methods:
 - `status(job_id?)`
 - `list_gpus()`
 
+Omitting `gpu_ids` means all visible GPUs. Explicit empty or duplicate lists are
+invalid, and startup returns an error if the resolved selection contains zero
+devices.
+
 Custom `job_id` values are unique across active and starting sessions. If a
 duplicate arrives while the original start is still creating controller work,
 the duplicate is rejected before another controller begins keep-alive work.

@@ -42,6 +42,26 @@ def test_global_keep_rolls_back_started_controllers(monkeypatch):
     assert instances[1].released is False
 
 
+def test_global_controller_rejects_zero_visible_cuda_devices(monkeypatch):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 0)
+
+    instances = []
+
+    class DummyController:
+        def __init__(self, *, rank, interval, vram_to_keep, busy_threshold):
+            instances.append(self)
+
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    monkeypatch.setattr(cuda_module, "CudaGPUController", DummyController)
+
+    with pytest.raises(ValueError, match="No GPUs available for GlobalGPUController"):
+        GlobalGPUController(gpu_ids=None, vram_to_keep="8MB")
+
+    assert instances == []
+
+
 def test_global_release_attempts_all_controllers_and_reports_failures():
     class DummyController:
         def __init__(self, rank, error=None):

@@ -74,6 +74,7 @@ This file defines how coding agents should work in this repository.
 - Stop requests must not miss starting sessions; wait for startup to settle before returning `not found` or taking a stop-all snapshot.
 - Stop-all may release independent sessions concurrently, but must not duplicate release work for `stopping` sessions and must keep deterministic additive result fields.
 - Keep utilization backoff eco-safe: valid `busy_threshold` values are `-1` or `0..100`; when telemetry is unavailable and `busy_threshold >= 0`, controllers should sleep instead of running keepalive compute. Only `busy_threshold=-1` is the explicit unconditional mode.
+- Global controller startup must fail clearly when GPU selection resolves to zero or duplicate devices; do not create silent no-op or duplicate-worker keep sessions.
 - Avoid scattering platform-specific branching across unrelated modules; prefer one clear decision path then platform-specific controller classes.
 - Preserve simple controller flow: global controller orchestrates per-GPU controllers; single-GPU controllers handle device-level keep/release loops.
 

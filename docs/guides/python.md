@@ -41,7 +41,7 @@ and simply warn if the worker is already running.
 ```python
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
 
-gpu_ids = [0, 2, 3]              # accepts None to cover all visible GPUs
+gpu_ids = [0, 2, 3]              # use None to cover all visible GPUs
 
 with GlobalGPUController(
     gpu_ids=gpu_ids,
@@ -53,6 +53,9 @@ with GlobalGPUController(
 ```
 
 - Each `CudaGPUController` runs in its own thread.
+- `gpu_ids=None` means all visible GPUs. Explicit empty or duplicate lists are
+  invalid, and startup raises `ValueError` if the resolved selection contains
+  zero devices.
 - `busy_threshold` accepts `-1` or a percentage in `0..100`. Non-negative
   thresholds throttle the keep-alive loop when utilization spikes. When
   utilization telemetry is unavailable, non-negative thresholds sleep instead of

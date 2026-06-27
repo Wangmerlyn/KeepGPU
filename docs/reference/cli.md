@@ -21,7 +21,7 @@ These options apply when you run `keep-gpu` without subcommands.
 | Option | Type | Description |
 | --- | --- | --- |
 | `--interval INTEGER` | seconds | Sleep duration between utilization checks and keep-alive batches. |
-| `--gpu-ids TEXT` | comma-separated non-negative ints | Subset of GPUs to guard (for example, `0,2`). Omit to use all visible GPUs. |
+| `--gpu-ids TEXT` | comma-separated unique non-negative ints | Subset of GPUs to guard (for example, `0,2`). Omit to use all visible GPUs; startup fails if that resolves to none. |
 | `--vram TEXT` | human size or bare bytes | Amount of memory each GPU controller allocates (`512MB`, `1GiB`, `1073741824`). |
 | `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | `0..100` backs off when utilization is above this value or unavailable; `-1` disables utilization backoff. |
 | `--threshold TEXT` | deprecated | Legacy alias: numeric values map to busy-threshold, size strings map to vram. |
@@ -43,7 +43,7 @@ Starts a keep session and returns immediately with `job_id`.
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--gpu-ids` | all | Comma-separated GPU IDs. |
+| `--gpu-ids` | all | Comma-separated unique GPU IDs. |
 | `--vram` | `1GiB` | Per-GPU keep memory target. |
 | `--interval` | `300` | Keep cycle interval in seconds. |
 | `--busy-threshold` / `--util-threshold` | `-1` | `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
@@ -95,7 +95,7 @@ Stops the ownership-verified local daemon process created by auto-start logic.
 | `/api/gpus` | GET | GPU telemetry (`id`, `name`, memory, utilization; unsupported fields are `null`). |
 | `/api/sessions` | GET | Tracked keep sessions, including `state` and `last_error` for in-progress or failed stops. |
 | `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active. |
-| `/api/sessions` | POST | Start session (`gpu_ids`, `vram`, `interval`, `busy_threshold`, `job_id`). |
+| `/api/sessions` | POST | Start session (`gpu_ids`, `vram`, `interval`, `busy_threshold`, `job_id`); omitted `gpu_ids` means all visible GPUs, empty or duplicate selections are invalid. |
 | `/api/sessions` | DELETE | Stop all sessions; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/api/sessions/{job_id}` | DELETE | Stop one session; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/rpc` | POST | JSON-RPC compatibility endpoint. |
