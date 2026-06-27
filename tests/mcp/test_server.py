@@ -81,6 +81,19 @@ def test_start_rejects_empty_gpu_ids():
     assert server.status()["active_jobs"] == []
 
 
+def test_start_rejects_duplicate_gpu_ids():
+    server = make_server()
+
+    try:
+        server.start_keep(gpu_ids=[0, 1, 0])
+    except ValueError as exc:
+        assert "gpu_ids must not contain duplicate values" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError")
+
+    assert server.status()["active_jobs"] == []
+
+
 def test_jsonrpc_rejects_empty_gpu_ids():
     server = make_server()
     req = {
@@ -93,6 +106,21 @@ def test_jsonrpc_rejects_empty_gpu_ids():
 
     assert "error" in resp
     assert "gpu_ids must select at least one GPU" in resp["error"]["message"]
+    assert server.status()["active_jobs"] == []
+
+
+def test_jsonrpc_rejects_duplicate_gpu_ids():
+    server = make_server()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"gpu_ids": [0, 1, 0]},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert "gpu_ids must not contain duplicate values" in resp["error"]["message"]
     assert server.status()["active_jobs"] == []
 
 

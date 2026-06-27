@@ -74,7 +74,7 @@ Flags that matter:
   - `--vram` (`1GiB`, `750MB`, or bare bytes like `1073741824`): how much memory to pin.
   - `--interval` (positive seconds): sleep between keep-alive bursts.
   - `--busy-threshold`: `0..100` skips work when telemetry reports higher utilization or cannot report utilization; `-1` disables utilization backoff.
-  - `--gpu-ids`: target a non-negative subset; otherwise all visible GPUs are guarded. An empty selection is invalid, and startup fails if no GPUs resolve.
+  - `--gpu-ids`: target a unique non-negative subset; otherwise all visible GPUs are guarded. Empty or duplicate selections are invalid, and startup fails if no GPUs resolve.
 - Service mode commands:
   - `keep-gpu serve`: run local service (HTTP + dashboard).
   - `keep-gpu start`: create keep session and return immediately.
@@ -103,8 +103,8 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
     run_pipeline_stage()
 ```
 
-Pass `gpu_ids=None` to use all visible GPUs. Passing an empty list is invalid,
-and startup raises an error if discovery resolves to zero devices.
+Pass `gpu_ids=None` to use all visible GPUs. Passing an empty or duplicate list
+is invalid, and startup raises an error if discovery resolves to zero devices.
 
 ## What you get
 
@@ -139,7 +139,7 @@ and startup raises an error if discovery resolves to zero devices.
   curl http://127.0.0.1:8765/health
   curl http://127.0.0.1:8765/api/sessions
   ```
-- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). Omitting `gpu_ids` uses all visible GPUs, but an empty list is invalid and startup fails if no GPUs resolve. Custom `job_id` values must be unique across active and starting sessions.
+- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). Omitting `gpu_ids` uses all visible GPUs, but empty or duplicate lists are invalid and startup fails if no GPUs resolve. Custom `job_id` values must be unique across active and starting sessions.
 - Stop responses distinguish completed cleanup from partial cleanup:
   `stopped` means released, while `timed_out` sessions remain visible as
   `stopping` until background cleanup completes and `failed` sessions remain

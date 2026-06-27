@@ -23,6 +23,11 @@ def test_validate_gpu_ids_rejects_empty_list():
         validate_gpu_ids([])
 
 
+def test_validate_gpu_ids_rejects_duplicates():
+    with pytest.raises(ValueError, match="gpu_ids must not contain duplicate values"):
+        validate_gpu_ids([0, 1, 0])
+
+
 def test_validate_busy_threshold_only_allows_minus_one_as_negative():
     assert validate_busy_threshold(-1) == -1
     with pytest.raises(

@@ -21,6 +21,8 @@ def validate_gpu_ids(gpu_ids: Any) -> Optional[List[int]]:
         raise ValueError("gpu_ids has too many items")
     if any(not _is_plain_int(gpu_id) or gpu_id < 0 for gpu_id in gpu_ids):
         raise ValueError("gpu_ids must contain non-negative integers")
+    if len(set(gpu_ids)) != len(gpu_ids):
+        raise ValueError("gpu_ids must not contain duplicate values")
     return list(gpu_ids)
 
 
