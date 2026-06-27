@@ -1,10 +1,11 @@
 import pytest
+import typer
 
 from keep_gpu import cli
 
 
 def test_parse_gpu_ids_rejects_negative_values():
-    with pytest.raises(Exception, match="non-negative integers"):
+    with pytest.raises(typer.BadParameter, match="non-negative integers"):
         cli._parse_gpu_ids("0,-1")
 
 
@@ -36,6 +37,7 @@ def test_validate_cli_busy_threshold_rejects_legacy_value_above_percent_range():
     assert threshold == 101
     assert mode == "busy"
     with pytest.raises(
-        Exception, match="busy_threshold must be -1 or an integer between 0 and 100"
+        typer.BadParameter,
+        match="busy_threshold must be -1 or an integer between 0 and 100",
     ):
         cli._validate_cli_busy_threshold(threshold)
