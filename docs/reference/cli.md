@@ -46,7 +46,7 @@ Starts a keep session and returns immediately with `job_id`.
 | `--gpu-ids` | all | Comma-separated GPU IDs. |
 | `--vram` | `1GiB` | Per-GPU keep memory target. |
 | `--interval` | `300` | Keep cycle interval in seconds. |
-| `--busy-threshold` / `--util-threshold` | `-1` | Backoff threshold. |
+| `--busy-threshold` / `--util-threshold` | `-1` | Back off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
 | `--job-id` | auto | Optional custom id. |
 | `--host` | `127.0.0.1` | Service host to contact. |
 | `--port` | `8765` | Service port to contact. |
