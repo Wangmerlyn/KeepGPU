@@ -81,7 +81,9 @@ Flags that matter:
   - `keep-gpu status`: inspect tracked sessions, including in-progress or failed releases.
   - `keep-gpu stop --job-id <id>` or `keep-gpu stop --all`: release sessions.
   - `keep-gpu service-stop`: stop the ownership-verified auto-started local daemon.
-  - `keep-gpu list-gpus`: fetch telemetry from local service.
+  - `keep-gpu list-gpus`: fetch telemetry from local service. Each listed
+    `id` is the visible ordinal accepted by `--gpu-ids`; optional
+    `physical_id`/`uuid` fields are metadata only.
 
 ## Embed in Python
 
@@ -141,7 +143,7 @@ devices.
   curl http://127.0.0.1:8765/health
   curl http://127.0.0.1:8765/api/sessions
   ```
-- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). Omitting `gpu_ids` uses all visible GPUs, but explicit values must be unique visible ordinals in the service process environment. Empty, duplicate, or out-of-range lists are invalid and startup fails if no GPUs resolve. Custom `job_id` values must be unique across active and starting sessions, and only `null`/omitted means generated or all-sessions; custom IDs must be non-empty strings containing only letters, digits, `.`, `_`, `-`, or `~`. Status responses include reserved jobs as `state="starting"` while controller startup is still in progress.
+- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). Omitting `gpu_ids` uses all visible GPUs, but explicit values must be unique visible ordinals in the service process environment. `list_gpus` returns those same start-compatible ordinals as `id`/`visible_id`; `physical_id` and `uuid` are informational metadata, not valid substitutes for `gpu_ids`. Empty, duplicate, or out-of-range lists are invalid and startup fails if no GPUs resolve. Custom `job_id` values must be unique across active and starting sessions, and only `null`/omitted means generated or all-sessions; custom IDs must be non-empty strings containing only letters, digits, `.`, `_`, `-`, or `~`. Status responses include reserved jobs as `state="starting"` while controller startup is still in progress.
 - Stop responses distinguish completed cleanup from partial cleanup:
   `stopped` means released, while `timed_out` sessions remain visible as
   `stopping` until background cleanup completes and `failed` sessions remain
@@ -154,7 +156,9 @@ devices.
 - Stop-all releases independent sessions concurrently and reports outcomes in
   deterministic snapshot order with the same `stopped`, `timed_out`, `failed`,
   and `errors` fields.
-- Dashboard cards mirror that lifecycle state so a retained session shows
+- Dashboard GPU cards show the visible ordinal to type into the start form first,
+  with physical/vendor metadata shown only as secondary context.
+- Dashboard cards mirror lifecycle state so a retained session shows
   `Releasing` or `Release failed` instead of being presented as a fully active
   keepalive.
 - Dashboard: `http://127.0.0.1:8765/`

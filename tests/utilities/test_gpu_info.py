@@ -16,6 +16,53 @@ class DummyNVMLUtil:
         self.gpu = gpu
 
 
+class MultiGPUDummyNVML:
+    def __init__(self, count: int, uuid_to_index: dict[object, int] | None = None):
+        self.count = count
+        self.uuid_to_index = uuid_to_index or {}
+        self.queried_indexes = []
+        self.queried_uuids = []
+        self.shutdown_calls = 0
+
+    @staticmethod
+    def nvmlInit():
+        return None
+
+    def nvmlDeviceGetCount(self):
+        return self.count
+
+    def nvmlDeviceGetHandleByIndex(self, index):
+        self.queried_indexes.append(index)
+        return index
+
+    def nvmlDeviceGetHandleByUUID(self, uuid):
+        self.queried_uuids.append(uuid)
+        return self.uuid_to_index[uuid]
+
+    @staticmethod
+    def nvmlDeviceGetIndex(handle):
+        return handle
+
+    @staticmethod
+    def nvmlDeviceGetUUID(handle):
+        return f"GPU-mock-{handle}".encode()
+
+    @staticmethod
+    def nvmlDeviceGetMemoryInfo(handle):
+        return DummyNVMLMemory(total=4096 + handle, used=1024 + handle)
+
+    @staticmethod
+    def nvmlDeviceGetUtilizationRates(handle):
+        return DummyNVMLUtil(gpu=40 + handle)
+
+    @staticmethod
+    def nvmlDeviceGetName(handle):
+        return f"Mock GPU {handle}".encode()
+
+    def nvmlShutdown(self):
+        self.shutdown_calls += 1
+
+
 def test_get_gpu_info_nvml(monkeypatch):
     class DummyNVML:
         def __init__(self):
@@ -59,6 +106,121 @@ def test_get_gpu_info_nvml(monkeypatch):
     assert info["memory_total"] == 2048
     assert info["memory_used"] == 1024
     assert info["utilization"] == 55
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_maps_cuda_visible_devices_to_visible_ordinals(
+    monkeypatch,
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "2, 0")
+    dummy_nvml = MultiGPUDummyNVML(count=4)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert [info["id"] for info in infos] == [0, 1]
+    assert [info["visible_id"] for info in infos] == [0, 1]
+    assert [info["physical_id"] for info in infos] == [2, 0]
+    assert [info["name"] for info in infos] == ["Mock GPU 2", "Mock GPU 0"]
+    assert [info["utilization"] for info in infos] == [42, 40]
+    assert dummy_nvml.queried_indexes == [2, 0]
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_maps_cuda_uuid_mask_to_visible_ordinal(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-abc123")
+    dummy_nvml = MultiGPUDummyNVML(count=4, uuid_to_index={"GPU-abc123": 2})
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["id"] == 0
+    assert infos[0]["visible_id"] == 0
+    assert infos[0]["physical_id"] == 2
+    assert infos[0]["uuid"] == "GPU-mock-2"
+    assert infos[0]["name"] == "Mock GPU 2"
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.queried_uuids == ["GPU-abc123"]
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_empty_cuda_visible_devices_hides_all(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
+    dummy_nvml = MultiGPUDummyNVML(count=2)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_negative_cuda_visible_devices_hides_all(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "-1")
+    dummy_nvml = MultiGPUDummyNVML(count=2)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_unresolved_uuid_mask_does_not_list_placeholder(
+    monkeypatch,
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-typo")
+    dummy_nvml = MultiGPUDummyNVML(count=2)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.queried_uuids == ["GPU-typo", b"GPU-typo"]
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_malformed_cuda_visible_devices_hides_all(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,,2")
+    dummy_nvml = MultiGPUDummyNVML(count=3)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_out_of_range_cuda_visible_devices_hides_all(
+    monkeypatch,
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,99,2")
+    dummy_nvml = MultiGPUDummyNVML(count=3)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_duplicate_cuda_visible_devices_hides_all(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,0")
+    dummy_nvml = MultiGPUDummyNVML(count=2)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_duplicate_resolved_uuid_devices_hides_all(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-a,GPU-b")
+    dummy_nvml = MultiGPUDummyNVML(
+        count=3,
+        uuid_to_index={"GPU-a": 2, "GPU-b": 2},
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.queried_uuids == ["GPU-a", "GPU-b"]
     assert dummy_nvml.shutdown_calls == 1
 
 
@@ -167,6 +329,7 @@ def test_get_gpu_info_mps(monkeypatch):
     assert infos == [
         {
             "id": 0,
+            "visible_id": 0,
             "platform": "macm",
             "name": "Apple Silicon GPU",
             "memory_total": 1024,
@@ -206,6 +369,7 @@ def test_get_gpu_info_mps_allows_missing_memory_methods(monkeypatch):
 
     assert len(infos) == 1
     assert infos[0]["platform"] == "macm"
+    assert infos[0]["visible_id"] == 0
     assert infos[0]["memory_total"] is None
     assert infos[0]["memory_used"] is None
 
@@ -253,5 +417,6 @@ def test_get_gpu_info_mps_fallback_survives_torch_cuda_probe_failure(monkeypatch
 
     assert len(infos) == 1
     assert infos[0]["platform"] == "macm"
+    assert infos[0]["visible_id"] == 0
     assert infos[0]["memory_total"] == 512
     assert infos[0]["memory_used"] == 128

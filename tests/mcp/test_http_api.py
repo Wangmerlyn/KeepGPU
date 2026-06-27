@@ -144,6 +144,46 @@ def test_http_session_lifecycle():
         thread.join(timeout=2)
 
 
+def test_http_start_validates_gpu_ids_against_listed_visible_ids(monkeypatch):
+    controllers = []
+
+    class TrackingController(DummyController):
+        def __init__(self, **kwargs):
+            controllers.append(self)
+            super().__init__(**kwargs)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: TrackingController(**kwargs))
+    )
+    monkeypatch.setattr(
+        server,
+        "list_gpus",
+        lambda: {"gpus": [{"id": 0, "name": "GPU 0"}, {"id": 2, "name": "GPU 2"}]},
+    )
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "gpu_ids": [1],
+                "vram": "256MB",
+                "interval": 20,
+                "busy_threshold": 5,
+            },
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 400
+    assert "listed visible GPU IDs" in payload["error"]["message"]
+    assert controllers == []
+
+
 def test_http_status_reports_starting_session_during_controller_keep():
     keep_started = threading.Event()
     keep_release = threading.Event()

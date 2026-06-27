@@ -76,7 +76,9 @@ in deterministic snapshot order with the same additive response fields.
 
 ### `keep-gpu list-gpus`
 
-Returns GPU telemetry from service.
+Returns GPU telemetry from service. `id` and `visible_id` are the visible
+ordinals accepted by `--gpu-ids` and service `gpu_ids`; optional `physical_id`
+or `uuid` fields are metadata only.
 
 ### `keep-gpu service-stop`
 
@@ -96,7 +98,7 @@ digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
 | `/health` | GET | Service liveness probe. |
-| `/api/gpus` | GET | GPU telemetry (`id`, `name`, memory, utilization; unsupported fields are `null`). |
+| `/api/gpus` | GET | GPU telemetry (`id`/`visible_id` are start-compatible visible ordinals; optional `physical_id`/`uuid` are metadata; unsupported fields are `null`). |
 | `/api/sessions` | GET | Tracked keep sessions, including `state="starting"` during startup and `state`/`last_error` for in-progress or failed stops. |
 | `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active or starting. |
 | `/api/sessions` | POST | Start session (`gpu_ids`, `vram`, `interval`, `busy_threshold`, `job_id`); omitted `gpu_ids` means all GPUs visible to the service process, and empty, duplicate, or out-of-range selections are invalid. |

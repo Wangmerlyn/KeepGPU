@@ -83,6 +83,10 @@ curl http://127.0.0.1:8765/api/gpus
 curl http://127.0.0.1:8765/api/sessions
 ```
 
+`/api/gpus` returns start-compatible visible ordinals as `id`/`visible_id`.
+Optional `physical_id` or `uuid` fields describe the underlying vendor device
+only; clients should not send those metadata values as `gpu_ids`.
+
 Start and stop by way of REST:
 
 ```bash
@@ -103,6 +107,8 @@ http://127.0.0.1:8765/
 ```
 
 The dashboard provides live telemetry, tracked session state, and start/stop controls.
+Telemetry cards show the visible ordinal to type into the start form before any
+physical/vendor metadata.
 CUDA and ROCm devices include memory and utilization when the platform APIs are
 available. Mac M series devices report best-effort MPS memory counters and use
 `null` for unsupported fields such as utilization.
