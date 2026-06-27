@@ -41,13 +41,17 @@ Starts local KeepGPU service (HTTP + JSON-RPC + dashboard).
 
 Starts a keep session and returns immediately with `job_id`.
 
+Local input validation runs before service auto-start. Invalid `--vram`,
+`--job-id`, `--interval`, `--busy-threshold`, or `--gpu-ids` values fail before
+daemon startup or RPC.
+
 | Option | Default | Description |
 | --- | --- | --- |
 | `--gpu-ids` | all | Comma-separated unique visible device ordinals in the service process environment. |
 | `--vram` | `1GiB` | Per-GPU keep memory target. |
 | `--interval` | `300` | Finite positive keep cycle interval in seconds. |
 | `--busy-threshold` / `--util-threshold` | `25` | `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
-| `--job-id` | auto | Optional custom id. Must be unique across active and starting sessions. |
+| `--job-id` | auto | Optional URL-path-safe custom id. Invalid IDs are rejected locally before service auto-start; valid IDs must be unique across active and starting sessions. |
 | `--host` | `127.0.0.1` | Service host to contact. |
 | `--port` | `8765` | Service port to contact. |
 | `--auto-start/--no-auto-start` | `--auto-start` | Auto-start local service if unavailable. |

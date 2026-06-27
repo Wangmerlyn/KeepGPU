@@ -28,6 +28,10 @@ keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
 - follow-up status/stop command hints,
 - daemon shutdown hint (`keep-gpu service-stop`).
 
+Local `start` inputs are validated before auto-starting the service. Invalid
+`--vram`, `--job-id`, `--interval`, `--busy-threshold`, or `--gpu-ids` values
+fail without creating daemon runtime files or issuing RPC.
+
 ### Check status
 
 ```bash
@@ -95,6 +99,7 @@ The dashboard provides:
 | `--vram` | Per-GPU memory target (`512MB`, `1GiB`, or bare bytes). | `1GiB` |
 | `--interval` | Finite positive seconds between keep-alive cycles. | `300` |
 | `--busy-threshold` / `--util-threshold` | `0..100` backs off when utilization exceeds this value or telemetry is unavailable; `-1` disables utilization backoff. | `25` |
+| `--job-id` | Optional URL-path-safe session id. Invalid IDs are rejected before service auto-start. | auto |
 
 ## Remote sessions
 

@@ -17,12 +17,14 @@ from urllib.request import Request, urlopen
 import typer
 from rich.console import Console
 
+from keep_gpu.utilities.humanized_input import parse_vram_to_elements
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
+    validate_job_id,
 )
 
 DEFAULT_SERVICE_HOST = "127.0.0.1"
@@ -636,6 +638,14 @@ def start(
         interval = _validate_cli_interval(interval)
         busy_threshold = _validate_cli_busy_threshold(busy_threshold)
         parsed_gpu_ids = _parse_gpu_ids(gpu_ids)
+        try:
+            parse_vram_to_elements(vram)
+        except (TypeError, ValueError) as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        try:
+            validate_job_id(job_id)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
         auto_started = _ensure_service_running(host, port, auto_start=auto_start)
         result = _rpc_call(
             "start_keep",

@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from typer.testing import CliRunner
 
 from keep_gpu import cli
@@ -38,6 +39,8 @@ def test_start_command_uses_rpc(monkeypatch):
             "60",
             "--busy-threshold",
             "30",
+            "--job-id",
+            "custom-job",
         ],
     )
 
@@ -54,6 +57,7 @@ def test_start_command_uses_rpc(monkeypatch):
     assert params["vram"] == "2GiB"
     assert params["interval"] == 60
     assert params["busy_threshold"] == 30
+    assert params["job_id"] == "custom-job"
     assert host == cli.DEFAULT_SERVICE_HOST
     assert port == cli.DEFAULT_SERVICE_PORT
 
@@ -150,6 +154,37 @@ def test_start_command_rejects_busy_threshold_above_percent_range(monkeypatch):
 
     assert result.exit_code == 1
     assert "busy_threshold must be -1 or an integer between 0 and 100" in result.output
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (["--job-id", "bad/id"], "job_id must be a URL-path-safe non-empty string"),
+        (["--vram", "not-a-size"], "invalid format"),
+    ],
+)
+def test_start_command_rejects_local_inputs_before_auto_start(
+    monkeypatch, args, message
+):
+    monkeypatch.setattr(
+        cli,
+        "_ensure_service_running",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("service should not be started")
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("RPC should not be called")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["start", *args])
+
+    assert result.exit_code == 1
+    assert message in result.output
 
 
 def test_stop_requires_job_id_or_all():
