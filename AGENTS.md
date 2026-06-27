@@ -12,6 +12,7 @@ This file defines how coding agents should work in this repository.
 ### Workflow (Branches + PRs)
 
 - Always branch from the latest `main` when starting a new feature or bug fix.
+- Use project-local worktrees under `.worktrees/` for parallel agent work.
 - Implement work on a new branch, validate changes, then open a PR to `main` for review.
 - Keep commits small and focused; avoid mixing unrelated changes.
 
@@ -27,6 +28,7 @@ This file defines how coding agents should work in this repository.
 
 - If a review-related subagent exists, call it when the code is ready for review.
 - Address review findings as appropriate until no must-fix issues remain.
+- Run local subagent code review before merging any PR; squash merge only after all review comments are resolved.
 
 ### Documentation Updates
 
