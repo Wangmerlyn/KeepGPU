@@ -36,5 +36,6 @@ dashboard and agents can explain the mapping without inviting invalid starts.
 - [x] Update README, docs, and `AGENTS.md`.
 - [x] Run targeted tests, full tests, docs build, pre-commit, and local subagent
       review.
-- [ ] Open PR, resolve remote review/checks, squash merge, and clean up the
-      worktree branch.
+- [x] Open PR.
+- [ ] Resolve remote review/checks, squash merge, and clean up the worktree
+      branch.
