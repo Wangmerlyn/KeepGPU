@@ -226,7 +226,8 @@ def _parse_gpu_ids(gpu_ids: Optional[str]) -> Optional[List[int]]:
         parsed = [int(i.strip()) for i in gpu_ids.split(",")]
     except ValueError as exc:
         raise typer.BadParameter(
-            f"Invalid characters in --gpu-ids '{gpu_ids}'. Use comma-separated integers."
+            f"Invalid characters in --gpu-ids '{gpu_ids}'. "
+            "Use comma-separated visible ordinals."
         ) from exc
     try:
         return validate_gpu_ids(parsed)

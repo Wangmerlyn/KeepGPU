@@ -420,7 +420,7 @@ class KeepGPUServer:
             }
 
     def list_gpus(self) -> Dict[str, Any]:
-        """Return detailed GPU info (id, name, memory, utilization)."""
+        """Return detailed GPU info with visible and physical identifiers."""
         infos = get_gpu_info()
         return {"gpus": infos}
 
