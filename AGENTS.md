@@ -72,6 +72,7 @@ This file defines how coding agents should work in this repository.
 - Keep service daemon ownership safe: no stop, force-stop, or fallback path may signal a PID unless the auto-start ownership record verifies the running process.
 - Treat custom `job_id` values as reserved from the moment startup begins; duplicate starts must fail before another controller can begin keep-alive work.
 - Stop requests must not miss starting sessions; wait for startup to settle before returning `not found` or taking a stop-all snapshot.
+- Stop-all may release independent sessions concurrently, but must not duplicate release work for `stopping` sessions and must keep deterministic additive result fields.
 - Keep utilization backoff eco-safe: when telemetry is unavailable and `busy_threshold >= 0`, controllers should sleep instead of running keepalive compute. Only `busy_threshold=-1` is the explicit unconditional mode.
 - Avoid scattering platform-specific branching across unrelated modules; prefer one clear decision path then platform-specific controller classes.
 - Preserve simple controller flow: global controller orchestrates per-GPU controllers; single-GPU controllers handle device-level keep/release loops.

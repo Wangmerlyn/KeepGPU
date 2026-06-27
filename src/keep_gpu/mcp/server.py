@@ -304,15 +304,19 @@ class KeepGPUServer:
                 self._sessions_cond.wait()
             session_items = list(self._sessions.items())
             releasable_items = []
+            release_outcomes: List[Dict[str, Any]] = [
+                {} for _job_id, _session in session_items
+            ]
             result = self._empty_stop_result()
-            for job_id, session in session_items:
+            for index, (job_id, session) in enumerate(session_items):
                 if session.state == "stopping":
-                    result["timed_out"].append(job_id)
+                    release_outcomes[index] = {"state": "timed_out"}
                     continue
                 session.state = "stopping"
                 session.last_error = None
-                releasable_items.append((job_id, session))
-        for job_id, session in releasable_items:
+                releasable_items.append((index, job_id, session))
+
+        def _release_one(index: int, job_id: str, session: Session) -> None:
             try:
                 released = self._release_with_timeout(
                     session.controller,
@@ -323,18 +327,36 @@ class KeepGPUServer:
             except Exception as exc:
                 error = str(exc)
                 self._mark_session(job_id, session, "stop_failed", error)
-                result["failed"].append(job_id)
-                result["errors"][job_id] = error
-                continue
+                release_outcomes[index] = {"state": "failed", "error": error}
+                return
             if released:
                 with self._sessions_lock:
                     if self._sessions.get(job_id) is session:
                         self._sessions.pop(job_id, None)
+                release_outcomes[index] = {"state": "stopped"}
+                return
+            self._mark_stop_timeout(job_id, session)
+            release_outcomes[index] = {"state": "timed_out"}
+
+        release_threads = []
+        for index, job_id, session in releasable_items:
+            thread = threading.Thread(
+                target=_release_one,
+                args=(index, job_id, session),
+            )
+            thread.start()
+            release_threads.append(thread)
+        for thread in release_threads:
+            thread.join()
+        for (job_id, _session), outcome in zip(session_items, release_outcomes):
+            state = outcome.get("state")
+            if state == "stopped":
                 result["stopped"].append(job_id)
-                continue
-            if not released:
-                self._mark_stop_timeout(job_id, session)
+            elif state == "timed_out":
                 result["timed_out"].append(job_id)
+            elif state == "failed":
+                result["failed"].append(job_id)
+                result["errors"][job_id] = outcome["error"]
         if result["stopped"] and not quiet:
             logger.info("Stopped sessions: %s", result["stopped"])
         if result["timed_out"] and not quiet:

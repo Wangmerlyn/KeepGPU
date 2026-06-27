@@ -145,6 +145,9 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
   still starting is not reported as missing or skipped by stop-all.
 - Stop-all only covers sessions active or already starting when that request
   begins; later concurrent starts belong to a later stop request.
+- Stop-all releases independent sessions concurrently and reports outcomes in
+  deterministic snapshot order with the same `stopped`, `timed_out`, `failed`,
+  and `errors` fields.
 - Dashboard cards mirror that lifecycle state so a retained session shows
   `Releasing` or `Release failed` instead of being presented as a fully active
   keepalive.

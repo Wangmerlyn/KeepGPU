@@ -462,12 +462,10 @@ def test_stop_all_tracks_timeouts(monkeypatch):
     job_a = server.start_keep()["job_id"]
     job_b = server.start_keep()["job_id"]
 
-    outcomes = iter([True, False])
-    monkeypatch.setattr(
-        server,
-        "_release_with_timeout",
-        lambda controller, **_: next(outcomes),
-    )
+    def release_outcome(controller, **_):
+        return controller is not server._sessions[job_b].controller
+
+    monkeypatch.setattr(server, "_release_with_timeout", release_outcome)
 
     result = server.stop_keep()
     assert result["stopped"] == [job_a]
@@ -476,6 +474,115 @@ def test_stop_all_tracks_timeouts(monkeypatch):
     status_b = server.status(job_b)
     assert status_b["active"] is True
     assert status_b["state"] == "stopping"
+
+
+def test_stop_all_orders_new_timeouts_before_later_already_stopping(monkeypatch):
+    server = make_server()
+    job_timeout = server.start_keep(gpu_ids=[0])["job_id"]
+    job_stopping = server.start_keep(gpu_ids=[1])["job_id"]
+
+    monkeypatch.setattr(server, "_release_with_timeout", lambda controller, **_: False)
+    targeted_result = server.stop_keep(job_stopping)
+    assert targeted_result["timed_out"] == [job_stopping]
+
+    stop_all_controllers = []
+
+    def timeout_release(controller, **_):
+        stop_all_controllers.append(controller)
+        return False
+
+    monkeypatch.setattr(server, "_release_with_timeout", timeout_release)
+
+    result = server.stop_keep()
+
+    assert result["timed_out"] == [job_timeout, job_stopping]
+    assert [controller.gpu_ids for controller in stop_all_controllers] == [[0]]
+
+
+def test_stop_all_release_workers_enter_concurrently(monkeypatch):
+    server = make_server()
+    job_ids = [
+        server.start_keep(gpu_ids=[0])["job_id"],
+        server.start_keep(gpu_ids=[1])["job_id"],
+        server.start_keep(gpu_ids=[2])["job_id"],
+    ]
+    entered_count = 0
+    entered_lock = threading.Lock()
+    all_entered = threading.Event()
+    release_gate = threading.Event()
+    stop_result = {}
+
+    def blocking_release(controller, **_):
+        nonlocal entered_count
+        with entered_lock:
+            entered_count += 1
+            if entered_count == len(job_ids):
+                all_entered.set()
+        release_gate.wait(timeout=1.0)
+        return True
+
+    monkeypatch.setattr(server, "_release_with_timeout", blocking_release)
+
+    stop_thread = threading.Thread(
+        target=lambda: stop_result.update(value=server.stop_keep())
+    )
+    stop_thread.start()
+
+    try:
+        assert all_entered.wait(timeout=2.0)
+    finally:
+        release_gate.set()
+        stop_thread.join(timeout=1.0)
+
+    assert stop_result["value"]["stopped"] == job_ids
+    assert all(server.status(job_id)["active"] is False for job_id in job_ids)
+
+
+def test_stop_all_concurrent_results_keep_snapshot_order(monkeypatch):
+    server = make_server()
+    job_success = server.start_keep(gpu_ids=[0])["job_id"]
+    job_timeout = server.start_keep(gpu_ids=[1])["job_id"]
+    job_failed = server.start_keep(gpu_ids=[2])["job_id"]
+    job_ids = [job_success, job_timeout, job_failed]
+    entered_count = 0
+    entered_lock = threading.Lock()
+    all_entered = threading.Event()
+    release_gate = threading.Event()
+    stop_result = {}
+
+    def release_outcome(controller, **_):
+        nonlocal entered_count
+        with entered_lock:
+            entered_count += 1
+            if entered_count == len(job_ids):
+                all_entered.set()
+        release_gate.wait(timeout=1.0)
+        if controller.gpu_ids == [1]:
+            return False
+        if controller.gpu_ids == [2]:
+            raise RuntimeError("release failed")
+        return True
+
+    monkeypatch.setattr(server, "_release_with_timeout", release_outcome)
+
+    stop_thread = threading.Thread(
+        target=lambda: stop_result.update(value=server.stop_keep())
+    )
+    stop_thread.start()
+
+    try:
+        assert all_entered.wait(timeout=2.0)
+    finally:
+        release_gate.set()
+        stop_thread.join(timeout=1.0)
+
+    assert stop_result["value"]["stopped"] == [job_success]
+    assert stop_result["value"]["timed_out"] == [job_timeout]
+    assert stop_result["value"]["failed"] == [job_failed]
+    assert stop_result["value"]["errors"] == {job_failed: "release failed"}
+    assert server.status(job_success)["active"] is False
+    assert server.status(job_timeout)["state"] == "stopping"
+    assert server.status(job_failed)["state"] == "stop_failed"
 
 
 def test_timed_out_stop_removes_session_after_background_release_succeeds(monkeypatch):
@@ -534,6 +641,30 @@ def test_timed_out_stop_marks_late_background_release_failure(monkeypatch):
     assert _wait_until(lambda: server.status(job_id).get("state") == "stop_failed")
     status = server.status(job_id)
     assert status["active"] is True
+    assert status["last_error"] == "late release failed"
+
+
+def test_stop_all_late_callbacks_update_each_timed_out_session(monkeypatch):
+    server = make_server()
+    job_late_success = server.start_keep(gpu_ids=[0])["job_id"]
+    job_late_failure = server.start_keep(gpu_ids=[1])["job_id"]
+
+    def timeout_with_late_callback(controller, on_late_result, **_):
+        if controller.gpu_ids == [0]:
+            on_late_result(None)
+        else:
+            on_late_result(RuntimeError("late release failed"))
+        return False
+
+    monkeypatch.setattr(server, "_release_with_timeout", timeout_with_late_callback)
+
+    result = server.stop_keep()
+
+    assert result["timed_out"] == [job_late_success, job_late_failure]
+    assert server.status(job_late_success)["active"] is False
+    status = server.status(job_late_failure)
+    assert status["active"] is True
+    assert status["state"] == "stop_failed"
     assert status["last_error"] == "late release failed"
 
 

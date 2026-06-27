@@ -57,6 +57,8 @@ Elementwise keep-alive batches:
 - The keep-alive loop runs on daemon threads so the main process can exit fast.
 - `GlobalGPUController.release()` stops workers concurrently by way of threads, keeping
   shutdown time bounded even with many GPUs.
+- Service stop-all releases independent sessions concurrently after taking its
+  session snapshot, while aggregating results in deterministic snapshot order.
 - Service session state is intentionally conservative: `stop_keep` removes a
   session only after release succeeds. Timed-out sessions stay visible as
   `state="stopping"` until the background release finishes; failed releases stay

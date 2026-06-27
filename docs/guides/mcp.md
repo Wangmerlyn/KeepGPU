@@ -59,6 +59,8 @@ waits for startup to settle before deciding whether the job exists. Stop-all
 requests also wait for in-progress starts before taking their session snapshot.
 For stop-all, starts that begin after that request's initial snapshot are not
 stopped by that request.
+Stop-all releases the sessions in its snapshot concurrently and aggregates
+results in deterministic snapshot order using the same additive fields.
 
 ## REST quick examples
 
