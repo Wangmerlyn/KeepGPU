@@ -192,9 +192,12 @@ def get_gpu_info() -> List[Dict[str, Any]]:
     except Exception as exc:
         logger.debug("ROCm info failed: %s", exc)
 
-    infos = _query_torch()
-    if infos:
-        return infos
+    try:
+        infos = _query_torch()
+        if infos:
+            return infos
+    except Exception as exc:
+        logger.debug("Torch GPU info failed: %s", exc)
 
     return _query_mps()
 

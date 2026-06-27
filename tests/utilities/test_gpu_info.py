@@ -208,3 +208,50 @@ def test_get_gpu_info_mps_allows_missing_memory_methods(monkeypatch):
     assert infos[0]["platform"] == "macm"
     assert infos[0]["memory_total"] is None
     assert infos[0]["memory_used"] is None
+
+
+def test_get_gpu_info_mps_fallback_survives_torch_cuda_probe_failure(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    monkeypatch.setitem(sys.modules, "rocm_smi", None)
+
+    class BrokenCuda:
+        @staticmethod
+        def is_available():
+            raise RuntimeError("cuda probe failed")
+
+    class DummyMPSBackend:
+        @staticmethod
+        def is_available():
+            return True
+
+    class DummyMPS:
+        @staticmethod
+        def current_allocated_memory():
+            return 64
+
+        @staticmethod
+        def driver_allocated_memory():
+            return 128
+
+        @staticmethod
+        def recommended_max_memory():
+            return 512
+
+    dummy_torch = type(
+        "T",
+        (),
+        {
+            "cuda": BrokenCuda,
+            "backends": type("Backends", (), {"mps": DummyMPSBackend}),
+            "mps": DummyMPS,
+            "version": type("V", (), {"hip": None}),
+        },
+    )
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["platform"] == "macm"
+    assert infos[0]["memory_total"] == 512
+    assert infos[0]["memory_used"] == 128
