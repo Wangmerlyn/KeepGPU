@@ -38,5 +38,6 @@ startup for no session.
 - [x] Update MCP docs, CLI reference, README, and `AGENTS.md`.
 - [x] Run targeted MCP/service tests, full tests, docs build, pre-commit, and
       local subagent review.
-- [ ] Open PR, resolve remote review/checks, squash merge, and clean up the
-      worktree branch.
+- [x] Open PR.
+- [ ] Resolve remote review/checks, squash merge, and clean up the worktree
+      branch.
