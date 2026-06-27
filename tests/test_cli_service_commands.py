@@ -216,6 +216,237 @@ def test_stop_all_fallback_force_stops_managed_daemon(monkeypatch):
     assert payload["errors"] == {}
 
 
+def test_stop_all_does_not_fallback_for_rpc_application_error(monkeypatch):
+    called = {"stop_process": False}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        raise RuntimeError("validation failed")
+
+    def fake_stop_process(host, port):
+        called["stop_process"] = True
+        return True
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: 1234)
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["stop", "--all"])
+
+    assert result.exit_code == 1
+    assert "validation failed" in result.output
+    assert "force-stopped local daemon" not in result.output
+    assert called["stop_process"] is False
+
+
+def test_stop_all_fallback_requires_stop_process_success(monkeypatch):
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        raise RuntimeError(
+            "Cannot reach KeepGPU service at http://127.0.0.1:8765/rpc: timed out"
+        )
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: 1234)
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+    monkeypatch.setattr(cli, "_stop_service_process", lambda host, port: False)
+
+    result = runner.invoke(cli.app, ["stop", "--all"])
+
+    assert result.exit_code == 1
+    assert "Cannot reach KeepGPU service" in result.output
+    assert "ownership-verified daemon could be force-stopped" in result.output
+    assert "force-stopped local daemon" not in result.output
+
+
+def test_process_uid_uses_ps_when_proc_uid_is_unavailable(monkeypatch):
+    class MissingProcPath:
+        def __init__(self, _path):
+            pass
+
+        def stat(self):
+            raise OSError("no proc")
+
+    monkeypatch.setattr(cli, "Path", MissingProcPath)
+    monkeypatch.setattr(
+        cli.subprocess,
+        "check_output",
+        lambda *args, **kwargs: "1001\n",
+    )
+
+    assert cli._process_uid(4321) == 1001
+
+
+def test_process_uid_returns_none_when_target_uid_is_unknown(monkeypatch):
+    class MissingProcPath:
+        def __init__(self, _path):
+            pass
+
+        def stat(self):
+            raise OSError("no proc")
+
+    monkeypatch.setattr(cli, "Path", MissingProcPath)
+    monkeypatch.setattr(
+        cli.subprocess,
+        "check_output",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("ps failed")),
+    )
+
+    assert cli._process_uid(4321) is None
+
+
+def test_stop_service_process_requires_structured_ownership_record(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    cli._service_pid_path("127.0.0.1", 8765).write_text("4321", encoding="utf-8")
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+
+    kills = []
+    monkeypatch.setattr(cli.os, "kill", lambda pid, sig: kills.append((pid, sig)))
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0)
+
+    assert stopped is False
+    assert kills == []
+
+
+def test_stop_service_process_rejects_record_missing_identity(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    payload = {
+        "pid": 4321,
+        "host": "127.0.0.1",
+        "port": 8765,
+        "argv": cli._service_command("127.0.0.1", 8765),
+    }
+    cli._service_pid_path("127.0.0.1", 8765).write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        cli, "_process_cmdline", lambda pid: cli._service_command("127.0.0.1", 8765)
+    )
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+
+    kills = []
+    monkeypatch.setattr(cli.os, "kill", lambda pid, sig: kills.append((pid, sig)))
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0)
+
+    assert stopped is False
+    assert kills == []
+
+
+def test_stop_service_process_rejects_unknown_current_start_identity(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+    cli._write_service_pid("127.0.0.1", 8765, 4321)
+    monkeypatch.setattr(
+        cli, "_process_cmdline", lambda pid: cli._service_command("127.0.0.1", 8765)
+    )
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: None)
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+
+    kills = []
+    monkeypatch.setattr(cli.os, "kill", lambda pid, sig: kills.append((pid, sig)))
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0)
+
+    assert stopped is False
+    assert kills == []
+
+
+def test_stop_service_process_stops_matching_owned_daemon(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+    cli._write_service_pid("127.0.0.1", 8765, 4321)
+    monkeypatch.setattr(
+        cli, "_process_cmdline", lambda pid: cli._service_command("127.0.0.1", 8765)
+    )
+
+    alive = {"value": True}
+    kills = []
+
+    def fake_kill(pid, sig):
+        kills.append((pid, sig))
+        alive["value"] = False
+
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: alive["value"])
+    monkeypatch.setattr(cli.os, "kill", fake_kill)
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0.5)
+
+    assert stopped is True
+    assert kills == [(4321, cli.signal.SIGTERM)]
+    assert not cli._service_pid_path("127.0.0.1", 8765).exists()
+
+
+def test_stop_service_process_rechecks_ownership_before_sigkill(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+    cli._write_service_pid("127.0.0.1", 8765, 4321)
+
+    cmdline = {"value": cli._service_command("127.0.0.1", 8765)}
+    monkeypatch.setattr(cli, "_process_cmdline", lambda pid: cmdline["value"])
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+
+    kills = []
+
+    def fake_kill(pid, sig):
+        kills.append((pid, sig))
+        if sig == cli.signal.SIGTERM:
+            cmdline["value"] = ["python", "other.py"]
+
+    monkeypatch.setattr(cli.os, "kill", fake_kill)
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0)
+
+    assert stopped is False
+    assert kills == [(4321, cli.signal.SIGTERM)]
+
+
+def test_stop_service_process_confirms_sigkill_exit(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+    cli._write_service_pid("127.0.0.1", 8765, 4321)
+    monkeypatch.setattr(
+        cli, "_process_cmdline", lambda pid: cli._service_command("127.0.0.1", 8765)
+    )
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+
+    kills = []
+    monkeypatch.setattr(cli.os, "kill", lambda pid, sig: kills.append((pid, sig)))
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0)
+
+    assert stopped is False
+    assert kills == [(4321, cli.signal.SIGTERM), (4321, cli.signal.SIGKILL)]
+    assert cli._service_pid_path("127.0.0.1", 8765).exists()
+
+
+def test_write_service_pid_stores_ownership_record(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+
+    cli._write_service_pid("127.0.0.1", 8765, 4321)
+
+    payload = json.loads(
+        cli._service_pid_path("127.0.0.1", 8765).read_text(encoding="utf-8")
+    )
+    assert payload["pid"] == 4321
+    assert payload["host"] == "127.0.0.1"
+    assert payload["port"] == 8765
+    assert payload["argv"] == cli._service_command("127.0.0.1", 8765)
+    assert payload["uid"] == cli._process_uid(4321)
+    assert "start_time" in payload
+    assert "created_at" in payload
+
+
 def test_service_stop_force_skips_rpc(monkeypatch):
     called = {"rpc": 0}
 
@@ -267,10 +498,12 @@ def test_http_json_request_wraps_non_json_response(monkeypatch):
         assert "Non-JSON response from service endpoint" in str(exc)
 
 
-def test_stop_service_process_rejects_unmanaged_pid(monkeypatch):
-    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: 4321)
-    monkeypatch.setattr(cli, "_is_managed_keepgpu_pid", lambda pid: False)
-    monkeypatch.setattr(cli, "_clear_service_pid", lambda host, port: None)
+def test_stop_service_process_rejects_mismatched_record(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+    cli._write_service_pid("127.0.0.1", 8765, 4321)
+    monkeypatch.setattr(cli, "_process_cmdline", lambda pid: ["python", "other.py"])
     monkeypatch.setattr(
         cli.os,
         "kill",

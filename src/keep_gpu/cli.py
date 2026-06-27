@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import signal
 import subprocess
 import sys
@@ -30,6 +31,18 @@ console = Console()
 logger = setup_logger(__name__)
 
 
+class ServiceUnreachableError(RuntimeError):
+    """Raised when the local service cannot be reached."""
+
+
+class ServiceResponseError(RuntimeError):
+    """Raised when the local service responds with an invalid HTTP payload."""
+
+
+class ServiceRPCError(RuntimeError):
+    """Raised when the local service returns a JSON-RPC error."""
+
+
 def _runtime_dir() -> Path:
     runtime_dir = Path.home() / ".keepgpu"
     runtime_dir.mkdir(parents=True, exist_ok=True)
@@ -44,18 +57,126 @@ def _service_pid_path(host: str, port: int) -> Path:
     return _runtime_dir() / f"service-{host.replace('.', '_')}-{port}.pid"
 
 
-def _read_service_pid(host: str, port: int) -> Optional[int]:
+def _service_command(host: str, port: int) -> List[str]:
+    return [
+        sys.executable,
+        "-m",
+        "keep_gpu.mcp.server",
+        "--mode",
+        "http",
+        "--host",
+        host,
+        "--port",
+        str(port),
+    ]
+
+
+def _process_start_identity(pid: int) -> Optional[str]:
+    try:
+        stat_path = Path(f"/proc/{pid}/stat")
+        if not stat_path.exists():
+            return None
+        raw_stat = stat_path.read_text(encoding="utf-8", errors="replace")
+        after_comm = raw_stat.rsplit(")", 1)[1].strip().split()
+        return after_comm[19]
+    except Exception:
+        return None
+
+
+def _process_uid(pid: int) -> Optional[int]:
+    try:
+        return Path(f"/proc/{pid}").stat().st_uid
+    except Exception:
+        try:
+            out = subprocess.check_output(
+                ["ps", "-p", str(pid), "-o", "uid="],
+                text=True,
+            )
+            return int(out.strip())
+        except Exception:
+            return None
+
+
+def _process_cmdline(pid: int) -> List[str]:
+    try:
+        proc_cmdline = Path(f"/proc/{pid}/cmdline")
+        if proc_cmdline.exists():
+            raw = proc_cmdline.read_bytes()
+            return [
+                part.decode("utf-8", errors="replace")
+                for part in raw.split(b"\x00")
+                if part
+            ]
+        command = subprocess.check_output(
+            ["ps", "-p", str(pid), "-o", "command="],
+            text=True,
+        ).strip()
+        return shlex.split(command)
+    except Exception:
+        return []
+
+
+def _is_keepgpu_service_argv(
+    argv: List[str], host: Optional[str] = None, port: Optional[int] = None
+) -> bool:
+    expected_tail = [
+        "-m",
+        "keep_gpu.mcp.server",
+        "--mode",
+        "http",
+    ]
+    if host is not None and port is not None:
+        expected_tail.extend(["--host", host, "--port", str(port)])
+    if len(argv) != len(expected_tail) + 1:
+        return False
+    return argv[1:] == expected_tail
+
+
+def _build_service_pid_record(host: str, port: int, pid: int) -> Dict[str, Any]:
+    return {
+        "pid": pid,
+        "host": host,
+        "port": port,
+        "argv": _service_command(host, port),
+        "uid": _process_uid(pid),
+        "start_time": _process_start_identity(pid),
+        "created_at": time.time(),
+    }
+
+
+def _read_service_pid_record(host: str, port: int) -> Optional[Dict[str, Any]]:
     pid_path = _service_pid_path(host, port)
     if not pid_path.exists():
         return None
     try:
-        return int(pid_path.read_text(encoding="utf-8").strip())
-    except (OSError, ValueError):
+        raw = pid_path.read_text(encoding="utf-8").strip()
+        payload = json.loads(raw)
+    except (OSError, json.JSONDecodeError, ValueError):
         return None
+    if isinstance(payload, int):
+        return {"pid": payload, "legacy": True}
+    if not isinstance(payload, dict):
+        return None
+    try:
+        payload["pid"] = int(payload["pid"])
+        payload["port"] = int(payload["port"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return payload
+
+
+def _read_service_pid(host: str, port: int) -> Optional[int]:
+    record = _read_service_pid_record(host, port)
+    if record is None:
+        return None
+    return record["pid"]
 
 
 def _write_service_pid(host: str, port: int, pid: int) -> None:
-    _service_pid_path(host, port).write_text(str(pid), encoding="utf-8")
+    record = _build_service_pid_record(host, port, pid)
+    _service_pid_path(host, port).write_text(
+        json.dumps(record, sort_keys=True), encoding="utf-8"
+    )
 
 
 def _clear_service_pid(host: str, port: int) -> None:
@@ -138,15 +259,17 @@ def _http_json_request(
             try:
                 return json.loads(body)
             except (json.JSONDecodeError, ValueError) as exc:
-                raise RuntimeError(
+                raise ServiceResponseError(
                     f"Non-JSON response from service endpoint: {url}"
                 ) from exc
     except HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
         detail = body or str(exc)
-        raise RuntimeError(f"Service HTTP error: {detail}") from exc
+        raise ServiceResponseError(f"Service HTTP error: {detail}") from exc
     except (URLError, TimeoutError, OSError) as exc:
-        raise RuntimeError(f"Cannot reach KeepGPU service at {url}: {exc}") from exc
+        raise ServiceUnreachableError(
+            f"Cannot reach KeepGPU service at {url}: {exc}"
+        ) from exc
 
 
 def _service_available(host: str, port: int) -> bool:
@@ -170,20 +293,7 @@ def _start_service_process(host: str, port: int) -> int:
         else:
             popen_kwargs["start_new_session"] = True
 
-        process = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "keep_gpu.mcp.server",
-                "--mode",
-                "http",
-                "--host",
-                host,
-                "--port",
-                str(port),
-            ],
-            **popen_kwargs,
-        )
+        process = subprocess.Popen(_service_command(host, port), **popen_kwargs)
     _write_service_pid(host, port, process.pid)
     return process.pid
 
@@ -212,12 +322,44 @@ def _ensure_service_running(host: str, port: int, auto_start: bool = True) -> bo
     )
 
 
-def _stop_service_process(host: str, port: int, timeout: float = 3.0) -> bool:
-    pid = _read_service_pid(host, port)
-    if pid is None:
+def _record_matches_running_process(
+    record: Dict[str, Any], host: str, port: int
+) -> bool:
+    if record.get("legacy"):
+        return False
+    if "uid" not in record or "start_time" not in record:
+        return False
+    if record.get("host") != host or record.get("port") != port:
+        return False
+    argv = record.get("argv")
+    if not isinstance(argv, list) or not all(isinstance(part, str) for part in argv):
+        return False
+    if not _is_keepgpu_service_argv(argv, host, port):
+        return False
+    pid = record["pid"]
+    if _process_cmdline(pid) != argv:
         return False
 
-    if not _is_managed_keepgpu_pid(pid):
+    recorded_uid = record.get("uid")
+    current_uid = _process_uid(pid)
+    if recorded_uid != current_uid:
+        return False
+
+    recorded_start = record.get("start_time")
+    current_start = _process_start_identity(pid)
+    if recorded_start != current_start:
+        return False
+
+    return True
+
+
+def _stop_service_process(host: str, port: int, timeout: float = 3.0) -> bool:
+    record = _read_service_pid_record(host, port)
+    if record is None:
+        return False
+    pid = record["pid"]
+
+    if not _record_matches_running_process(record, host, port):
         _clear_service_pid(host, port)
         return False
 
@@ -237,33 +379,25 @@ def _stop_service_process(host: str, port: int, timeout: float = 3.0) -> bool:
             return True
         time.sleep(0.1)
 
+    if not _record_matches_running_process(record, host, port):
+        _clear_service_pid(host, port)
+        return False
+
     try:
         os.kill(pid, signal.SIGKILL)
     except OSError:
         _clear_service_pid(host, port)
         return False
-    time.sleep(0.1)
-    _clear_service_pid(host, port)
-    return True
-
-
-def _is_managed_keepgpu_pid(pid: int) -> bool:
-    try:
-        proc_cmdline = Path(f"/proc/{pid}/cmdline")
-        if proc_cmdline.exists():
-            cmdline = proc_cmdline.read_text(encoding="utf-8", errors="replace")
-            cmdline = cmdline.replace("\x00", " ")
-        else:
-            cmdline = subprocess.check_output(
-                ["ps", "-p", str(pid), "-o", "command="],
-                text=True,
-            ).strip()
-    except Exception:
-        return False
-
-    return (
-        "keep_gpu.mcp.server" in cmdline and "--mode" in cmdline and "http" in cmdline
-    )
+    deadline = time.time() + max(0.5, min(timeout, 3.0))
+    while time.time() < deadline:
+        if not _pid_alive(pid):
+            _clear_service_pid(host, port)
+            return True
+        if not _record_matches_running_process(record, host, port):
+            _clear_service_pid(host, port)
+            return False
+        time.sleep(0.1)
+    return False
 
 
 def _rpc_call(
@@ -283,27 +417,41 @@ def _rpc_call(
     )
     if "error" in response:
         error = response["error"]
-        raise RuntimeError(error.get("message", str(error)))
+        raise ServiceRPCError(error.get("message", str(error)))
     return response.get("result", {})
+
+
+def _is_service_unreachable_error(exc: RuntimeError) -> bool:
+    if isinstance(exc, ServiceUnreachableError):
+        return True
+    if isinstance(exc, (ServiceRPCError, ServiceResponseError)):
+        return False
+    message = str(exc).lower()
+    return "cannot reach keepgpu service" in message or "timed out" in message
 
 
 def _stop_all_sessions_with_fallback(host: str, port: int) -> Dict[str, Any]:
     try:
         return _rpc_call("stop_keep", {}, host, port, timeout=45.0)
     except RuntimeError as exc:
+        if not _is_service_unreachable_error(exc):
+            raise
         managed_pid = _read_service_pid(host, port)
         if managed_pid and _pid_alive(managed_pid):
-            _stop_service_process(host, port)
-            return {
-                "stopped": [],
-                "timed_out": [],
-                "failed": [],
-                "errors": {},
-                "message": (
-                    "Service stop RPC timed out; force-stopped local daemon "
-                    f"pid={managed_pid}. Reserved VRAM should be released by process exit."
-                ),
-            }
+            if _stop_service_process(host, port):
+                return {
+                    "stopped": [],
+                    "timed_out": [],
+                    "failed": [],
+                    "errors": {},
+                    "message": (
+                        "Service stop RPC timed out; force-stopped local daemon "
+                        f"pid={managed_pid}. Reserved VRAM should be released by process exit."
+                    ),
+                }
+            raise RuntimeError(
+                f"{exc}. No ownership-verified daemon could be force-stopped."
+            ) from exc
         raise RuntimeError(
             f"{exc}. If service is unresponsive, run `keep-gpu service-stop --force`."
         ) from exc
