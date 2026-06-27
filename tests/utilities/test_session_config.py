@@ -19,5 +19,26 @@ def test_validate_interval_rejects_non_positive_values():
 
 def test_validate_busy_threshold_only_allows_minus_one_as_negative():
     assert validate_busy_threshold(-1) == -1
-    with pytest.raises(ValueError, match="busy_threshold must be an integer >= -1"):
+    with pytest.raises(
+        ValueError, match="busy_threshold must be -1 or an integer between 0 and 100"
+    ):
         validate_busy_threshold(-2)
+
+
+def test_validate_busy_threshold_accepts_percent_upper_bound():
+    assert validate_busy_threshold(100) == 100
+
+
+def test_validate_busy_threshold_rejects_values_above_percent_range():
+    with pytest.raises(
+        ValueError, match="busy_threshold must be -1 or an integer between 0 and 100"
+    ):
+        validate_busy_threshold(101)
+
+
+@pytest.mark.parametrize("value", [True, False, 0.5, "25"])
+def test_validate_busy_threshold_rejects_non_plain_integers(value):
+    with pytest.raises(
+        ValueError, match="busy_threshold must be -1 or an integer between 0 and 100"
+    ):
+        validate_busy_threshold(value)

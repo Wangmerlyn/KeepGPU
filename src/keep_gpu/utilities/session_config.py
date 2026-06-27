@@ -31,6 +31,8 @@ def validate_interval(interval: Any) -> Union[int, float]:
 
 def validate_busy_threshold(busy_threshold: Any) -> int:
     """Validate utilization threshold; -1 disables utilization backoff."""
-    if not _is_plain_int(busy_threshold) or busy_threshold < -1:
-        raise ValueError("busy_threshold must be an integer >= -1")
+    if not _is_plain_int(busy_threshold) or (
+        busy_threshold != -1 and not 0 <= busy_threshold <= 100
+    ):
+        raise ValueError("busy_threshold must be -1 or an integer between 0 and 100")
     return busy_threshold

@@ -73,7 +73,7 @@ Flags that matter:
 - Blocking mode knobs:
   - `--vram` (`1GiB`, `750MB`, or bare bytes like `1073741824`): how much memory to pin.
   - `--interval` (positive seconds): sleep between keep-alive bursts.
-  - `--busy-threshold`: skip work when telemetry reports higher utilization or cannot report utilization; `-1` disables utilization backoff.
+  - `--busy-threshold`: `0..100` skips work when telemetry reports higher utilization or cannot report utilization; `-1` disables utilization backoff.
   - `--gpu-ids`: target a non-negative subset; otherwise all visible GPUs are guarded.
 - Service mode commands:
   - `keep-gpu serve`: run local service (HTTP + dashboard).
@@ -106,7 +106,7 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 ## What you get
 
 - Battle-tested keep-alive loop built on PyTorch.
-- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`. If utilization is unavailable and `busy_threshold` is non-negative, KeepGPU sleeps for that cycle instead of running compute.
+- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`. Valid `busy_threshold` values are `-1` or `0..100`; if utilization is unavailable and the threshold is non-negative, KeepGPU sleeps for that cycle instead of running compute.
 - CLI + API parity: same controllers power both code paths.
 - Continuous docs + CI: mkdocs + mkdocstrings build in CI to keep guidance up to date.
 

@@ -37,8 +37,14 @@ describe("numeric parsing", () => {
 
   it("validates busy threshold", () => {
     expect(parseBusyThreshold("25")).toBe(25)
+    expect(parseBusyThreshold("100")).toBe(100)
     expect(parseBusyThreshold("-1")).toBe(-1)
     expect(() => parseBusyThreshold("-2")).toThrow()
+    expect(() => parseBusyThreshold("101")).toThrow()
+    expect(() => parseBusyThreshold("")).toThrow()
+    expect(() => parseBusyThreshold("   ")).toThrow()
+    expect(() => parseBusyThreshold(true)).toThrow()
+    expect(() => parseBusyThreshold(false)).toThrow()
   })
 })
 

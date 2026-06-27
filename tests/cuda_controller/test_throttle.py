@@ -28,7 +28,9 @@ def test_cuda_monitor_preserves_unknown_utilization(monkeypatch):
 
 
 def test_cuda_controller_rejects_busy_threshold_below_minus_one_without_gpu():
-    with pytest.raises(ValueError, match="busy_threshold must be an integer >= -1"):
+    with pytest.raises(
+        ValueError, match="busy_threshold must be -1 or an integer between 0 and 100"
+    ):
         CudaGPUController(rank=0, vram_to_keep="4MB", busy_threshold=-2)
 
 
