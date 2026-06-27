@@ -41,6 +41,10 @@ describe("numeric parsing", () => {
     expect(parseBusyThreshold("-1")).toBe(-1)
     expect(() => parseBusyThreshold("-2")).toThrow()
     expect(() => parseBusyThreshold("101")).toThrow()
+    expect(() => parseBusyThreshold("")).toThrow()
+    expect(() => parseBusyThreshold("   ")).toThrow()
+    expect(() => parseBusyThreshold(true)).toThrow()
+    expect(() => parseBusyThreshold(false)).toThrow()
   })
 })
 

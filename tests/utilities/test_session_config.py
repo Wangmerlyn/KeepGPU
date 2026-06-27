@@ -34,3 +34,11 @@ def test_validate_busy_threshold_rejects_values_above_percent_range():
         ValueError, match="busy_threshold must be -1 or an integer between 0 and 100"
     ):
         validate_busy_threshold(101)
+
+
+@pytest.mark.parametrize("value", [True, False, 0.5, "25"])
+def test_validate_busy_threshold_rejects_non_plain_integers(value):
+    with pytest.raises(
+        ValueError, match="busy_threshold must be -1 or an integer between 0 and 100"
+    ):
+        validate_busy_threshold(value)

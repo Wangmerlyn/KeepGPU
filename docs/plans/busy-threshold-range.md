@@ -32,6 +32,8 @@ and dashboard inputs.
       central rule.
 - [x] Close local-review parity gap by updating dashboard validation, rebuilding
       static assets, and adding REST rejection coverage.
+- [x] Close local-review coercion gap by rejecting blank/boolean dashboard
+      threshold values and documenting the CLI help range.
 - [x] Update `AGENTS.md`, README, and CLI/MCP docs with the allowed range.
 - [x] Run targeted threshold tests, full tests, docs build, and pre-commit.
 - [ ] Open a GitHub PR, run local subagent review, resolve all comments, then

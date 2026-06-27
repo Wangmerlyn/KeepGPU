@@ -23,7 +23,14 @@ export function parsePositiveInt(value, fieldName) {
 }
 
 export function parseBusyThreshold(value) {
-  const parsed = Number(value)
+  if (typeof value === "boolean") {
+    throw new Error("Busy threshold must be -1 or an integer between 0 and 100")
+  }
+  const normalized = typeof value === "string" ? value.trim() : value
+  if (normalized === "") {
+    throw new Error("Busy threshold must be -1 or an integer between 0 and 100")
+  }
+  const parsed = Number(normalized)
   if (!Number.isInteger(parsed) || (parsed !== -1 && (parsed < 0 || parsed > 100))) {
     throw new Error("Busy threshold must be -1 or an integer between 0 and 100")
   }

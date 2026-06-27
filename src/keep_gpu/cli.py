@@ -546,8 +546,9 @@ def main(
         "--busy-threshold",
         "--util-threshold",
         help=(
-            "Back off when utilization is above this percent or telemetry is "
-            "unavailable; -1 disables utilization backoff (blocking mode)."
+            "Back off when utilization is above this 0..100 percent threshold "
+            "or telemetry is unavailable; -1 disables utilization backoff "
+            "(blocking mode)."
         ),
     ),
 ):
@@ -593,8 +594,8 @@ def start(
         "--busy-threshold",
         "--util-threshold",
         help=(
-            "Back off when utilization is above this percent or telemetry is "
-            "unavailable; -1 disables utilization backoff."
+            "Back off when utilization is above this 0..100 percent threshold "
+            "or telemetry is unavailable; -1 disables utilization backoff."
         ),
     ),
     job_id: Optional[str] = typer.Option(
