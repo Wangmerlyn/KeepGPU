@@ -65,6 +65,9 @@ class GlobalGPUController:
         else:
             self.gpu_ids = gpu_ids
 
+        if not self.gpu_ids:
+            raise ValueError("No GPUs available for GlobalGPUController")
+
         self.controllers = [
             controller_cls(
                 rank=i,

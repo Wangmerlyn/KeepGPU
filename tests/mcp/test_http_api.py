@@ -294,6 +294,40 @@ def test_http_post_rejects_non_positive_interval():
         thread.join(timeout=2)
 
 
+def test_http_post_rejects_empty_gpu_ids():
+    server = make_server()
+
+    class _Server(TCPServer):
+        allow_reuse_address = True
+
+    httpd = _Server(("127.0.0.1", 0), _JSONRPCHandler)
+    httpd.keepgpu_server = server  # type: ignore[attr-defined]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+
+    try:
+        status_code, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "gpu_ids": [],
+                "vram": "64MB",
+                "interval": 20,
+                "busy_threshold": 5,
+            },
+        )
+        assert status_code == 400
+        assert "gpu_ids must select at least one GPU" in payload["error"]["message"]
+        assert server.status()["active_jobs"] == []
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
 def test_http_post_rejects_busy_threshold_above_percent_range():
     server = make_server()
 
