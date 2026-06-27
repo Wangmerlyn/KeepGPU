@@ -679,7 +679,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _read_json_body(self) -> Dict[str, Any]:
+    def _read_json_body(self) -> Any:
         length = int(self.headers.get("content-length", "0"))
         if length > MAX_JSON_BODY_BYTES:
             raise ValueError(
@@ -787,6 +787,8 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             if path == "/api/sessions":
                 if self._reject_session_route_components(parsed):
                     return
+                if not isinstance(payload, dict):
+                    raise ValueError("JSON body must be an object")
                 allowed_fields = {
                     "gpu_ids",
                     "vram",

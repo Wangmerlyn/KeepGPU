@@ -6,6 +6,8 @@ from urllib.error import HTTPError
 from socketserver import TCPServer, ThreadingMixIn
 from urllib.request import Request, urlopen
 
+import pytest
+
 from keep_gpu.mcp.server import KeepGPUServer, _JSONRPCHandler
 
 
@@ -445,6 +447,24 @@ def test_http_post_rejects_unknown_fields():
         )
         assert status_code == 400
         assert "Unknown request fields" in payload["error"]["message"]
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+@pytest.mark.parametrize("payload", [[], ["gpu_ids"], "gpu_ids", 1])
+def test_http_post_rejects_non_object_json_without_creating_session(payload):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, response = _request_json("POST", f"{base}/api/sessions", payload)
+
+        assert status_code == 400
+        assert "JSON body must be an object" in response["error"]["message"]
+        assert server.status()["active_jobs"] == []
     finally:
         httpd.shutdown()
         httpd.server_close()
