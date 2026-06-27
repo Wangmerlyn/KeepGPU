@@ -59,7 +59,8 @@ Starts a keep session and returns immediately with `job_id`.
 | `--job-id` | Optional session id; omit to list all tracked sessions, including in-progress starts, in-progress releases, or failed releases. |
 | `--host`, `--port` | Service host/port. |
 
-Prints a directly parseable JSON object.
+Prints a directly parseable JSON object, including `{"error": "..."}` for
+service/runtime errors after CLI parsing succeeds.
 
 ### `keep-gpu stop`
 
@@ -75,14 +76,16 @@ For `--all`, starts that begin after that command's initial snapshot are not
 stopped by that command.
 `--all` releases the sessions in its snapshot concurrently and prints results
 in deterministic snapshot order with the same additive response fields.
-The output is a directly parseable JSON object.
+The output is a directly parseable JSON object, including `{"error": "..."}` for
+service/runtime errors after CLI parsing succeeds.
 
 ### `keep-gpu list-gpus`
 
 Returns GPU telemetry from service. `id` and `visible_id` are the visible
 ordinals accepted by `--gpu-ids` and service `gpu_ids`; optional `physical_id`
 or `uuid` fields are metadata only. The output is a directly parseable JSON
-object.
+object, including `{"error": "..."}` for service/runtime errors after CLI
+parsing succeeds.
 
 ### `keep-gpu service-stop`
 

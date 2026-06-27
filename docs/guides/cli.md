@@ -59,8 +59,9 @@ keep-gpu list-gpus
 ```
 
 The `id` field in this output is the visible ordinal to pass to `--gpu-ids`.
-`status`, `stop`, and `list-gpus` print JSON objects that can be parsed directly
-with `jq` or a single `json.loads()` call.
+`status`, `stop`, and `list-gpus` print JSON objects, including
+`{"error": "..."}` for service/runtime errors after CLI parsing succeeds, that
+can be parsed directly with `jq` or a single `json.loads()` call.
 When KeepGPU can identify the underlying device, it reports `physical_id` or
 `uuid` as metadata; those metadata values are not accepted as `--gpu-ids`.
 

@@ -19,13 +19,17 @@ one shell JSON tool invocation sees the expected object.
 - Update the existing stop-all fallback test to single-decode the command
   output.
 - Print decoded result objects with `console.print_json(data=result)`.
-- Document that these CLI commands emit directly parseable JSON objects.
+- After CodeRabbit review, print `{"error": "..."}` JSON objects for
+  `RuntimeError` paths in the same CLI commands.
+- Document in `AGENTS.md`, README, and CLI docs that these CLI commands emit
+  directly parseable JSON objects.
 
 ## Tasks
 
 - [x] Add RED tests for single-decode structured JSON output.
 - [x] Implement minimal CLI output changes.
-- [x] Update `AGENTS.md`, CLI docs, and this plan.
+- [x] Add RED tests and implementation for single-decode JSON error objects.
+- [x] Update `AGENTS.md`, README, CLI docs, and this plan.
 - [x] Run targeted tests, full tests, docs build, pre-commit, and local
       subagent review before PR.
 - [ ] Open PR, resolve review comments, wait for clean checks, squash merge, and
@@ -40,8 +44,16 @@ one shell JSON tool invocation sees the expected object.
   failed with all five outputs decoding once to strings instead of dicts.
 - GREEN: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py -q`
   passed with 38 tests.
-- `PYTHONPATH=$PWD/src pytest tests -q` passed with 248 tests and 11 skipped.
+- `PYTHONPATH=$PWD/src pytest tests -q` passed with 249 tests and 11 skipped.
 - `PYTHONPATH=$PWD/src mkdocs build` passed with existing Material/MkDocs and
   unlisted-plan warnings.
 - `pre-commit run --all-files` passed.
 - `git diff --check` passed.
+- CodeRabbit review:
+  `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_stop_requires_job_id_or_all tests/test_cli_service_commands.py::test_status_forwards_explicit_empty_job_id_to_service tests/test_cli_service_commands.py::test_stop_forwards_explicit_empty_job_id_to_service tests/test_cli_service_commands.py::test_list_gpus_error_outputs_single_decoded_json_object tests/test_cli_service_commands.py::test_stop_handles_service_timeout_without_traceback -q`
+  failed before the error-output fix because command errors still printed Rich
+  text, then passed with 5 tests after printing `{"error": "..."}` objects.
+- Follow-up local review found the docs overpromised JSON for Typer parse errors
+  and the plan had the previous full-suite count. Wording now limits JSON error
+  objects to service/runtime errors after CLI parsing succeeds, and verification
+  records the final 249-test full-suite run.

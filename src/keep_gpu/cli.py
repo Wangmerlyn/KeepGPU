@@ -684,7 +684,7 @@ def status(
         )
         console.print_json(data=result)
     except RuntimeError as exc:
-        console.print(f"[bold red]Error: {exc}[/bold red]")
+        console.print_json(data={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
 
@@ -718,7 +718,7 @@ def stop(
             )
         console.print_json(data=result)
     except RuntimeError as exc:
-        console.print(f"[bold red]Error: {exc}[/bold red]")
+        console.print_json(data={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
 
@@ -732,7 +732,7 @@ def list_gpus(
         result = _rpc_call("list_gpus", {}, host, port)
         console.print_json(data=result)
     except RuntimeError as exc:
-        console.print(f"[bold red]Error: {exc}[/bold red]")
+        console.print_json(data={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
 

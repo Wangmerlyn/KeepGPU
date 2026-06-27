@@ -155,7 +155,8 @@ def test_start_command_rejects_busy_threshold_above_percent_range(monkeypatch):
 def test_stop_requires_job_id_or_all():
     result = runner.invoke(cli.app, ["stop"])
     assert result.exit_code == 1
-    assert "Provide --job-id or use --all" in result.output
+    payload = _single_decoded_json_object(result.output)
+    assert payload["error"] == "Provide --job-id or use --all."
 
 
 def test_status_forwards_explicit_empty_job_id_to_service(monkeypatch):
@@ -170,7 +171,8 @@ def test_status_forwards_explicit_empty_job_id_to_service(monkeypatch):
     result = runner.invoke(cli.app, ["status", "--job-id", ""])
 
     assert result.exit_code == 1
-    assert "job_id must be a URL-path-safe non-empty string" in result.output
+    payload = _single_decoded_json_object(result.output)
+    assert payload["error"] == "job_id must be a URL-path-safe non-empty string"
     method, params, _host, _port = called["rpc"]
     assert method == "status"
     assert params == {"job_id": ""}
@@ -188,7 +190,8 @@ def test_stop_forwards_explicit_empty_job_id_to_service(monkeypatch):
     result = runner.invoke(cli.app, ["stop", "--job-id", ""])
 
     assert result.exit_code == 1
-    assert "job_id must be a URL-path-safe non-empty string" in result.output
+    payload = _single_decoded_json_object(result.output)
+    assert payload["error"] == "job_id must be a URL-path-safe non-empty string"
     method, params, _host, _port, timeout = called["rpc"]
     assert method == "stop_keep"
     assert params == {"job_id": ""}
@@ -259,6 +262,21 @@ def test_list_gpus_outputs_single_decoded_json_object(monkeypatch):
     assert result.exit_code == 0
     payload = _single_decoded_json_object(result.output)
     assert payload["gpus"][0]["id"] == 0
+
+
+def test_list_gpus_error_outputs_single_decoded_json_object(monkeypatch):
+    def fake_rpc(method, params, host, port):
+        assert method == "list_gpus"
+        assert params == {}
+        raise RuntimeError("telemetry service unavailable")
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["list-gpus"])
+
+    assert result.exit_code == 1
+    payload = _single_decoded_json_object(result.output)
+    assert payload["error"] == "telemetry service unavailable"
 
 
 def test_blocking_mode_defaults_to_eco_safe_busy_threshold(monkeypatch):
@@ -384,8 +402,9 @@ def test_stop_handles_service_timeout_without_traceback(monkeypatch):
     result = runner.invoke(cli.app, ["stop", "--all"])
 
     assert result.exit_code == 1
-    assert "Cannot reach KeepGPU service" in result.output
-    assert "service-stop --force" in result.output
+    payload = _single_decoded_json_object(result.output)
+    assert "Cannot reach KeepGPU service" in payload["error"]
+    assert "service-stop --force" in payload["error"]
     assert "Traceback" not in result.output
 
 
