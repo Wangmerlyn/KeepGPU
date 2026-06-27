@@ -8,7 +8,9 @@ export function parseGpuIds(raw) {
 
   const parts = value.split(",").map((part) => part.trim())
   if (parts.some((part) => !INTEGER_PATTERN.test(part))) {
-    throw new Error("GPU IDs must be comma-separated integers, for example: 0,1")
+    throw new Error(
+      "GPU IDs must be comma-separated visible ordinals, for example: 0,1"
+    )
   }
 
   return parts.map((part) => Number(part))
@@ -49,6 +51,20 @@ export function buildSessionPayload(form) {
     interval: parsePositiveInt(form.interval, "Interval"),
     busy_threshold: parseBusyThreshold(form.busyThreshold)
   }
+}
+
+export function formatGpuIdentity(gpu) {
+  const visibleId = gpu?.visible_id ?? gpu?.id
+  const label =
+    visibleId === undefined || visibleId === null ? "GPU n/a" : `GPU ${visibleId}`
+  if (
+    gpu?.physical_id !== undefined &&
+    gpu.physical_id !== null &&
+    gpu.physical_id !== visibleId
+  ) {
+    return `${label} (physical ${gpu.physical_id})`
+  }
+  return label
 }
 
 export function isSessionStopping(sessionOrJobId, stoppingIds, stoppingAll) {

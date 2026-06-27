@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import {
   buildSessionPayload,
+  formatGpuIdentity,
   formatSessionState,
   formatSessionStateDetail,
   formatStopResultMessage,
@@ -247,12 +248,12 @@ export default function App() {
           <section className="rounded-2xl border border-white/10 bg-panel p-5 shadow-soft lg:col-span-5">
             <h2 className="font-serif text-xl font-medium text-shell-50">Start Session</h2>
             <p className="mt-1 text-sm text-shell-400">
-              Create a keepalive session with explicit limits.
+              Use the GPU number shown on telemetry cards. Leave blank for all visible GPUs.
             </p>
 
             <form className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2" onSubmit={onStartSession}>
               <label className="field-label md:col-span-2">
-                <span>GPU IDs</span>
+                <span>GPU IDs (visible ordinals)</span>
                 <input
                   className="field-input"
                   value={form.gpuIds}
@@ -358,8 +359,9 @@ export default function App() {
                           </span>
                         </div>
                         <p className="mt-1 text-sm text-shell-400">
-                          GPUs {formatGpuTarget(session.params.gpu_ids)} · {session.params.vram}
-                          · {session.params.interval}s · threshold {session.params.busy_threshold}%
+                          Visible GPUs {formatGpuTarget(session.params.gpu_ids)} ·{" "}
+                          {session.params.vram} · {session.params.interval}s · threshold{" "}
+                          {session.params.busy_threshold}%
                         </p>
                         {stateDetail ? (
                           <p className="mt-2 max-w-xl text-xs leading-relaxed text-shell-500">
@@ -405,7 +407,7 @@ export default function App() {
                       <h3 className="text-sm font-medium text-shell-100">
                         {gpu.name}
                         <small className="mt-1 block font-mono text-[11px] text-shell-500">
-                          {gpu.platform}:{gpu.id}
+                          {formatGpuIdentity(gpu)} · {gpu.platform}
                         </small>
                       </h3>
                       <span className={`font-mono text-xs ${statusTone(gpu.utilization)}`}>

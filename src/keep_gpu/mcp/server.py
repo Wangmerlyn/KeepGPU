@@ -420,7 +420,7 @@ class KeepGPUServer:
             }
 
     def list_gpus(self) -> Dict[str, Any]:
-        """Return detailed GPU info (id, name, memory, utilization)."""
+        """Return detailed GPU info with visible and physical identifiers."""
         infos = get_gpu_info()
         return {"gpus": infos}
 
@@ -605,11 +605,21 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                 if gpu_ids is not None:
                     validate_gpu_ids(gpu_ids)
                     visible_gpus = server_ref.list_gpus().get("gpus", [])
-                    if visible_gpus and any(
-                        gpu_id >= len(visible_gpus) for gpu_id in gpu_ids
-                    ):
+                    listed_ids = {
+                        gpu["id"]
+                        for gpu in visible_gpus
+                        if isinstance(gpu.get("id"), int)
+                    }
+                    invalid_ids = [
+                        gpu_id for gpu_id in gpu_ids if gpu_id not in listed_ids
+                    ]
+                    if visible_gpus and invalid_ids:
+                        allowed_ids = ", ".join(
+                            str(gpu_id) for gpu_id in sorted(listed_ids)
+                        )
                         raise ValueError(
-                            f"gpu_ids must be in range 0..{len(visible_gpus) - 1}"
+                            "gpu_ids must match listed visible GPU IDs"
+                            f" ({allowed_ids}); got {invalid_ids}"
                         )
 
                 result = server_ref.start_keep(**safe_payload)

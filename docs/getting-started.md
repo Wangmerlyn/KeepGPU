@@ -99,7 +99,9 @@ keep-gpu --interval 120 --gpu-ids 0 --vram 1GiB
 - `--interval` controls the sleep between utilization checks (seconds).
 - `--gpu-ids` limits the job to a subset of visible device ordinals. Set
   `CUDA_VISIBLE_DEVICES` before starting KeepGPU if you need physical-device
-  filtering.
+  filtering. In service mode, `keep-gpu list-gpus` and the dashboard show these
+  same start-compatible visible ordinals as GPU IDs; physical metadata is only
+  informational.
 - `--vram` accepts human-readable sizes or bare bytes; KeepGPU allocates one
   tensor of that size.
 

@@ -58,6 +58,10 @@ daemon that KeepGPU auto-started.
 keep-gpu list-gpus
 ```
 
+The `id` field in this output is the visible ordinal to pass to `--gpu-ids`.
+When KeepGPU can identify the underlying device, it reports `physical_id` or
+`uuid` as metadata; those metadata values are not accepted as `--gpu-ids`.
+
 ### Run service explicitly
 
 ```bash
@@ -75,6 +79,7 @@ http://127.0.0.1:8765/
 The dashboard provides:
 
 - live GPU memory/utilization telemetry,
+- visible GPU ordinals to type into the start form,
 - tracked keep sessions, including in-progress starts and releases,
 - session creation form,
 - single-session and stop-all controls.
@@ -102,7 +107,7 @@ of `keep-gpu status`.
 
 ## Troubleshooting
 
-- **`--gpu-ids` parse error**: use only comma-separated integers (`0,1`).
+- **`--gpu-ids` parse error**: use only comma-separated visible ordinals (`0,1`).
 - **Unexpected GPU selection**: set `CUDA_VISIBLE_DEVICES` before starting
   KeepGPU, then pass visible ordinals by way of `--gpu-ids`. KeepGPU does not
   rewrite `CUDA_VISIBLE_DEVICES` in blocking mode. In service mode, ordinals are

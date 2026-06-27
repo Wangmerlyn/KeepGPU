@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildSessionPayload,
+  formatGpuIdentity,
   formatSessionState,
   formatSessionStateDetail,
   formatStopResultMessage,
@@ -26,6 +27,12 @@ describe("parseGpuIds", () => {
     expect(() => parseGpuIds("1,")).toThrow()
     expect(() => parseGpuIds("0,a")).toThrow()
     expect(() => parseGpuIds("-1")).toThrow()
+  })
+
+  it("names visible ordinals in validation errors", () => {
+    expect(() => parseGpuIds("0,a")).toThrow(
+      "GPU IDs must be comma-separated visible ordinals"
+    )
   })
 })
 
@@ -63,6 +70,18 @@ describe("buildSessionPayload", () => {
       interval: 120,
       busy_threshold: 15
     })
+  })
+})
+
+describe("formatGpuIdentity", () => {
+  it("labels the visible GPU ordinal first and keeps physical metadata secondary", () => {
+    expect(formatGpuIdentity({ id: 0, visible_id: 0, physical_id: 2 })).toBe(
+      "GPU 0 (physical 2)"
+    )
+  })
+
+  it("falls back to the public id when no physical metadata is present", () => {
+    expect(formatGpuIdentity({ id: 1 })).toBe("GPU 1")
   })
 })
 
