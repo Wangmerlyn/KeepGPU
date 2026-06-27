@@ -15,6 +15,19 @@ from keep_gpu.utilities.platform_manager import ComputingPlatform, get_platform
 logger = setup_logger(__name__)
 
 
+def _resolve_visible_gpu_ids(gpu_ids: Optional[List[int]]) -> List[int]:
+    visible_count = torch.cuda.device_count()
+    if gpu_ids is None:
+        return list(range(visible_count))
+    invalid_ids = [gpu_id for gpu_id in gpu_ids if gpu_id >= visible_count]
+    if invalid_ids:
+        raise ValueError(
+            "gpu_ids must be visible device ordinals less than "
+            f"{visible_count}; got {invalid_ids}"
+        )
+    return gpu_ids
+
+
 class GlobalGPUController:
     def __init__(
         self,
@@ -60,8 +73,11 @@ class GlobalGPUController:
                 raise ValueError(
                     f"MACM platform only supports gpu_ids=[0] or None, got {gpu_ids}"
                 )
-        elif gpu_ids is None:
-            self.gpu_ids = list(range(torch.cuda.device_count()))
+        elif self.computing_platform in (
+            ComputingPlatform.CUDA,
+            ComputingPlatform.ROCM,
+        ):
+            self.gpu_ids = _resolve_visible_gpu_ids(gpu_ids)
         else:
             self.gpu_ids = gpu_ids
 

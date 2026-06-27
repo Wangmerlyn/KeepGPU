@@ -83,7 +83,7 @@ The dashboard provides:
 
 | Option | Meaning | Default |
 | --- | --- | --- |
-| `--gpu-ids` | Comma-separated unique non-negative GPU IDs. Omit to use all visible devices; startup fails if that resolves to none. | all |
+| `--gpu-ids` | Comma-separated unique non-negative visible device ordinals. Omit to use all visible devices; startup fails if that resolves to none or if an explicit ordinal is out of range. | all |
 | `--vram` | Per-GPU memory target (`512MB`, `1GiB`, or bare bytes). | `1GiB` |
 | `--interval` | Positive seconds between keep-alive cycles. | `300` |
 | `--busy-threshold` / `--util-threshold` | `0..100` backs off when utilization exceeds this value or telemetry is unavailable; `-1` disables utilization backoff. | `-1` |
@@ -103,6 +103,10 @@ of `keep-gpu status`.
 ## Troubleshooting
 
 - **`--gpu-ids` parse error**: use only comma-separated integers (`0,1`).
+- **Unexpected GPU selection**: set `CUDA_VISIBLE_DEVICES` before starting
+  KeepGPU, then pass visible ordinals by way of `--gpu-ids`. KeepGPU does not
+  rewrite `CUDA_VISIBLE_DEVICES` in blocking mode. In service mode, ordinals are
+  interpreted in the already-running service process environment.
 - **Start cannot reach service**: run `keep-gpu serve --host 127.0.0.1 --port 8765`.
 - **Need to close background service**: run `keep-gpu stop --all` first, then `keep-gpu service-stop`. Use `keep-gpu service-stop --force` only for an unresponsive auto-started daemon; it still refuses to signal a PID that KeepGPU cannot verify as its own.
 - **OOM during keep**: reduce `--vram` or free GPU memory before starting.

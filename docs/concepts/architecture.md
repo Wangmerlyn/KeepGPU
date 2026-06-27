@@ -6,9 +6,10 @@ schedulers that the GPU is still busy, without burning a full training workload.
 
 ## Components
 
-1. **CLI (Typer/Rich)** – Parses options, validates GPU IDs, and configures the logger.
+1. **CLI (Typer/Rich)** – Parses options, validates visible GPU ordinals, and configures the logger.
 2. **`GlobalGPUController`** – Detects the current platform (CUDA, ROCm,
-   or Mac M series) and instantiates one single-GPU controller per selected device.
+   or Mac M series), validates selected visible ordinals against the current
+   device count, and instantiates one single-GPU controller per selected device.
 3. **`CudaGPUController`** / **`RocmGPUController`** / **`MacMGPUController`** –
    Platform-specific implementations for per-GPU keep-alive loops.
 4. **GPU monitor (NVML/ROCm/MPS)** – Wraps `nvidia-ml-py` (the `pynvml`

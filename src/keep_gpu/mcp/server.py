@@ -126,7 +126,7 @@ class KeepGPUServer:
         Start a KeepGPU session that reserves VRAM on one or more GPUs.
 
         Args:
-            gpu_ids: GPU indices to target; None uses all available GPUs.
+            gpu_ids: Visible GPU ordinals to target; None uses all visible GPUs.
             vram: Human-readable VRAM size to keep (for example, "1GiB").
             interval: Seconds between controller checks/actions.
             busy_threshold: Backoff threshold. Non-negative values back off when
