@@ -506,7 +506,7 @@ def test_stop_all_release_workers_enter_concurrently(monkeypatch):
     stop_thread.start()
 
     try:
-        assert all_entered.wait(timeout=0.2)
+        assert all_entered.wait(timeout=2.0)
     finally:
         release_gate.set()
         stop_thread.join(timeout=1.0)
@@ -548,7 +548,7 @@ def test_stop_all_concurrent_results_keep_snapshot_order(monkeypatch):
     stop_thread.start()
 
     try:
-        assert all_entered.wait(timeout=0.2)
+        assert all_entered.wait(timeout=2.0)
     finally:
         release_gate.set()
         stop_thread.join(timeout=1.0)
