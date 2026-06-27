@@ -105,10 +105,14 @@ class NVMLMonitor:
         uuid_lookup = getattr(self._nvml, "nvmlDeviceGetHandleByUUID", None)
         if uuid_lookup is None:
             return None
-        try:
-            return uuid_lookup(token)
-        except self._nvml.NVMLError:
-            return None
+        for uuid in (token, token.encode("utf-8")):
+            try:
+                return uuid_lookup(uuid)
+            except self._nvml.NVMLError:
+                return None
+            except (AttributeError, TypeError):
+                continue
+        return None
 
 
 _nvml_monitor = NVMLMonitor(pynvml)
