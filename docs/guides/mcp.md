@@ -65,6 +65,9 @@ http://127.0.0.1:8765/
 ```
 
 The dashboard provides live telemetry, active sessions, and start/stop controls.
+CUDA and ROCm devices include memory and utilization when the platform APIs are
+available. Mac M series devices report best-effort MPS memory counters and use
+`null` for unsupported fields such as utilization.
 
 ## Remote and security notes
 

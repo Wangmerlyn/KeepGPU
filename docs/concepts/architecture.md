@@ -11,9 +11,10 @@ schedulers that the GPU is still busy, without burning a full training workload.
    or Mac M series) and instantiates one single-GPU controller per selected device.
 3. **`CudaGPUController`** / **`RocmGPUController`** / **`MacMGPUController`** –
    Platform-specific implementations for per-GPU keep-alive loops.
-4. **GPU monitor (NVML/ROCm)** – Wraps `nvidia-ml-py` (the `pynvml` module) for CUDA
-   telemetry and optionally `rocm-smi` when installed by way of the `rocm` extra.
-   Mac M series does not support direct GPU utilization monitoring.
+4. **GPU monitor (NVML/ROCm/MPS)** – Wraps `nvidia-ml-py` (the `pynvml`
+   module) for CUDA telemetry, optionally `rocm-smi` when installed by way of
+   the `rocm` extra, and best-effort MPS memory counters on Mac M series.
+   Utilization can be unavailable on some platforms and is reported as `null`.
 5. **Utilities** – `parse_size` turns strings like `1GiB` or bare byte values into
    internal float32 tensor element counts, while `setup_logger` wires both console
    and file logging with optional colors.
@@ -57,3 +58,5 @@ Elementwise keep-alive batches:
 
 `get_platform()` inspects the system and enables the CUDA, ROCm, or Mac M series
 (MPS) path. Detection order: CUDA → ROCm → Mac M → CPU fallback.
+Vendor detection probes initialize and then shut down their telemetry libraries
+immediately, so detection does not leave NVML or ROCm SMI handles open.

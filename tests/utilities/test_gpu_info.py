@@ -16,10 +16,6 @@ class DummyNVMLUtil:
         self.gpu = gpu
 
 
-@pytest.mark.skipif(
-    not hasattr(gpu_info, "torch") or not gpu_info.torch.cuda.is_available(),
-    reason="CUDA not available for NVML path",
-)
 def test_get_gpu_info_nvml(monkeypatch):
     class DummyNVML:
         def __init__(self):
@@ -63,6 +59,7 @@ def test_get_gpu_info_nvml(monkeypatch):
     assert info["memory_total"] == 2048
     assert info["memory_used"] == 1024
     assert info["utilization"] == 55
+    assert dummy_nvml.shutdown_calls == 1
 
 
 @pytest.mark.rocm
@@ -124,3 +121,137 @@ def test_get_gpu_info_rocm(monkeypatch):
     assert info["utilization"] == 77
     assert info["memory_total"] == 100
     assert info["memory_used"] == 50
+
+
+def test_get_gpu_info_mps(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    monkeypatch.setitem(sys.modules, "rocm_smi", None)
+
+    class DummyCuda:
+        @staticmethod
+        def is_available():
+            return False
+
+    class DummyMPSBackend:
+        @staticmethod
+        def is_available():
+            return True
+
+    class DummyMPS:
+        @staticmethod
+        def current_allocated_memory():
+            return 128
+
+        @staticmethod
+        def driver_allocated_memory():
+            return 256
+
+        @staticmethod
+        def recommended_max_memory():
+            return 1024
+
+    dummy_torch = type(
+        "T",
+        (),
+        {
+            "cuda": DummyCuda,
+            "backends": type("Backends", (), {"mps": DummyMPSBackend}),
+            "mps": DummyMPS,
+            "version": type("V", (), {"hip": None}),
+        },
+    )
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert infos == [
+        {
+            "id": 0,
+            "platform": "macm",
+            "name": "Apple Silicon GPU",
+            "memory_total": 1024,
+            "memory_used": 256,
+            "utilization": None,
+            "memory_allocated": 128,
+        }
+    ]
+
+
+def test_get_gpu_info_mps_allows_missing_memory_methods(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    monkeypatch.setitem(sys.modules, "rocm_smi", None)
+
+    class DummyCuda:
+        @staticmethod
+        def is_available():
+            return False
+
+    class DummyMPSBackend:
+        @staticmethod
+        def is_available():
+            return True
+
+    dummy_torch = type(
+        "T",
+        (),
+        {
+            "cuda": DummyCuda,
+            "backends": type("Backends", (), {"mps": DummyMPSBackend}),
+            "version": type("V", (), {"hip": None}),
+        },
+    )
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["platform"] == "macm"
+    assert infos[0]["memory_total"] is None
+    assert infos[0]["memory_used"] is None
+
+
+def test_get_gpu_info_mps_fallback_survives_torch_cuda_probe_failure(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    monkeypatch.setitem(sys.modules, "rocm_smi", None)
+
+    class BrokenCuda:
+        @staticmethod
+        def is_available():
+            raise RuntimeError("cuda probe failed")
+
+    class DummyMPSBackend:
+        @staticmethod
+        def is_available():
+            return True
+
+    class DummyMPS:
+        @staticmethod
+        def current_allocated_memory():
+            return 64
+
+        @staticmethod
+        def driver_allocated_memory():
+            return 128
+
+        @staticmethod
+        def recommended_max_memory():
+            return 512
+
+    dummy_torch = type(
+        "T",
+        (),
+        {
+            "cuda": BrokenCuda,
+            "backends": type("Backends", (), {"mps": DummyMPSBackend}),
+            "mps": DummyMPS,
+            "version": type("V", (), {"hip": None}),
+        },
+    )
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["platform"] == "macm"
+    assert infos[0]["memory_total"] == 512
+    assert infos[0]["memory_used"] == 128
