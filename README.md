@@ -80,7 +80,7 @@ Flags that matter:
   - `keep-gpu start`: create keep session and return immediately.
   - `keep-gpu status`: inspect tracked sessions, including in-progress or failed releases.
   - `keep-gpu stop --job-id <id>` or `keep-gpu stop --all`: release sessions.
-  - `keep-gpu service-stop`: stop auto-started local daemon.
+  - `keep-gpu service-stop`: stop the ownership-verified auto-started local daemon.
   - `keep-gpu list-gpus`: fetch telemetry from local service.
 
 ## Embed in Python

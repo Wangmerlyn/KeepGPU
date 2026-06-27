@@ -73,12 +73,12 @@ Returns GPU telemetry from service.
 
 ### `keep-gpu service-stop`
 
-Stops local daemon process created by auto-start logic.
+Stops the ownership-verified local daemon process created by auto-start logic.
 
 | Option | Description |
 | --- | --- |
 | `--host`, `--port` | Service host/port. |
-| `--force` | Stop daemon even if tracked sessions still exist. |
+| `--force` | Skip active-session RPC checks and stop the daemon only if the auto-start ownership record verifies the process. |
 
 ## Service HTTP endpoints
 

@@ -48,7 +48,9 @@ keep-gpu stop --all
 keep-gpu service-stop
 ```
 
-If sessions are still active, stop them first or use `--force`.
+If sessions are still active, stop them first or use `--force`. Force mode skips
+the active-session RPC check, but it still stops only an ownership-verified
+daemon that KeepGPU auto-started.
 
 ### List telemetry
 
@@ -102,6 +104,6 @@ of `keep-gpu status`.
 
 - **`--gpu-ids` parse error**: use only comma-separated integers (`0,1`).
 - **Start cannot reach service**: run `keep-gpu serve --host 127.0.0.1 --port 8765`.
-- **Need to close background service**: run `keep-gpu stop --all` first, then `keep-gpu service-stop` (or use `keep-gpu service-stop --force`).
+- **Need to close background service**: run `keep-gpu stop --all` first, then `keep-gpu service-stop`. Use `keep-gpu service-stop --force` only for an unresponsive auto-started daemon; it still refuses to signal a PID that KeepGPU cannot verify as its own.
 - **OOM during keep**: reduce `--vram` or free GPU memory before starting.
 - **No utilization data**: on CUDA, ensure `nvidia-ml-py` works and `nvidia-smi` is available; on ROCm, check the optional `rocm-smi` extra. With non-negative `busy_threshold`, KeepGPU sleeps when utilization is unavailable. On Mac M series, utilization is expected to be `null`, so use `--busy-threshold -1` only when you intentionally want unconditional keepalive compute.
