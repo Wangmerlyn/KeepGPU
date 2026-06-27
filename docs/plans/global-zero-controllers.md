@@ -35,5 +35,5 @@ no device-level worker exists.
 - [x] Implement the shared empty-list validator and resolved-selection guard.
 - [x] Update `AGENTS.md`, README, Python/API/MCP docs with the empty-selection
       startup behavior.
-- [ ] Run targeted tests, full tests, docs build, pre-commit, and local
+- [x] Run targeted tests, full tests, docs build, pre-commit, and local
       subagent review before opening the PR.

@@ -81,6 +81,21 @@ def test_start_rejects_empty_gpu_ids():
     assert server.status()["active_jobs"] == []
 
 
+def test_jsonrpc_rejects_empty_gpu_ids():
+    server = make_server()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"gpu_ids": []},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert "gpu_ids must select at least one GPU" in resp["error"]["message"]
+    assert server.status()["active_jobs"] == []
+
+
 def test_jsonrpc_rejects_non_positive_interval():
     server = make_server()
     req = {
