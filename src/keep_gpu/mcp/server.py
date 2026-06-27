@@ -64,7 +64,9 @@ class KeepGPUServer:
         controller_factory: Optional[Callable[..., GlobalGPUController]] = None,
     ) -> None:
         self._sessions: Dict[str, Session] = {}
+        self._starting_job_ids: set[str] = set()
         self._sessions_lock = threading.RLock()
+        self._sessions_cond = threading.Condition(self._sessions_lock)
         self._controller_factory = controller_factory or GlobalGPUController
         atexit.register(self.shutdown)
 
@@ -144,20 +146,26 @@ class KeepGPUServer:
 
         job_id = job_id or str(uuid.uuid4())
         with self._sessions_lock:
-            if job_id in self._sessions:
+            if job_id in self._sessions or job_id in self._starting_job_ids:
                 raise ValueError(f"job_id {job_id} already exists")
+            self._starting_job_ids.add(job_id)
 
-        controller = self._controller_factory(
-            gpu_ids=gpu_ids,
-            interval=interval,
-            vram_to_keep=vram,
-            busy_threshold=busy_threshold,
-        )
-        controller.keep()
+        try:
+            controller = self._controller_factory(
+                gpu_ids=gpu_ids,
+                interval=interval,
+                vram_to_keep=vram,
+                busy_threshold=busy_threshold,
+            )
+            controller.keep()
+        except Exception:
+            with self._sessions_lock:
+                self._starting_job_ids.discard(job_id)
+                self._sessions_cond.notify_all()
+            raise
+
         with self._sessions_lock:
-            if job_id in self._sessions:
-                controller.release()
-                raise ValueError(f"job_id {job_id} already exists")
+            self._starting_job_ids.discard(job_id)
             self._sessions[job_id] = Session(
                 controller=controller,
                 params={
@@ -167,6 +175,7 @@ class KeepGPUServer:
                     "busy_threshold": busy_threshold,
                 },
             )
+            self._sessions_cond.notify_all()
         logger.info("Started keep session %s on GPUs %s", job_id, gpu_ids)
         return {"job_id": job_id}
 
@@ -240,6 +249,8 @@ class KeepGPUServer:
         """
         if job_id:
             with self._sessions_lock:
+                while job_id in self._starting_job_ids:
+                    self._sessions_cond.wait()
                 session = self._sessions.get(job_id)
                 if session and session.state == "stopping":
                     result = self._empty_stop_result()
@@ -288,6 +299,9 @@ class KeepGPUServer:
             return result
 
         with self._sessions_lock:
+            starting_to_wait_for = set(self._starting_job_ids)
+            while starting_to_wait_for & self._starting_job_ids:
+                self._sessions_cond.wait()
             session_items = list(self._sessions.items())
             releasable_items = []
             result = self._empty_stop_result()

@@ -47,7 +47,7 @@ Starts a keep session and returns immediately with `job_id`.
 | `--vram` | `1GiB` | Per-GPU keep memory target. |
 | `--interval` | `300` | Keep cycle interval in seconds. |
 | `--busy-threshold` / `--util-threshold` | `-1` | Back off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
-| `--job-id` | auto | Optional custom id. |
+| `--job-id` | auto | Optional custom id. Must be unique across active and starting sessions. |
 | `--host` | `127.0.0.1` | Service host to contact. |
 | `--port` | `8765` | Service port to contact. |
 | `--auto-start/--no-auto-start` | `--auto-start` | Auto-start local service if unavailable. |
@@ -66,6 +66,11 @@ Starts a keep session and returns immediately with `job_id`.
 | `--job-id` | Stop one session. |
 | `--all` | Stop all sessions. |
 | `--host`, `--port` | Service host/port. |
+
+Stop waits for in-progress starts to settle before returning `not found` or
+taking the stop-all snapshot, so starting sessions are not silently skipped.
+For `--all`, starts that begin after that command's initial snapshot are not
+stopped by that command.
 
 ### `keep-gpu list-gpus`
 

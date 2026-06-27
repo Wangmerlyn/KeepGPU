@@ -37,6 +37,10 @@ Methods:
 - `status(job_id?)`
 - `list_gpus()`
 
+Custom `job_id` values are unique across active and starting sessions. If a
+duplicate arrives while the original start is still creating controller work,
+the duplicate is rejected before another controller begins keep-alive work.
+
 `stop_keep` returns additive outcome fields:
 
 ```json
@@ -49,6 +53,12 @@ release later succeeds, the session is removed; if it fails, the session remains
 visible with `state="stop_failed"` and `last_error` describing what happened. A
 job id only appears in `stopped` after cleanup has completed within the stop
 request timeout.
+
+If `stop_keep` arrives while a matching session is still starting, the service
+waits for startup to settle before deciding whether the job exists. Stop-all
+requests also wait for in-progress starts before taking their session snapshot.
+For stop-all, starts that begin after that request's initial snapshot are not
+stopped by that request.
 
 ## REST quick examples
 

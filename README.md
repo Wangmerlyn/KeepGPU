@@ -136,11 +136,15 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
   curl http://127.0.0.1:8765/health
   curl http://127.0.0.1:8765/api/sessions
   ```
-- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info).
+- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). Custom `job_id` values must be unique across active and starting sessions.
 - Stop responses distinguish completed cleanup from partial cleanup:
   `stopped` means released, while `timed_out` sessions remain visible as
   `stopping` until background cleanup completes and `failed` sessions remain
   visible with `state` and `last_error`.
+- Stop requests wait for in-progress starts to settle, so a session that is
+  still starting is not reported as missing or skipped by stop-all.
+- Stop-all only covers sessions active or already starting when that request
+  begins; later concurrent starts belong to a later stop request.
 - Dashboard cards mirror that lifecycle state so a retained session shows
   `Releasing` or `Release failed` instead of being presented as a fully active
   keepalive.
