@@ -254,6 +254,25 @@ def test_timed_out_stop_marks_late_background_release_failure(monkeypatch):
     assert status["last_error"] == "late release failed"
 
 
+def test_timed_out_stop_preserves_failure_from_timeout_race(monkeypatch):
+    server = make_server()
+    job_id = server.start_keep()["job_id"]
+
+    def timeout_after_late_failure(controller, **kwargs):
+        kwargs["on_late_result"](RuntimeError("late release failed"))
+        return False
+
+    monkeypatch.setattr(server, "_release_with_timeout", timeout_after_late_failure)
+
+    result = server.stop_keep(job_id)
+
+    assert result["timed_out"] == [job_id]
+    status = server.status(job_id)
+    assert status["active"] is True
+    assert status["state"] == "stop_failed"
+    assert status["last_error"] == "late release failed"
+
+
 def test_repeated_stop_does_not_start_second_release_while_stopping(monkeypatch):
     release_gate = threading.Event()
     release_calls = 0

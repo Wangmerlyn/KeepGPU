@@ -198,6 +198,13 @@ class KeepGPUServer:
                 current.state = state
                 current.last_error = last_error
 
+    def _mark_stop_timeout(self, job_id: str, session: Session) -> None:
+        with self._sessions_lock:
+            current = self._sessions.get(job_id)
+            if current is session and current.state != "stop_failed":
+                current.state = "stopping"
+                current.last_error = self._timeout_error_message()
+
     def _finalize_late_release(
         self, job_id: str, session: Session, error: Optional[Exception]
     ) -> None:
@@ -271,8 +278,7 @@ class KeepGPUServer:
                             self._sessions.pop(job_id, None)
                     result["stopped"].append(job_id)
                     return self._finalize_stop_result(result)
-                timeout_message = self._timeout_error_message()
-                self._mark_session(job_id, session, "stopping", timeout_message)
+                self._mark_stop_timeout(job_id, session)
                 result["timed_out"].append(job_id)
                 return self._finalize_stop_result(result)
             result = self._empty_stop_result()
@@ -311,9 +317,7 @@ class KeepGPUServer:
                 result["stopped"].append(job_id)
                 continue
             if not released:
-                self._mark_session(
-                    job_id, session, "stopping", self._timeout_error_message()
-                )
+                self._mark_stop_timeout(job_id, session)
                 result["timed_out"].append(job_id)
         if result["stopped"] and not quiet:
             logger.info("Stopped sessions: %s", result["stopped"])
