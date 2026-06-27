@@ -7,6 +7,12 @@ from keep_gpu import cli
 runner = CliRunner()
 
 
+def _single_decoded_json_object(output):
+    payload = json.loads(output)
+    assert isinstance(payload, dict)
+    return payload
+
+
 def test_start_command_uses_rpc(monkeypatch):
     called = {}
 
@@ -189,6 +195,72 @@ def test_stop_forwards_explicit_empty_job_id_to_service(monkeypatch):
     assert timeout == 45.0
 
 
+def test_status_outputs_single_decoded_json_object(monkeypatch):
+    def fake_rpc(method, params, host, port):
+        assert method == "status"
+        assert params == {}
+        return {"active": True, "active_jobs": [{"job_id": "job-1"}]}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status"])
+
+    assert result.exit_code == 0
+    payload = _single_decoded_json_object(result.output)
+    assert payload["active"] is True
+    assert payload["active_jobs"][0]["job_id"] == "job-1"
+
+
+def test_stop_job_outputs_single_decoded_json_object(monkeypatch):
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        assert method == "stop_keep"
+        assert params == {"job_id": "job-1"}
+        assert timeout == 45.0
+        return {"stopped": ["job-1"], "timed_out": [], "failed": [], "errors": {}}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["stop", "--job-id", "job-1"])
+
+    assert result.exit_code == 0
+    payload = _single_decoded_json_object(result.output)
+    assert payload["stopped"] == ["job-1"]
+
+
+def test_stop_all_outputs_single_decoded_json_object(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "_stop_all_sessions_with_fallback",
+        lambda host, port: {
+            "stopped": ["job-1"],
+            "timed_out": [],
+            "failed": [],
+            "errors": {},
+        },
+    )
+
+    result = runner.invoke(cli.app, ["stop", "--all"])
+
+    assert result.exit_code == 0
+    payload = _single_decoded_json_object(result.output)
+    assert payload["stopped"] == ["job-1"]
+
+
+def test_list_gpus_outputs_single_decoded_json_object(monkeypatch):
+    def fake_rpc(method, params, host, port):
+        assert method == "list_gpus"
+        assert params == {}
+        return {"gpus": [{"id": 0, "name": "GPU 0"}]}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["list-gpus"])
+
+    assert result.exit_code == 0
+    payload = _single_decoded_json_object(result.output)
+    assert payload["gpus"][0]["id"] == 0
+
+
 def test_blocking_mode_defaults_to_eco_safe_busy_threshold(monkeypatch):
     called = {}
 
@@ -335,7 +407,7 @@ def test_stop_all_fallback_force_stops_managed_daemon(monkeypatch):
 
     assert result.exit_code == 0
     assert "force-stopped local daemon" in result.output
-    payload = json.loads(json.loads(result.output))
+    payload = _single_decoded_json_object(result.output)
     assert payload["stopped"] == []
     assert payload["timed_out"] == []
     assert payload["failed"] == []

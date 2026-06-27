@@ -84,6 +84,8 @@ Flags that matter:
   - `keep-gpu list-gpus`: fetch telemetry from local service. Each listed
     `id` is the visible ordinal accepted by `--gpu-ids`; optional
     `physical_id`/`uuid` fields are metadata only.
+  - `status`, `stop`, and `list-gpus` print structured JSON objects that tools
+    such as `jq` can parse directly.
 
 ## Embed in Python
 
