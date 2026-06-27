@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+import os
 import threading
 from typing import Optional
 
@@ -64,11 +65,49 @@ class NVMLMonitor:
             return None
 
         try:
-            handle = self._nvml.nvmlDeviceGetHandleByIndex(index)
+            handle = self._get_handle_for_visible_index(index)
+            if handle is None:
+                return None
             rates = self._nvml.nvmlDeviceGetUtilizationRates(handle)
             return int(rates.gpu)
         except self._nvml.NVMLError as exc:
             logger.debug("NVML query failed for GPU %s: %s", index, exc)
+            return None
+
+    def _get_handle_for_visible_index(self, index: int):
+        cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+        if cuda_visible_devices is None:
+            return self._nvml.nvmlDeviceGetHandleByIndex(index)
+
+        tokens = [token.strip() for token in cuda_visible_devices.split(",")]
+        if index < 0 or index >= len(tokens):
+            return None
+
+        handle = None
+        for visible_index, token in enumerate(tokens[: index + 1]):
+            handle = self._get_handle_for_visible_token(token)
+            if handle is None:
+                return None
+            if visible_index == index:
+                return handle
+        return None
+
+    def _get_handle_for_visible_token(self, token: str):
+        if not token:
+            return None
+
+        if token.isdigit():
+            try:
+                return self._nvml.nvmlDeviceGetHandleByIndex(int(token))
+            except self._nvml.NVMLError:
+                return None
+
+        uuid_lookup = getattr(self._nvml, "nvmlDeviceGetHandleByUUID", None)
+        if uuid_lookup is None:
+            return None
+        try:
+            return uuid_lookup(token)
+        except self._nvml.NVMLError:
             return None
 
 

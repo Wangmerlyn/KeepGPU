@@ -18,6 +18,10 @@ train_model()                     # GPU memory is released automatically
 ```
 
 - `rank` matches the CUDA device index (after any `CUDA_VISIBLE_DEVICES` filtering).
+  Utilization backoff resolves that visible rank through `CUDA_VISIBLE_DEVICES`
+  before querying NVML; for example, with `CUDA_VISIBLE_DEVICES=3,5`, rank `1`
+  reads physical GPU `5`. If the mapping cannot be resolved, utilization is
+  treated as unavailable.
 - `interval` is the positive pause between keep-alive bursts inside the background thread.
 - `vram_to_keep` accepts integer bytes or human-readable strings (`parse_size` handles it).
 

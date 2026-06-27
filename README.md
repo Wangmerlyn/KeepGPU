@@ -109,7 +109,7 @@ is invalid, and startup raises an error if discovery resolves to zero devices.
 ## What you get
 
 - Battle-tested keep-alive loop built on PyTorch.
-- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`. Valid `busy_threshold` values are `-1` or `0..100`; if utilization is unavailable and the threshold is non-negative, KeepGPU sleeps for that cycle instead of running compute.
+- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`. Valid `busy_threshold` values are `-1` or `0..100`; if utilization is unavailable and the threshold is non-negative, KeepGPU sleeps for that cycle instead of running compute. CUDA utilization checks use visible CUDA ordinals, so with `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads NVML telemetry for physical GPU `5`; ambiguous mappings are treated as unavailable telemetry.
 - CLI + API parity: same controllers power both code paths.
 - Continuous docs + CI: mkdocs + mkdocstrings build in CI to keep guidance up to date.
 
