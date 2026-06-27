@@ -36,6 +36,8 @@ result ordering.
       success, timeout, and failure must all be reported in snapshot order.
 - [x] Add a stop-all late-callback test showing late success removes the session
       and late failure keeps `state="stop_failed"`.
+- [x] Add a local-review regression for mixed full-snapshot ordering when a
+      newly timed-out session precedes an already-`stopping` session.
 - [x] Make existing stop-all timeout tests independent of release call order.
 - [x] Implement concurrent stop-all release workers without holding
       `_sessions_lock` during controller release work.

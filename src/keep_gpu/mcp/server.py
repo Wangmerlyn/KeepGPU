@@ -304,17 +304,17 @@ class KeepGPUServer:
                 self._sessions_cond.wait()
             session_items = list(self._sessions.items())
             releasable_items = []
+            release_outcomes: List[Dict[str, Any]] = [
+                {} for _job_id, _session in session_items
+            ]
             result = self._empty_stop_result()
-            for job_id, session in session_items:
+            for index, (job_id, session) in enumerate(session_items):
                 if session.state == "stopping":
-                    result["timed_out"].append(job_id)
+                    release_outcomes[index] = {"state": "timed_out"}
                     continue
                 session.state = "stopping"
                 session.last_error = None
-                releasable_items.append((job_id, session))
-        release_outcomes: List[Dict[str, Any]] = [
-            {} for _job_id, _session in releasable_items
-        ]
+                releasable_items.append((index, job_id, session))
 
         def _release_one(index: int, job_id: str, session: Session) -> None:
             try:
@@ -339,7 +339,7 @@ class KeepGPUServer:
             release_outcomes[index] = {"state": "timed_out"}
 
         release_threads = []
-        for index, (job_id, session) in enumerate(releasable_items):
+        for index, job_id, session in releasable_items:
             thread = threading.Thread(
                 target=_release_one,
                 args=(index, job_id, session),
@@ -348,7 +348,7 @@ class KeepGPUServer:
             release_threads.append(thread)
         for thread in release_threads:
             thread.join()
-        for (job_id, _session), outcome in zip(releasable_items, release_outcomes):
+        for (job_id, _session), outcome in zip(session_items, release_outcomes):
             state = outcome.get("state")
             if state == "stopped":
                 result["stopped"].append(job_id)

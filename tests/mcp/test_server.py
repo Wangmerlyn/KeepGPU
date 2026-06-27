@@ -476,6 +476,29 @@ def test_stop_all_tracks_timeouts(monkeypatch):
     assert status_b["state"] == "stopping"
 
 
+def test_stop_all_orders_new_timeouts_before_later_already_stopping(monkeypatch):
+    server = make_server()
+    job_timeout = server.start_keep(gpu_ids=[0])["job_id"]
+    job_stopping = server.start_keep(gpu_ids=[1])["job_id"]
+
+    monkeypatch.setattr(server, "_release_with_timeout", lambda controller, **_: False)
+    targeted_result = server.stop_keep(job_stopping)
+    assert targeted_result["timed_out"] == [job_stopping]
+
+    stop_all_controllers = []
+
+    def timeout_release(controller, **_):
+        stop_all_controllers.append(controller)
+        return False
+
+    monkeypatch.setattr(server, "_release_with_timeout", timeout_release)
+
+    result = server.stop_keep()
+
+    assert result["timed_out"] == [job_timeout, job_stopping]
+    assert [controller.gpu_ids for controller in stop_all_controllers] == [[0]]
+
+
 def test_stop_all_release_workers_enter_concurrently(monkeypatch):
     server = make_server()
     job_ids = [
