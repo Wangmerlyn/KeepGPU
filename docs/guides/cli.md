@@ -90,7 +90,7 @@ The dashboard provides:
 | --- | --- | --- |
 | `--gpu-ids` | Comma-separated unique non-negative visible device ordinals. Omit to use all visible devices; startup fails if that resolves to none or if an explicit ordinal is out of range. | all |
 | `--vram` | Per-GPU memory target (`512MB`, `1GiB`, or bare bytes). | `1GiB` |
-| `--interval` | Positive seconds between keep-alive cycles. | `300` |
+| `--interval` | Finite positive seconds between keep-alive cycles. | `300` |
 | `--busy-threshold` / `--util-threshold` | `0..100` backs off when utilization exceeds this value or telemetry is unavailable; `-1` disables utilization backoff. | `25` |
 
 ## Remote sessions

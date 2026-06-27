@@ -1,3 +1,4 @@
+import math
 import uuid
 
 import pytest
@@ -19,6 +20,12 @@ def test_validate_interval_rejects_non_positive_values():
         validate_interval(0)
     with pytest.raises(ValueError, match="interval must be positive"):
         validate_interval(-0.1)
+
+
+@pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf])
+def test_validate_interval_rejects_non_finite_values(value):
+    with pytest.raises(ValueError, match="interval must be finite and positive"):
+        validate_interval(value)
 
 
 def test_validate_gpu_ids_rejects_empty_list():

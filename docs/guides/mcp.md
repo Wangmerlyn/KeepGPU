@@ -79,7 +79,8 @@ Omitting `gpu_ids` means all GPUs visible to the service process. Omitting
 `busy_threshold` uses the eco-safe default `25`. Explicit GPU values are visible
 device ordinals in that same process environment. Empty, duplicate, or
 out-of-range lists are invalid, and startup returns an error if the resolved
-selection contains zero devices.
+selection contains zero devices. `interval` must be a finite positive number of
+seconds; `NaN` and infinities are rejected before session creation.
 
 Custom `job_id` values are unique across active and starting sessions. If a
 duplicate arrives while the original start is still creating controller work,

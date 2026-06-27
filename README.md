@@ -72,7 +72,7 @@ Flags that matter:
 
 - Blocking mode knobs:
   - `--vram` (`1GiB`, `750MB`, or bare bytes like `1073741824`): how much memory to pin.
-  - `--interval` (positive seconds): sleep between keep-alive bursts.
+  - `--interval` (finite positive seconds): sleep between keep-alive bursts.
   - `--busy-threshold`: defaults to `25`; `0..100` skips work when telemetry reports higher utilization or cannot report utilization; `-1` disables utilization backoff.
   - `--gpu-ids`: target unique non-negative visible device ordinals after user-supplied visibility filtering (`CUDA_VISIBLE_DEVICES` on CUDA, `ROCR_VISIBLE_DEVICES`/`HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` on ROCm); otherwise all visible GPUs are guarded. Empty, duplicate, or out-of-range selections are invalid, and startup fails if no GPUs resolve.
 - Service mode commands:

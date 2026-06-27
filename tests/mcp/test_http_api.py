@@ -1,4 +1,5 @@
 import json
+import math
 import threading
 from typing import Any, cast
 from urllib.error import HTTPError
@@ -477,6 +478,32 @@ def test_http_post_rejects_non_positive_interval():
         )
         assert status_code == 400
         assert "interval must be positive" in payload["error"]["message"]
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_post_rejects_nan_interval_without_creating_session():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "gpu_ids": [0],
+                "vram": "64MB",
+                "interval": math.nan,
+                "busy_threshold": 5,
+            },
+        )
+
+        assert status_code == 400
+        assert "interval must be finite and positive" in payload["error"]["message"]
+        assert server.status()["active_jobs"] == []
     finally:
         httpd.shutdown()
         httpd.server_close()
