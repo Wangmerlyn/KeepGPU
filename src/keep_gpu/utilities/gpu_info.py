@@ -6,6 +6,10 @@ from typing import Any, Dict, List, Optional
 import torch
 
 from keep_gpu.utilities.logger import setup_logger
+from keep_gpu.utilities.rocm_visibility import (
+    resolve_rocm_visible_rank_to_smi_index,
+    rocm_monitor_device_count,
+)
 
 logger = setup_logger(__name__)
 
@@ -158,16 +162,22 @@ def _query_rocm() -> List[Dict[str, Any]]:
     current_device = None
     try:
         rocm_smi.rsmi_init()
+        monitor_count = rocm_monitor_device_count(rocm_smi)
         if torch.cuda.is_available():
             current_device = torch.cuda.current_device()
         # Use torch to enumerate devices for names/memory
         count = torch.cuda.device_count() if torch.cuda.is_available() else 0
         for idx in range(count):
+            physical_id = resolve_rocm_visible_rank_to_smi_index(
+                idx,
+                monitor_count=monitor_count,
+            )
             util = None
-            try:
-                util = int(rocm_smi.rsmi_dev_busy_percent_get(idx))
-            except Exception as exc:
-                logger.debug("ROCm util query failed for %s: %s", idx, exc)
+            if physical_id is not None:
+                try:
+                    util = int(rocm_smi.rsmi_dev_busy_percent_get(physical_id))
+                except Exception as exc:
+                    logger.debug("ROCm util query failed for %s: %s", physical_id, exc)
 
             try:
                 torch.cuda.set_device(idx)
@@ -181,17 +191,18 @@ def _query_rocm() -> List[Dict[str, Any]]:
             except Exception:
                 name = f"rocm:{idx}"
 
-            infos.append(
-                {
-                    "id": idx,
-                    "visible_id": idx,
-                    "platform": "rocm",
-                    "name": name,
-                    "memory_total": int(total) if total is not None else None,
-                    "memory_used": int(used) if used is not None else None,
-                    "utilization": util,
-                }
-            )
+            info = {
+                "id": idx,
+                "visible_id": idx,
+                "platform": "rocm",
+                "name": name,
+                "memory_total": int(total) if total is not None else None,
+                "memory_used": int(used) if used is not None else None,
+                "utilization": util,
+            }
+            if physical_id is not None:
+                info["physical_id"] = physical_id
+            infos.append(info)
     finally:
         if current_device is not None:
             try:

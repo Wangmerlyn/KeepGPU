@@ -109,10 +109,11 @@ of `keep-gpu status`.
 
 - **`--gpu-ids` parse error**: use only comma-separated visible ordinals (`0,1`).
 - **Unexpected GPU selection**: set `CUDA_VISIBLE_DEVICES` before starting
-  KeepGPU, then pass visible ordinals by way of `--gpu-ids`. KeepGPU does not
-  rewrite `CUDA_VISIBLE_DEVICES` in blocking mode. In service mode, ordinals are
-  interpreted in the already-running service process environment.
+  KeepGPU on CUDA, or `ROCR_VISIBLE_DEVICES`/`HIP_VISIBLE_DEVICES` before
+  starting KeepGPU on ROCm, then pass visible ordinals by way of `--gpu-ids`.
+  KeepGPU does not rewrite visibility masks in blocking mode. In service mode,
+  ordinals are interpreted in the already-running service process environment.
 - **Start cannot reach service**: run `keep-gpu serve --host 127.0.0.1 --port 8765`.
 - **Need to close background service**: run `keep-gpu stop --all` first, then `keep-gpu service-stop`. Use `keep-gpu service-stop --force` only for an unresponsive auto-started daemon; it still refuses to signal a PID that KeepGPU cannot verify as its own.
 - **OOM during keep**: reduce `--vram` or free GPU memory before starting.
-- **No utilization data**: on CUDA, ensure `nvidia-ml-py` works and `nvidia-smi` is available; on ROCm, check the optional `rocm-smi` extra. Valid `busy_threshold` values are `-1` or `0..100`, and omitted CLI values default to `25`. With non-negative `busy_threshold`, KeepGPU sleeps when utilization is unavailable. On Mac M series, utilization is expected to be `null`, so use `--busy-threshold -1` only when you intentionally want unconditional keepalive compute.
+- **No utilization data**: on CUDA, ensure `nvidia-ml-py` works and `nvidia-smi` is available; on ROCm, check the optional `rocm-smi` extra and avoid conflicting `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` masks. ROCm telemetry resolves visible ranks through `ROCR_VISIBLE_DEVICES` plus one HIP/CUDA overlay and reports unavailable utilization rather than guessing when the mapping is malformed or ambiguous. Valid `busy_threshold` values are `-1` or `0..100`, and omitted CLI values default to `25`. With non-negative `busy_threshold`, KeepGPU sleeps when utilization is unavailable. On Mac M series, utilization is expected to be `null`, so use `--busy-threshold -1` only when you intentionally want unconditional keepalive compute.

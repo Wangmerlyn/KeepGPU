@@ -17,11 +17,13 @@ with CudaGPUController(rank=0, interval=0.5, vram_to_keep="1.5GiB"):
 train_model()                     # GPU memory is released automatically
 ```
 
-- `rank` matches the CUDA device index (after any `CUDA_VISIBLE_DEVICES` filtering).
-  Utilization backoff resolves that visible rank through `CUDA_VISIBLE_DEVICES`
-  before querying NVML; for example, with `CUDA_VISIBLE_DEVICES=3,5`, rank `1`
-  reads physical GPU `5`. If the mapping cannot be resolved, utilization is
-  treated as unavailable.
+- `rank` matches the visible device index after environment filtering.
+  CUDA utilization backoff resolves that visible rank through
+  `CUDA_VISIBLE_DEVICES` before querying NVML; for example, with
+  `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads physical GPU `5`. ROCm
+  utilization resolves `ROCR_VISIBLE_DEVICES` as the base mask and one matching
+  `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm
+  SMI. If a mapping cannot be resolved, utilization is treated as unavailable.
 - `interval` is the positive pause between keep-alive bursts inside the background thread.
 - `vram_to_keep` accepts integer bytes or human-readable strings (`parse_size` handles it).
 
@@ -58,7 +60,7 @@ with GlobalGPUController(
 
 - Each `CudaGPUController` runs in its own thread.
 - `gpu_ids=None` means all visible GPUs. Explicit values are visible device
-  ordinals after any `CUDA_VISIBLE_DEVICES` filtering. Empty, duplicate, or
+  ordinals after CUDA or ROCm visibility filtering. Empty, duplicate, or
   out-of-range lists are invalid, and startup raises `ValueError` if the
   resolved selection contains zero devices.
 - `busy_threshold` defaults to `25` and accepts `-1` or a percentage in
@@ -96,6 +98,7 @@ def main():
   process is already using the GPU.
 - **Controllers never stop** – Ensure you call `release()` even when exceptions
   occur. Context managers are the safest way to guarantee cleanup.
-- **Need ROCm/CPU fallback?** – `GlobalGPUController` currently raises
-  `NotImplementedError` outside CUDA platforms. Catch the exception and skip the
-  guard logic if you deploy to mixed hardware fleets.
+- **Need a CPU-only fallback?** – `GlobalGPUController` supports CUDA, ROCm, and
+  Mac M backends when the matching PyTorch/runtime stack is available. In
+  CPU-only environments, catch the startup error and skip the guard logic for
+  that run.

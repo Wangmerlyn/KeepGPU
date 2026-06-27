@@ -149,8 +149,10 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=60):
     run_cpu_bound_stage()
 ```
 
-Those `gpu_ids` are visible device ordinals after any `CUDA_VISIBLE_DEVICES`
-filtering.
+Those `gpu_ids` are visible device ordinals after CUDA or ROCm visibility
+filtering. CUDA telemetry resolves `CUDA_VISIBLE_DEVICES`; ROCm telemetry
+resolves `ROCR_VISIBLE_DEVICES` and one matching `HIP_VISIBLE_DEVICES` or
+`CUDA_VISIBLE_DEVICES` overlay before querying vendor utilization counters.
 
 From here, jump to the CLI Playbook for scenario-driven guidance or the API
 recipes if you need to embed KeepGPU in orchestration scripts.

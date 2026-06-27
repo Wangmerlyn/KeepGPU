@@ -74,7 +74,7 @@ Flags that matter:
   - `--vram` (`1GiB`, `750MB`, or bare bytes like `1073741824`): how much memory to pin.
   - `--interval` (positive seconds): sleep between keep-alive bursts.
   - `--busy-threshold`: defaults to `25`; `0..100` skips work when telemetry reports higher utilization or cannot report utilization; `-1` disables utilization backoff.
-  - `--gpu-ids`: target unique non-negative visible device ordinals after any user-supplied `CUDA_VISIBLE_DEVICES` filtering; otherwise all visible GPUs are guarded. Empty, duplicate, or out-of-range selections are invalid, and startup fails if no GPUs resolve.
+  - `--gpu-ids`: target unique non-negative visible device ordinals after user-supplied visibility filtering (`CUDA_VISIBLE_DEVICES` on CUDA, `ROCR_VISIBLE_DEVICES`/`HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` on ROCm); otherwise all visible GPUs are guarded. Empty, duplicate, or out-of-range selections are invalid, and startup fails if no GPUs resolve.
 - Service mode commands:
   - `keep-gpu serve`: run local service (HTTP + dashboard).
   - `keep-gpu start`: create keep session and return immediately.
@@ -106,14 +106,14 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=90, busy
 ```
 
 Pass `gpu_ids=None` to use all visible GPUs. Explicit values are visible device
-ordinals, not physical NVML IDs. Passing an empty, duplicate, or out-of-range
-list is invalid, and startup raises an error if discovery resolves to zero
-devices.
+ordinals, not physical NVML/ROCm SMI IDs. Passing an empty, duplicate, or
+out-of-range list is invalid, and startup raises an error if discovery resolves
+to zero devices.
 
 ## What you get
 
 - Battle-tested keep-alive loop built on PyTorch.
-- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`. Public entry points default `busy_threshold` to `25`. Valid values are `-1` or `0..100`; if utilization is unavailable and the threshold is non-negative, KeepGPU sleeps for that cycle instead of running compute. CUDA utilization checks use visible CUDA ordinals, so with `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads NVML telemetry for physical GPU `5`; ambiguous mappings are treated as unavailable telemetry.
+- NVML-based utilization monitoring (by way of `nvidia-ml-py`) to avoid hogging busy GPUs; optional ROCm SMI support by way of `pip install keep-gpu[rocm]`. Public entry points default `busy_threshold` to `25`. Valid values are `-1` or `0..100`; if utilization is unavailable and the threshold is non-negative, KeepGPU sleeps for that cycle instead of running compute. CUDA utilization checks use visible CUDA ordinals, so with `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads NVML telemetry for physical GPU `5`. ROCm utilization similarly resolves visible ranks through `ROCR_VISIBLE_DEVICES` and one matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm SMI. Ambiguous mappings are treated as unavailable telemetry.
 - CLI + API parity: same controllers power both code paths.
 - Continuous docs + CI: mkdocs + mkdocstrings build in CI to keep guidance up to date.
 
@@ -121,7 +121,7 @@ devices.
 
 - Install dev extras: `pip install -e ".[dev]"` (add `.[rocm]` if you need ROCm SMI).
 - Fast CUDA checks: `pytest tests/cuda_controller tests/global_controller tests/utilities/test_platform_manager.py tests/test_cli_thresholds.py`
-- ROCm-only tests carry `@pytest.mark.rocm`; run with `pytest --run-rocm tests/rocm_controller`.
+- ROCm visibility tests use mocks and run without hardware; ROCm-only hardware tests carry `@pytest.mark.rocm` and run with `pytest --run-rocm tests/rocm_controller`.
 - Markers: `rocm` (needs ROCm stack) and `large_memory` (opt-in locally).
 
 ### MCP and service API

@@ -5,9 +5,17 @@ module exposes the Typer entry point, while the controllers and utilities power
 both the command-line and Python recipes.
 
 For global sessions, `gpu_ids=None` means all visible GPUs. Explicit values are
-visible device ordinals after any `CUDA_VISIBLE_DEVICES` filtering. Passing an
+visible device ordinals after CUDA or ROCm visibility filtering. Passing an
 empty, duplicate, or out-of-range list is invalid, and startup raises
-`ValueError` if discovery resolves to zero devices.
+`ValueError` if discovery resolves to zero devices. Telemetry may expose
+metadata such as `physical_id`, but those fields are not accepted as selection
+IDs.
+
+CUDA telemetry resolves visible ordinals through `CUDA_VISIBLE_DEVICES` before
+querying NVML. ROCm telemetry resolves `ROCR_VISIBLE_DEVICES` as the base mask
+and one matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before
+querying ROCm SMI. Unresolved mappings report unavailable utilization instead
+of falling back to a possibly wrong physical device.
 
 Public controller, CLI, REST, JSON-RPC, and MCP defaults use
 `busy_threshold=25`. Pass `busy_threshold=-1` only when you intentionally want

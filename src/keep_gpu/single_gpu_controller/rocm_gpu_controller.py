@@ -10,6 +10,7 @@ from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
 )
+from keep_gpu.utilities.rocm_visibility import resolve_rocm_visible_rank_to_smi_index
 
 logger = setup_logger(__name__)
 
@@ -114,8 +115,11 @@ class RocmGPUController(BaseGPUController):
     def _query_utilization(self) -> Optional[int]:
         if not self._rocm_smi:
             return None
+        smi_index = resolve_rocm_visible_rank_to_smi_index(self.rank, self._rocm_smi)
+        if smi_index is None:
+            return None
         try:
-            util = self._rocm_smi.rsmi_dev_busy_percent_get(self.rank)
+            util = self._rocm_smi.rsmi_dev_busy_percent_get(smi_index)
             return int(util)
         except Exception as exc:  # pragma: no cover - env-specific
             logger.debug("ROCm utilization query failed: %s", exc)
