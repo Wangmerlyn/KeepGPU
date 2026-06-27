@@ -27,7 +27,7 @@ def _parse_log_level(env_value: Optional[str], default: Optional[int]) -> Option
 
 def _build_console_handler(level: int) -> logging.Handler:
     """Create a colored console handler with filename:lineno."""
-    handler = logging.StreamHandler(sys.stdout)
+    handler = logging.StreamHandler(sys.stderr)
     handler.setLevel(level)
     color_fmt = "%(log_color)s%(asctime)s [%(levelname)s] %(name)s (%(filename)s:%(lineno)d): %(message)s"
     plain_fmt = (

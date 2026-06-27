@@ -1,6 +1,12 @@
 """KeepGPU local service.
 
-Supports JSON-RPC over stdio/HTTP and REST-style HTTP endpoints.
+Supports MCP/JSON-RPC over stdio/HTTP and REST-style HTTP endpoints.
+
+MCP protocol methods:
+  - initialize
+  - notifications/initialized
+  - tools/list
+  - tools/call
 
 JSON-RPC methods:
   - start_keep(gpu_ids, vram, interval, busy_threshold, job_id)
@@ -35,6 +41,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import unquote, urlparse
 
+from keep_gpu import __version__
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
 from keep_gpu.utilities.humanized_input import parse_vram_to_elements
 from keep_gpu.utilities.gpu_info import get_gpu_info
@@ -49,6 +56,95 @@ from keep_gpu.utilities.session_config import (
 logger = setup_logger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 MAX_JSON_BODY_BYTES = 1_000_000
+MCP_PROTOCOL_VERSION = "2025-06-18"
+JSONRPC_PARSE_ERROR = -32700
+JSONRPC_INVALID_REQUEST = -32600
+JSONRPC_METHOD_NOT_FOUND = -32601
+JSONRPC_INVALID_PARAMS = -32602
+JSONRPC_INTERNAL_ERROR = -32603
+
+MCP_TOOLS: List[Dict[str, Any]] = [
+    {
+        "name": "start_keep",
+        "title": "Start KeepGPU Session",
+        "description": "Reserve VRAM on selected visible GPU ordinals.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "gpu_ids": {
+                    "type": ["array", "null"],
+                    "items": {"type": "integer", "minimum": 0},
+                    "minItems": 1,
+                    "uniqueItems": True,
+                    "description": "Visible GPU ordinals; null or omitted uses all.",
+                },
+                "vram": {
+                    "type": "string",
+                    "default": "1GiB",
+                    "description": "Human-readable VRAM amount to keep.",
+                },
+                "interval": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 300,
+                    "description": "Seconds between keep-alive checks.",
+                },
+                "busy_threshold": {
+                    "type": "integer",
+                    "minimum": -1,
+                    "maximum": 100,
+                    "default": -1,
+                    "description": "-1 disables utilization backoff; 0..100 backs off.",
+                },
+                "job_id": {
+                    "type": ["string", "null"],
+                    "description": "Optional URL-path-safe session identifier.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "stop_keep",
+        "title": "Stop KeepGPU Session",
+        "description": "Release one session by job_id, or all sessions when omitted.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": ["string", "null"],
+                    "description": "Session identifier; null or omitted stops all.",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "status",
+        "title": "Get KeepGPU Status",
+        "description": "Return one session status or the active session list.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": ["string", "null"],
+                    "description": "Session identifier; null or omitted lists all.",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "list_gpus",
+        "title": "List Visible GPUs",
+        "description": "List start-compatible visible GPU ordinals and metadata.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+]
 
 
 @dataclass
@@ -57,6 +153,13 @@ class Session:
     params: Dict[str, Any]
     state: str = "active"
     last_error: Optional[str] = None
+
+
+class JSONRPCError(Exception):
+    def __init__(self, code: int, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
 
 
 class KeepGPUServer:
@@ -433,7 +536,77 @@ class KeepGPUServer:
             return
 
 
-def _handle_request(server: KeepGPUServer, payload: Dict[str, Any]) -> Dict[str, Any]:
+def _jsonrpc_result(req_id: Any, result: Dict[str, Any]) -> Dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": req_id, "result": result}
+
+
+def _jsonrpc_error(req_id: Any, code: int, message: str) -> Dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": req_id,
+        "error": {"code": code, "message": message},
+    }
+
+
+def _call_keepgpu_method(
+    server: KeepGPUServer, method: str, params: Dict[str, Any]
+) -> Dict[str, Any]:
+    if method == "start_keep":
+        return server.start_keep(**params)
+    if method == "stop_keep":
+        return server.stop_keep(**params)
+    if method == "status":
+        return server.status(**params)
+    if method == "list_gpus":
+        return server.list_gpus()
+    raise JSONRPCError(JSONRPC_METHOD_NOT_FOUND, f"Unknown method: {method}")
+
+
+def _mcp_initialize_result(params: Dict[str, Any]) -> Dict[str, Any]:
+    protocol_version = params.get("protocolVersion") or MCP_PROTOCOL_VERSION
+    if protocol_version != MCP_PROTOCOL_VERSION:
+        protocol_version = MCP_PROTOCOL_VERSION
+    return {
+        "protocolVersion": protocol_version,
+        "capabilities": {"tools": {"listChanged": False}},
+        "serverInfo": {
+            "name": "keepgpu",
+            "title": "KeepGPU",
+            "version": __version__,
+        },
+        "instructions": (
+            "Use start_keep to reserve VRAM only when needed, status to inspect "
+            "sessions, stop_keep to release sessions, and list_gpus to choose "
+            "visible GPU ordinals."
+        ),
+    }
+
+
+def _mcp_tool_result(payload: Any, is_error: bool = False) -> Dict[str, Any]:
+    text = payload if isinstance(payload, str) else json.dumps(payload, sort_keys=True)
+    return {"content": [{"type": "text", "text": text}], "isError": is_error}
+
+
+def _mcp_call_tool(server: KeepGPUServer, params: Dict[str, Any]) -> Dict[str, Any]:
+    name = params.get("name")
+    arguments = params.get("arguments", {})
+    if not isinstance(name, str) or not name:
+        raise JSONRPCError(
+            JSONRPC_INVALID_PARAMS, "Tool call requires a non-empty tool name."
+        )
+    if not isinstance(arguments, dict):
+        raise JSONRPCError(
+            JSONRPC_INVALID_PARAMS, "Tool call arguments must be an object."
+        )
+    if name not in {tool["name"] for tool in MCP_TOOLS}:
+        raise JSONRPCError(JSONRPC_INVALID_PARAMS, f"Unknown tool: {name}")
+    try:
+        return _mcp_tool_result(_call_keepgpu_method(server, name, arguments))
+    except Exception as exc:
+        return _mcp_tool_result(str(exc), True)
+
+
+def _handle_request(server: KeepGPUServer, payload: Any) -> Optional[Dict[str, Any]]:
     """
     Dispatch a JSON-RPC payload to the server and return a response dict.
 
@@ -442,30 +615,59 @@ def _handle_request(server: KeepGPUServer, payload: Dict[str, Any]) -> Dict[str,
         payload: Dict with "method", optional "params", and optional "id".
 
     Returns:
-        JSON-RPC-style dict containing either "result" or "error" plus "id".
+        JSON-RPC-style dict containing either "result" or "error" plus "id",
+        or None for JSON-RPC notifications that do not expect a response.
     """
-    method = payload.get("method")
-    params = payload.get("params", {}) or {}
-    req_id = payload.get("id")
+    req_id = None
     try:
-        if method == "start_keep":
-            result = server.start_keep(**params)
-        elif method == "stop_keep":
-            result = server.stop_keep(**params)
-        elif method == "status":
-            result = server.status(**params)
-        elif method == "list_gpus":
-            result = server.list_gpus()
+        if not isinstance(payload, dict):
+            raise JSONRPCError(
+                JSONRPC_INVALID_REQUEST, "JSON-RPC messages must be objects."
+            )
+        method = payload.get("method")
+        params = payload.get("params", {})
+        req_id = payload.get("id")
+        if not isinstance(method, str) or not method:
+            raise JSONRPCError(JSONRPC_INVALID_REQUEST, "Request method is required.")
+        if (
+            "id" not in payload
+            or not isinstance(req_id, (str, int))
+            or isinstance(req_id, bool)
+        ):
+            if method.startswith("notifications/") and "id" not in payload:
+                return None
+            raise JSONRPCError(JSONRPC_INVALID_REQUEST, "Requests must include an id.")
+        if method.startswith("notifications/"):
+            raise JSONRPCError(
+                JSONRPC_INVALID_REQUEST, "Notifications must not include an id."
+            )
+        if params is None:
+            params = {}
+        if not isinstance(params, dict):
+            raise JSONRPCError(JSONRPC_INVALID_PARAMS, "params must be an object")
+        if method == "initialize":
+            result = _mcp_initialize_result(params)
+        elif method == "tools/list":
+            result = {"tools": MCP_TOOLS}
+        elif method == "tools/call":
+            result = _mcp_call_tool(server, params)
         else:
-            raise ValueError(f"Unknown method: {method}")
-        return {"id": req_id, "result": result}
+            result = _call_keepgpu_method(server, method, params)
+        return _jsonrpc_result(req_id, result)
+    except JSONRPCError as exc:
+        return _jsonrpc_error(req_id, exc.code, exc.message)
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Request failed")
-        return {"id": req_id, "error": {"message": str(exc)}}
+        return _jsonrpc_error(req_id, JSONRPC_INTERNAL_ERROR, str(exc))
 
 
 class _JSONRPCHandler(BaseHTTPRequestHandler):
     server_version = "KeepGPU-MCP/0.1"
+
+    def _empty_response(self, status: int) -> None:
+        self.send_response(status)
+        self.send_header("content-length", "0")
+        self.end_headers()
 
     def _json_response(self, status: int, payload: Dict[str, Any]) -> None:
         data = json.dumps(payload).encode("utf-8")
@@ -629,6 +831,9 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             # JSON-RPC compatibility endpoint.
             if path in ("/", "/rpc"):
                 response = _handle_request(server_ref, payload)
+                if response is None:
+                    self._empty_response(202)
+                    return
                 self._json_response(200, response)
                 return
 
@@ -683,8 +888,12 @@ def run_stdio(server: KeepGPUServer) -> None:
         try:
             payload = json.loads(line)
             response = _handle_request(server, payload)
+        except json.JSONDecodeError as exc:
+            response = _jsonrpc_error(None, JSONRPC_PARSE_ERROR, str(exc))
         except Exception as exc:
-            response = {"error": {"message": str(exc)}}
+            response = _jsonrpc_error(None, JSONRPC_INTERNAL_ERROR, str(exc))
+        if response is None:
+            continue
         sys.stdout.write(json.dumps(response) + "\n")
         sys.stdout.flush()
 
