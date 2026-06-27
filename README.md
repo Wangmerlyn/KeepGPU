@@ -126,7 +126,7 @@ devices.
 
 ### MCP and service API
 
-- Start a simple JSON-RPC server on stdin/stdout (default):
+- Start an MCP server on stdin/stdout (default):
   ```bash
   keep-gpu-mcp-server
   ```
@@ -134,10 +134,18 @@ devices.
   ```bash
   keep-gpu-mcp-server --mode http --host 0.0.0.0 --port 8765
   ```
-- JSON-RPC request example:
+- MCP clients use the standard `initialize`, `tools/list`, and `tools/call`
+  protocol methods over stdio. KeepGPU exposes four tools: `start_keep`,
+  `stop_keep`, `status`, and `list_gpus`.
+- Legacy direct JSON-RPC method calls remain supported for scripts:
   ```json
   {"id": 1, "method": "start_keep", "params": {"gpu_ids": [0], "vram": "512MB", "interval": 60, "busy_threshold": 20}}
   ```
+- Stdio stdout is reserved for JSON protocol messages; diagnostics and logs are
+  written to stderr.
+- HTTP mode is KeepGPU's local JSON-RPC/REST/dashboard service. It accepts the
+  same JSON-RPC messages at `/rpc`, but it is not a Streamable HTTP MCP
+  endpoint.
 - REST examples:
   ```bash
   curl http://127.0.0.1:8765/health
@@ -173,24 +181,12 @@ devices.
       command: ["keep-gpu-mcp-server"]
       adapter: stdio
   ```
-- Minimal client config (HTTP MCP):
-  ```yaml
-  servers:
-    keepgpu:
-      url: http://127.0.0.1:8765/
-      adapter: http
-  ```
 - Remote/SSH tunnel example (HTTP):
   ```bash
   keep-gpu-mcp-server --mode http --host 0.0.0.0 --port 8765
   ```
-  Client config (replace hostname/tunnel as needed):
-  ```yaml
-  servers:
-    keepgpu:
-      url: http://gpu-box.example.com:8765/
-      adapter: http
-  ```
+  Use `http://gpu-box.example.com:8765/` for the dashboard and
+  `http://gpu-box.example.com:8765/rpc` for JSON-RPC scripts.
   For untrusted networks, put the server behind your own auth/reverse-proxy or
   tunnel by way of SSH (for example, `ssh -L 8765:localhost:8765 gpu-box`).
 

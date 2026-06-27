@@ -2,7 +2,8 @@
 
 KeepGPU ships a local service that powers three interfaces:
 
-- JSON-RPC (`keep-gpu-mcp-server` or `/rpc`)
+- MCP over stdio (`keep-gpu-mcp-server`)
+- JSON-RPC over HTTP (`/rpc`)
 - REST API (`/api/*`)
 - Dashboard UI (`/`)
 
@@ -22,7 +23,44 @@ keep-gpu serve --host 127.0.0.1 --port 8765
 keep-gpu-mcp-server --mode http --host 127.0.0.1 --port 8765
 ```
 
-## JSON-RPC quick example
+## MCP protocol over stdio
+
+MCP clients should start with `initialize`, then discover KeepGPU actions with
+`tools/list`, then invoke an action with `tools/call`. KeepGPU exposes these
+tool names:
+
+- `start_keep`
+- `stop_keep`
+- `status`
+- `list_gpus`
+
+Minimal client config:
+
+```yaml
+servers:
+  keepgpu:
+    command: ["keep-gpu-mcp-server"]
+    adapter: stdio
+```
+
+The stdio transport writes only JSON protocol messages to stdout. KeepGPU logs
+and diagnostics go to stderr so MCP clients can parse stdout safely.
+
+## HTTP JSON-RPC quick example
+
+HTTP mode is KeepGPU's local JSON-RPC/REST/dashboard service. It accepts the
+same JSON-RPC message shapes at `/rpc`, but it is not a Streamable HTTP MCP
+endpoint.
+
+```bash
+curl -X POST http://127.0.0.1:8765/rpc \
+  -H "content-type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"status","arguments":{}}}'
+```
+
+## Legacy JSON-RPC quick example
+
+Direct method calls remain available for scripts and older local integrations.
 
 ```bash
 curl -X POST http://127.0.0.1:8765/rpc \

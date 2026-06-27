@@ -1,5 +1,10 @@
+import json
+import os
+import subprocess
+import sys
 import threading
 import time
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -296,6 +301,252 @@ def test_list_gpus():
     server = make_server()
     info = server.list_gpus()
     assert "gpus" in info
+
+
+def test_mcp_initialize_returns_server_capabilities():
+    server = make_server()
+    req = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "probe", "version": "0"},
+        },
+    }
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 1
+    result = resp["result"]
+    assert result["protocolVersion"] == "2025-06-18"
+    assert "tools" in result["capabilities"]
+    assert result["serverInfo"]["name"] == "keepgpu"
+    assert result["serverInfo"]["title"] == "KeepGPU"
+    assert result["serverInfo"]["version"]
+
+
+def test_mcp_initialized_notification_has_no_response():
+    server = make_server()
+    req = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+
+    resp = _handle_request(server, req)
+
+    assert resp is None
+
+
+def test_mcp_tools_list_exposes_keepgpu_actions():
+    server = make_server()
+    req = {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 2
+    tools = {tool["name"]: tool for tool in resp["result"]["tools"]}
+    assert set(tools) == {"start_keep", "stop_keep", "status", "list_gpus"}
+    start_schema = tools["start_keep"]["inputSchema"]
+    assert start_schema["type"] == "object"
+    assert start_schema["properties"]["gpu_ids"]["items"]["type"] == "integer"
+    assert start_schema["properties"]["busy_threshold"]["default"] == -1
+    assert tools["status"]["inputSchema"]["properties"]["job_id"]["type"] == [
+        "string",
+        "null",
+    ]
+
+
+def test_mcp_tools_call_routes_to_existing_status_method():
+    server = make_server()
+    job_id = server.start_keep(job_id="mcp-job", gpu_ids=[0])["job_id"]
+    req = {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {"name": "status", "arguments": {"job_id": job_id}},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 3
+    result = resp["result"]
+    assert result["isError"] is False
+    assert result["content"][0]["type"] == "text"
+    payload = json.loads(result["content"][0]["text"])
+    assert payload["active"] is True
+    assert payload["job_id"] == "mcp-job"
+    assert payload["params"]["gpu_ids"] == [0]
+
+
+def test_mcp_tools_call_unknown_tool_returns_protocol_error():
+    server = make_server()
+    req = {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {"name": "not_a_tool", "arguments": {}},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 4
+    assert resp["error"]["code"] == -32602
+    assert resp["error"]["message"] == "Unknown tool: not_a_tool"
+
+
+def test_mcp_tools_call_rejects_non_object_arguments():
+    server = make_server()
+    req = {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "tools/call",
+        "params": {"name": "status", "arguments": []},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 5
+    assert resp["error"]["code"] == -32602
+    assert resp["error"]["message"] == "Tool call arguments must be an object."
+
+
+def test_jsonrpc_unknown_method_returns_method_not_found_code():
+    server = make_server()
+    req = {"jsonrpc": "2.0", "id": 6, "method": "not_a_method", "params": {}}
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 6
+    assert resp["error"]["code"] == -32601
+    assert resp["error"]["message"] == "Unknown method: not_a_method"
+
+
+def test_mcp_requests_require_id():
+    server = make_server()
+    req = {"jsonrpc": "2.0", "method": "tools/list", "params": {}}
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] is None
+    assert resp["error"]["code"] == -32600
+    assert resp["error"]["message"] == "Requests must include an id."
+
+
+def test_mcp_unrecognized_notification_has_no_response():
+    server = make_server()
+    req = {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {}}
+
+    resp = _handle_request(server, req)
+
+    assert resp is None
+
+
+def test_mcp_notification_with_id_is_invalid_request():
+    server = make_server()
+    req = {"jsonrpc": "2.0", "id": 7, "method": "notifications/initialized"}
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 7
+    assert resp["error"]["code"] == -32600
+    assert resp["error"]["message"] == "Notifications must not include an id."
+
+
+def test_mcp_stdio_stdout_contains_only_protocol_json():
+    request = {
+        "jsonrpc": "2.0",
+        "id": 8,
+        "method": "tools/list",
+    }
+    env = os.environ.copy()
+    repo_root = Path(__file__).resolve().parents[2]
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(repo_root / "src"), env.get("PYTHONPATH", "")]
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "keep_gpu.mcp.server"],
+        input=json.dumps(request) + "\n",
+        text=True,
+        capture_output=True,
+        timeout=5,
+        env=env,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    stdout_lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    assert len(stdout_lines) == 1
+    response = json.loads(stdout_lines[0])
+    assert response["jsonrpc"] == "2.0"
+    assert response["id"] == 8
+    assert sorted(tool["name"] for tool in response["result"]["tools"]) == [
+        "list_gpus",
+        "start_keep",
+        "status",
+        "stop_keep",
+    ]
+
+
+def test_mcp_stdio_parse_errors_are_jsonrpc_errors():
+    env = os.environ.copy()
+    repo_root = Path(__file__).resolve().parents[2]
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(repo_root / "src"), env.get("PYTHONPATH", "")]
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "keep_gpu.mcp.server"],
+        input="{not json}\n",
+        text=True,
+        capture_output=True,
+        timeout=5,
+        env=env,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    stdout_lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    assert len(stdout_lines) == 1
+    response = json.loads(stdout_lines[0])
+    assert response["jsonrpc"] == "2.0"
+    assert response["id"] is None
+    assert response["error"]["code"] == -32700
+    assert "Expecting property name" in response["error"]["message"]
+
+
+def test_mcp_stdio_non_object_messages_are_invalid_request_errors():
+    env = os.environ.copy()
+    repo_root = Path(__file__).resolve().parents[2]
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(repo_root / "src"), env.get("PYTHONPATH", "")]
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "keep_gpu.mcp.server"],
+        input='["not", "an", "object"]\n',
+        text=True,
+        capture_output=True,
+        timeout=5,
+        env=env,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    stdout_lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    assert len(stdout_lines) == 1
+    response = json.loads(stdout_lines[0])
+    assert response["jsonrpc"] == "2.0"
+    assert response["id"] is None
+    assert response["error"]["code"] == -32600
+    assert response["error"]["message"] == "JSON-RPC messages must be objects."
 
 
 def test_end_to_end_jsonrpc():
