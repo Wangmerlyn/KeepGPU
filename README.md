@@ -71,10 +71,10 @@ http://127.0.0.1:8765/
 Flags that matter:
 
 - Blocking mode knobs:
-  - `--vram` (`1GiB`, `750MB`, or bytes): how much memory to pin.
-  - `--interval` (seconds): sleep between keep-alive bursts.
-  - `--busy-threshold`: skip work when NVML reports higher utilization.
-  - `--gpu-ids`: target a subset; otherwise all visible GPUs are guarded.
+  - `--vram` (`1GiB`, `750MB`, or bare bytes like `1073741824`): how much memory to pin.
+  - `--interval` (positive seconds): sleep between keep-alive bursts.
+  - `--busy-threshold`: skip work when telemetry reports higher utilization; `-1` disables utilization backoff.
+  - `--gpu-ids`: target a non-negative subset; otherwise all visible GPUs are guarded.
 - Service mode commands:
   - `keep-gpu serve`: run local service (HTTP + dashboard).
   - `keep-gpu start`: create keep session and return immediately.

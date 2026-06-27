@@ -18,8 +18,8 @@ train_model()                     # GPU memory is released automatically
 ```
 
 - `rank` matches the CUDA device index (after any `CUDA_VISIBLE_DEVICES` filtering).
-- `interval` is the pause between matmul bursts inside the background thread.
-- `vram_to_keep` accepts ints or human-readable strings (`parse_size` handles it).
+- `interval` is the positive pause between keep-alive bursts inside the background thread.
+- `vram_to_keep` accepts integer bytes or human-readable strings (`parse_size` handles it).
 
 ## Start/stop manually
 

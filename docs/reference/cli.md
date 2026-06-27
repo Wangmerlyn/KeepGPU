@@ -21,9 +21,9 @@ These options apply when you run `keep-gpu` without subcommands.
 | Option | Type | Description |
 | --- | --- | --- |
 | `--interval INTEGER` | seconds | Sleep duration between utilization checks and keep-alive batches. |
-| `--gpu-ids TEXT` | comma-separated ints | Subset of GPUs to guard (for example, `0,2`). Omit to use all visible GPUs. |
-| `--vram TEXT` | human size or bytes | Amount of memory each GPU controller allocates (`512MB`, `1GiB`, `1073741824`). |
-| `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | Back off when utilization is above this value. |
+| `--gpu-ids TEXT` | comma-separated non-negative ints | Subset of GPUs to guard (for example, `0,2`). Omit to use all visible GPUs. |
+| `--vram TEXT` | human size or bare bytes | Amount of memory each GPU controller allocates (`512MB`, `1GiB`, `1073741824`). |
+| `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | Back off when utilization is above this value; `-1` disables utilization backoff. |
 | `--threshold TEXT` | deprecated | Legacy alias: numeric values map to busy-threshold, size strings map to vram. |
 
 ## Service mode

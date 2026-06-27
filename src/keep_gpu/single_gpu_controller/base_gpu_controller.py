@@ -1,6 +1,7 @@
 from typing import Union
 
-from keep_gpu.utilities.humanized_input import parse_size
+from keep_gpu.utilities.humanized_input import parse_vram_to_elements
+from keep_gpu.utilities.session_config import validate_interval
 
 
 class BaseGPUController:
@@ -10,18 +11,12 @@ class BaseGPUController:
 
         Args:
             vram_to_keep (int or str): Amount of VRAM to keep busy. Accepts integers
-                (tensor element count) or human strings like "1GiB" (converted to
+                as raw bytes or human strings like "1GiB" (converted to internal
                 element count for float32 tensors).
             interval (float): Time interval (in seconds) between keep-alive cycles.
         """
-        if isinstance(vram_to_keep, str):
-            vram_to_keep = parse_size(vram_to_keep)
-        elif not isinstance(vram_to_keep, int):
-            raise TypeError(
-                f"vram_to_keep must be str or int, got {type(vram_to_keep)}"
-            )
-        self.vram_to_keep = vram_to_keep
-        self.interval = interval
+        self.vram_to_keep = parse_vram_to_elements(vram_to_keep)
+        self.interval = validate_interval(interval)
 
     def monitor(self):
         """

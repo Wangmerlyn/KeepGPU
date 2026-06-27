@@ -36,8 +36,14 @@ from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import unquote, urlparse
 
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
+from keep_gpu.utilities.humanized_input import parse_vram_to_elements
 from keep_gpu.utilities.gpu_info import get_gpu_info
 from keep_gpu.utilities.logger import setup_logger
+from keep_gpu.utilities.session_config import (
+    validate_busy_threshold,
+    validate_gpu_ids,
+    validate_interval,
+)
 
 logger = setup_logger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -108,6 +114,11 @@ class KeepGPUServer:
         Raises:
             ValueError: If the provided job_id already exists.
         """
+        gpu_ids = validate_gpu_ids(gpu_ids)
+        interval = validate_interval(interval)
+        busy_threshold = validate_busy_threshold(busy_threshold)
+        parse_vram_to_elements(vram)
+
         job_id = job_id or str(uuid.uuid4())
         with self._sessions_lock:
             if job_id in self._sessions:
@@ -368,15 +379,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                 }
                 gpu_ids = safe_payload.get("gpu_ids")
                 if gpu_ids is not None:
-                    if not isinstance(gpu_ids, list):
-                        raise ValueError("gpu_ids must be a list of integers")
-                    if len(gpu_ids) > 64:
-                        raise ValueError("gpu_ids has too many items")
-                    if any(
-                        (not isinstance(gpu_id, int) or gpu_id < 0)
-                        for gpu_id in gpu_ids
-                    ):
-                        raise ValueError("gpu_ids must contain non-negative integers")
+                    validate_gpu_ids(gpu_ids)
                     visible_gpus = server_ref.list_gpus().get("gpus", [])
                     if visible_gpus and any(
                         gpu_id >= len(visible_gpus) for gpu_id in gpu_ids

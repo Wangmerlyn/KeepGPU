@@ -98,7 +98,8 @@ keep-gpu --interval 120 --gpu-ids 0 --vram 1GiB
 
 - `--interval` controls the sleep between utilization checks (seconds).
 - `--gpu-ids` limits the job to a subset of visible devices.
-- `--vram` accepts human-readable sizes; KeepGPU allocates one tensor of that size.
+- `--vram` accepts human-readable sizes or bare bytes; KeepGPU allocates one
+  tensor of that size.
 
 Leave the command running while you prepare data or review notebooks. When you are
 ready to hand the GPU back, hit `Ctrl+C`—controllers will release VRAM and exit.

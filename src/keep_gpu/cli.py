@@ -17,6 +17,7 @@ import typer
 from rich.console import Console
 
 from keep_gpu.utilities.logger import setup_logger
+from keep_gpu.utilities.session_config import validate_interval
 
 DEFAULT_SERVICE_HOST = "127.0.0.1"
 DEFAULT_SERVICE_PORT = 8765
@@ -97,11 +98,21 @@ def _parse_gpu_ids(gpu_ids: Optional[str]) -> Optional[List[int]]:
     if not gpu_ids:
         return None
     try:
-        return [int(i.strip()) for i in gpu_ids.split(",")]
+        parsed = [int(i.strip()) for i in gpu_ids.split(",")]
     except ValueError as exc:
         raise typer.BadParameter(
             f"Invalid characters in --gpu-ids '{gpu_ids}'. Use comma-separated integers."
         ) from exc
+    if any(gpu_id < 0 for gpu_id in parsed):
+        raise typer.BadParameter("gpu_ids must contain non-negative integers")
+    return parsed
+
+
+def _validate_cli_interval(interval: int) -> int:
+    try:
+        return validate_interval(interval)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 def _service_base_url(host: str, port: int) -> str:
@@ -309,6 +320,7 @@ def _run_blocking(
     vram, busy_threshold, legacy_mode = _apply_legacy_threshold(
         vram, legacy_threshold, busy_threshold
     )
+    interval = _validate_cli_interval(interval)
     if legacy_mode == "vram":
         console.print(
             "[yellow]`--threshold` for VRAM is deprecated; use `--vram`.[/yellow]"
@@ -381,6 +393,7 @@ def main(
     if ctx.invoked_subcommand is not None:
         return
     try:
+        interval = _validate_cli_interval(interval)
         _run_blocking(interval, gpu_ids, vram, legacy_threshold, busy_threshold)
     except typer.BadParameter as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
@@ -445,11 +458,13 @@ def start(
     `keep-gpu service-stop` to stop the local service daemon.
     """
     try:
+        interval = _validate_cli_interval(interval)
+        parsed_gpu_ids = _parse_gpu_ids(gpu_ids)
         auto_started = _ensure_service_running(host, port, auto_start=auto_start)
         result = _rpc_call(
             "start_keep",
             {
-                "gpu_ids": _parse_gpu_ids(gpu_ids),
+                "gpu_ids": parsed_gpu_ids,
                 "vram": vram,
                 "interval": interval,
                 "busy_threshold": busy_threshold,

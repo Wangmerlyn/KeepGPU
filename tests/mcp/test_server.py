@@ -44,6 +44,33 @@ def test_start_status_stop_cycle():
     assert server.status(job_id)["active"] is False
 
 
+def test_start_rejects_negative_gpu_id():
+    server = make_server()
+
+    try:
+        server.start_keep(gpu_ids=[0, -1])
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "gpu_ids must contain non-negative integers" in str(exc)
+
+    assert server.status()["active_jobs"] == []
+
+
+def test_jsonrpc_rejects_non_positive_interval():
+    server = make_server()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"gpu_ids": [0], "interval": 0},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert "interval must be positive" in resp["error"]["message"]
+    assert server.status()["active_jobs"] == []
+
+
 def test_stop_all():
     server = make_server()
     job_a = server.start_keep()["job_id"]

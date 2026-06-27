@@ -50,6 +50,44 @@ def test_start_command_uses_rpc(monkeypatch):
     assert port == cli.DEFAULT_SERVICE_PORT
 
 
+def test_start_command_rejects_negative_gpu_ids(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "_ensure_service_running",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("service should not be started")
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("RPC should not be called")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["start", "--gpu-ids", "0,-1"])
+
+    assert result.exit_code == 1
+    assert "non-negative integers" in result.output
+
+
+def test_start_command_rejects_non_positive_interval(monkeypatch):
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("RPC should not be called")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["start", "--interval", "0"])
+
+    assert result.exit_code == 1
+    assert "interval must be positive" in result.output
+
+
 def test_stop_requires_job_id_or_all():
     result = runner.invoke(cli.app, ["stop"])
     assert result.exit_code == 1
@@ -70,6 +108,21 @@ def test_blocking_mode_remains_default(monkeypatch):
 
     assert result.exit_code == 0
     assert called["args"] == (120, "0", "1GiB", None, -1)
+
+
+def test_blocking_mode_rejects_non_positive_interval(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "_run_blocking",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("blocking runner should not be called")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["--interval", "0"])
+
+    assert result.exit_code == 1
+    assert "interval must be positive" in result.output
 
 
 def test_start_prints_dashboard_and_stop_hints(monkeypatch):

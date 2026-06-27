@@ -6,6 +6,7 @@ import torch
 
 from keep_gpu.single_gpu_controller.base_gpu_controller import BaseGPUController
 from keep_gpu.utilities.logger import setup_logger
+from keep_gpu.utilities.session_config import validate_busy_threshold
 
 logger = setup_logger(__name__)
 
@@ -29,7 +30,7 @@ class RocmGPUController(BaseGPUController):
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
-        self.busy_threshold = busy_threshold
+        self.busy_threshold = validate_busy_threshold(busy_threshold)
         self.iterations = iterations
         self.max_allocation_retries = max_allocation_retries
         self._stop_evt: Optional[threading.Event] = None
@@ -173,7 +174,11 @@ class RocmGPUController(BaseGPUController):
         while not stop_evt.is_set():
             try:
                 util = self._query_utilization()
-                if util is not None and util > self.busy_threshold:
+                if (
+                    util is not None
+                    and self.busy_threshold >= 0
+                    and util > self.busy_threshold
+                ):
                     logger.debug("rank %s: GPU busy (%d%%), sleeping", self.rank, util)
                 else:
                     self._run_batch(tensor)

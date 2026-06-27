@@ -9,6 +9,7 @@ from keep_gpu.utilities.gpu_monitor import get_gpu_utilization
 from keep_gpu.utilities.humanized_input import parse_size
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.platform_manager import ComputingPlatform
+from keep_gpu.utilities.session_config import validate_busy_threshold
 
 logger = setup_logger(__name__)
 
@@ -74,7 +75,7 @@ class CudaGPUController(BaseGPUController):
         if relu_iterations <= 0:
             raise ValueError("relu_iterations must be positive")
         self.relu_iterations = relu_iterations
-        self.busy_threshold = busy_threshold
+        self.busy_threshold = validate_busy_threshold(busy_threshold)
         self.platform = ComputingPlatform.CUDA
 
         self._stop_evt: Optional[threading.Event] = None
@@ -182,7 +183,7 @@ class CudaGPUController(BaseGPUController):
         while not stop_evt.is_set():
             try:
                 gpu_utilization = self._monitor_utilization(self.rank)
-                if gpu_utilization > self.busy_threshold:
+                if not self._should_run_batch(gpu_utilization, self.busy_threshold):
                     logger.debug(
                         "rank %s: GPU busy (%d%%), sleeping longer",
                         self.rank,
@@ -237,3 +238,8 @@ class CudaGPUController(BaseGPUController):
         """
         utilization = get_gpu_utilization(rank)
         return utilization if utilization is not None else 0
+
+    @staticmethod
+    def _should_run_batch(gpu_utilization: int, busy_threshold: int) -> bool:
+        """Return whether keep-alive compute should run for this utilization."""
+        return busy_threshold < 0 or gpu_utilization <= busy_threshold

@@ -217,3 +217,36 @@ def test_http_post_rejects_unknown_fields():
         httpd.server_close()
         server.shutdown()
         thread.join(timeout=2)
+
+
+def test_http_post_rejects_non_positive_interval():
+    server = make_server()
+
+    class _Server(TCPServer):
+        allow_reuse_address = True
+
+    httpd = _Server(("127.0.0.1", 0), _JSONRPCHandler)
+    httpd.keepgpu_server = server  # type: ignore[attr-defined]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+
+    try:
+        status_code, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "gpu_ids": [0],
+                "vram": "64MB",
+                "interval": 0,
+                "busy_threshold": 5,
+            },
+        )
+        assert status_code == 400
+        assert "interval must be positive" in payload["error"]["message"]
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
