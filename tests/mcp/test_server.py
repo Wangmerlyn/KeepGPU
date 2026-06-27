@@ -57,6 +57,70 @@ def test_start_status_stop_cycle():
     assert server.status(job_id)["active"] is False
 
 
+def test_status_reports_starting_session_during_controller_keep():
+    keep_started = threading.Event()
+    keep_release = threading.Event()
+    result_holder = {}
+    error_holder = {}
+
+    class BlockingStartController(DummyController):
+        def keep(self):
+            self.kept = True
+            keep_started.set()
+            keep_release.wait(timeout=1.0)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: BlockingStartController(**kwargs))
+    )
+
+    def start_session():
+        try:
+            result_holder["result"] = server.start_keep(
+                job_id="starting-job",
+                gpu_ids=[0],
+                vram="512MB",
+                interval=7,
+                busy_threshold=25,
+            )
+        except Exception as exc:  # pragma: no cover - test failure helper
+            error_holder["error"] = exc
+
+    start_thread = threading.Thread(target=start_session)
+    start_thread.start()
+    try:
+        assert keep_started.wait(timeout=1.0)
+
+        expected_params = {
+            "gpu_ids": [0],
+            "vram": "512MB",
+            "interval": 7,
+            "busy_threshold": 25,
+        }
+        assert server.status("starting-job") == {
+            "active": True,
+            "job_id": "starting-job",
+            "params": expected_params,
+            "state": "starting",
+            "last_error": None,
+        }
+        assert server.status()["active_jobs"] == [
+            {
+                "job_id": "starting-job",
+                "params": expected_params,
+                "state": "starting",
+                "last_error": None,
+            }
+        ]
+    finally:
+        keep_release.set()
+
+    start_thread.join(timeout=1.0)
+    assert not start_thread.is_alive()
+    assert error_holder == {}
+    assert result_holder["result"] == {"job_id": "starting-job"}
+    assert server.status("starting-job")["state"] == "active"
+
+
 def test_start_rejects_negative_gpu_id():
     server = make_server()
 

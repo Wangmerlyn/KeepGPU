@@ -50,6 +50,10 @@ for `status` and `stop_keep`. Custom IDs must be non-empty strings containing
 only letters, digits, `.`, `_`, `-`, or `~`; invalid IDs return an error before
 session state changes.
 
+Status calls show reserved jobs as `state="starting"` while controller startup
+is still in progress. That includes both `status(job_id)` and the all-session
+`status()` list, so agents do not mistake an in-progress start for no session.
+
 `stop_keep` returns additive outcome fields:
 
 ```json

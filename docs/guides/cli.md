@@ -75,7 +75,7 @@ http://127.0.0.1:8765/
 The dashboard provides:
 
 - live GPU memory/utilization telemetry,
-- tracked keep sessions, including in-progress or failed releases,
+- tracked keep sessions, including in-progress starts and releases,
 - session creation form,
 - single-session and stop-all controls.
 

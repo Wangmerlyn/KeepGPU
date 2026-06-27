@@ -2,7 +2,7 @@ import json
 import threading
 from typing import Any, cast
 from urllib.error import HTTPError
-from socketserver import TCPServer
+from socketserver import TCPServer, ThreadingMixIn
 from urllib.request import Request, urlopen
 
 from keep_gpu.mcp.server import KeepGPUServer, _JSONRPCHandler
@@ -35,6 +35,19 @@ def make_server() -> KeepGPUServer:
 def _start_http_server(server: KeepGPUServer):
     class _Server(TCPServer):
         allow_reuse_address = True
+
+    httpd = _Server(("127.0.0.1", 0), _JSONRPCHandler)
+    httpd.keepgpu_server = server  # type: ignore[attr-defined]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+    return httpd, thread, base
+
+
+def _start_threaded_http_server(server: KeepGPUServer):
+    class _Server(ThreadingMixIn, TCPServer):
+        allow_reuse_address = True
+        daemon_threads = True
 
     httpd = _Server(("127.0.0.1", 0), _JSONRPCHandler)
     httpd.keepgpu_server = server  # type: ignore[attr-defined]
@@ -129,6 +142,74 @@ def test_http_session_lifecycle():
         httpd.server_close()
         server.shutdown()
         thread.join(timeout=2)
+
+
+def test_http_status_reports_starting_session_during_controller_keep():
+    keep_started = threading.Event()
+    keep_release = threading.Event()
+    result_holder = {}
+
+    class BlockingStartController(DummyController):
+        def keep(self):
+            self.kept = True
+            keep_started.set()
+            keep_release.wait(timeout=1.0)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: BlockingStartController(**kwargs))
+    )
+    httpd, thread, base = _start_threaded_http_server(server)
+
+    def start_session():
+        result_holder["response"] = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "job_id": "starting-job",
+                "gpu_ids": [0],
+                "vram": "512MB",
+                "interval": 7,
+                "busy_threshold": 25,
+            },
+        )
+
+    start_thread = threading.Thread(target=start_session)
+    start_thread.start()
+    try:
+        assert keep_started.wait(timeout=1.0)
+        expected_params = {
+            "gpu_ids": [0],
+            "vram": "512MB",
+            "interval": 7,
+            "busy_threshold": 25,
+        }
+        _, list_payload = _request_json("GET", f"{base}/api/sessions")
+        assert list_payload["active_jobs"] == [
+            {
+                "job_id": "starting-job",
+                "params": expected_params,
+                "state": "starting",
+                "last_error": None,
+            }
+        ]
+        _, status_payload = _request_json("GET", f"{base}/api/sessions/starting-job")
+        assert status_payload == {
+            "active": True,
+            "job_id": "starting-job",
+            "params": expected_params,
+            "state": "starting",
+            "last_error": None,
+        }
+    finally:
+        keep_release.set()
+        start_thread.join(timeout=1.0)
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert not start_thread.is_alive()
+    assert result_holder["response"] == (200, {"job_id": "starting-job"})
 
 
 def test_http_stop_timeout_keeps_session_visible(monkeypatch):

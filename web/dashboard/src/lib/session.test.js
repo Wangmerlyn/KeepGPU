@@ -112,8 +112,15 @@ describe("hasReleasableSessions", () => {
 describe("session state formatting", () => {
   it("labels backend lifecycle states for display", () => {
     expect(formatSessionState({ state: "active" })).toBe("Active")
+    expect(formatSessionState({ state: "starting" })).toBe("Starting")
     expect(formatSessionState({ state: "stopping" })).toBe("Releasing")
     expect(formatSessionState({ state: "stop_failed" })).toBe("Release failed")
+  })
+
+  it("surfaces starting session details", () => {
+    expect(formatSessionStateDetail({ state: "starting" })).toBe(
+      "Controller startup is still in progress."
+    )
   })
 
   it("surfaces retained release error details", () => {

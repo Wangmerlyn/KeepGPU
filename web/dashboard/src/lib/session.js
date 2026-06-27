@@ -70,6 +70,8 @@ export function formatSessionState(session) {
     case null:
     case "active":
       return "Active"
+    case "starting":
+      return "Starting"
     case "stopping":
       return "Releasing"
     case "stop_failed":
@@ -80,6 +82,9 @@ export function formatSessionState(session) {
 }
 
 export function formatSessionStateDetail(session) {
+  if (session?.state === "starting") {
+    return "Controller startup is still in progress."
+  }
   if (session?.state === "stopping") {
     return session.last_error || "Release is still completing in the background."
   }
