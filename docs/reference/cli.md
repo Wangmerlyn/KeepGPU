@@ -109,6 +109,6 @@ digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
 
 | Variable | Effect |
 | --- | --- |
-| `CUDA_VISIBLE_DEVICES` | Standard CUDA filtering. Blocking mode honors it before `--gpu-ids`. |
+| `CUDA_VISIBLE_DEVICES` | Standard CUDA filtering. Blocking mode honors it before `--gpu-ids`; CUDA utilization telemetry maps visible ordinals through numeric or UUID tokens before querying NVML, and unresolved mappings report unavailable telemetry. |
 | `CONSOLE_LOG_LEVEL` | Console log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `no`). |
 | `FILE_LOG_LEVEL` | File log level; writes logs under `./logs/` when enabled. |

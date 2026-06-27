@@ -35,6 +35,9 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
    - Allocates a tensor sized by way of `vram_to_keep`.
    - Starts a daemon thread that performs intervalled lightweight elementwise batches.
    - Calls `_monitor_utilization` (by way of NVML) to detect real activity.
+     The monitor receives the CUDA visible rank and resolves
+     `CUDA_VISIBLE_DEVICES` numeric or UUID tokens before querying NVML, so
+     telemetry follows the same device the worker keeps.
 4. If utilization exceeds `busy_threshold`, or if utilization is unavailable
    while `busy_threshold` is non-negative, the worker just sleeps for one more
    `interval`. Otherwise it runs a new batch of ops. Valid thresholds are `-1`
