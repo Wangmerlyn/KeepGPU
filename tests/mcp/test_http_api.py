@@ -32,6 +32,18 @@ def make_server() -> KeepGPUServer:
     return KeepGPUServer(controller_factory=cast(Any, dummy_factory))
 
 
+def _start_http_server(server: KeepGPUServer):
+    class _Server(TCPServer):
+        allow_reuse_address = True
+
+    httpd = _Server(("127.0.0.1", 0), _JSONRPCHandler)
+    httpd.keepgpu_server = server  # type: ignore[attr-defined]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+    return httpd, thread, base
+
+
 def _request_json(method, url, payload=None):
     data = None
     if payload is not None:
@@ -394,6 +406,217 @@ def test_http_post_rejects_busy_threshold_above_percent_range():
             in payload["error"]["message"]
         )
         assert server.status()["active_jobs"] == []
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_post_rejects_invalid_job_id_without_creating_session():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "gpu_ids": [0],
+                "vram": "64MB",
+                "interval": 20,
+                "busy_threshold": 5,
+                "job_id": "",
+            },
+        )
+
+        assert status_code == 400
+        assert "job_id" in payload["error"]["message"]
+        assert server.status()["active_jobs"] == []
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_get_rejects_invalid_decoded_job_id_path():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("GET", f"{base}/api/sessions/bad%3Fjob")
+
+        assert status_code == 400
+        assert "job_id" in payload["error"]["message"]
+        assert server.status(active_job_id)["active"] is True
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_get_rejects_query_shaped_job_id_path():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json(
+            "GET", f"{base}/api/sessions/{active_job_id}?bad=query"
+        )
+
+        assert status_code == 400
+        assert "job_id" in payload["error"]["message"]
+        assert server.status(active_job_id)["active"] is True
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_get_rejects_parameterized_job_id_path():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json(
+            "GET", f"{base}/api/sessions/{active_job_id};bad"
+        )
+
+        assert status_code == 400
+        assert "job_id" in payload["error"]["message"]
+        assert server.status(active_job_id)["active"] is True
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_delete_rejects_invalid_decoded_job_id_path_without_stopping_session():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    controller = server._sessions[active_job_id].controller
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("DELETE", f"{base}/api/sessions/bad%2Fjob")
+
+        assert status_code == 400
+        assert "job_id" in payload["error"]["message"]
+        assert server.status(active_job_id)["active"] is True
+        assert controller.released is False
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_delete_rejects_query_shaped_job_id_path_without_stopping_session():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    controller = server._sessions[active_job_id].controller
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json(
+            "DELETE", f"{base}/api/sessions/{active_job_id}?bad=query"
+        )
+
+        assert status_code == 400
+        assert "job_id" in payload["error"]["message"]
+        assert server.status(active_job_id)["active"] is True
+        assert controller.released is False
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_delete_rejects_parameterized_job_id_path_without_stopping_session():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    controller = server._sessions[active_job_id].controller
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json(
+            "DELETE", f"{base}/api/sessions/{active_job_id};bad"
+        )
+
+        assert status_code == 400
+        assert "job_id" in payload["error"]["message"]
+        assert server.status(active_job_id)["active"] is True
+        assert controller.released is False
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_delete_rejects_extra_session_path_segment_without_stopping_session():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    controller = server._sessions[active_job_id].controller
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json(
+            "DELETE", f"{base}/api/sessions/prefix/{active_job_id}"
+        )
+
+        assert status_code == 400
+        assert "job_id" in payload["error"]["message"]
+        assert server.status(active_job_id)["active"] is True
+        assert controller.released is False
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_delete_rejects_query_shaped_collection_path_without_stopping_sessions():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    controller = server._sessions[active_job_id].controller
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("DELETE", f"{base}/api/sessions?bad=query")
+
+        assert status_code == 400
+        assert "session path" in payload["error"]["message"]
+        assert server.status(active_job_id)["active"] is True
+        assert controller.released is False
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_http_delete_rejects_parameterized_collection_path_without_stopping_sessions():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    controller = server._sessions[active_job_id].controller
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("DELETE", f"{base}/api/sessions;bad")
+
+        assert status_code == 400
+        assert "session path" in payload["error"]["message"]
+        assert server.status(active_job_id)["active"] is True
+        assert controller.released is False
     finally:
         httpd.shutdown()
         httpd.server_close()

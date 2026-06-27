@@ -71,6 +71,7 @@ This file defines how coding agents should work in this repository.
 - Keep lifecycle state truthful: a session is removed only after release succeeds; timed-out or failed stops must stay visible with state and error details.
 - Keep service daemon ownership safe: no stop, force-stop, or fallback path may signal a PID unless the auto-start ownership record verifies the running process.
 - Treat custom `job_id` values as reserved from the moment startup begins; duplicate starts must fail before another controller can begin keep-alive work.
+- Keep custom `job_id` validation centralized in `session_config.py`: only `None` means omitted/all-sessions, and custom IDs must be non-empty URL-path-safe strings before any session state changes.
 - Stop requests must not miss starting sessions; wait for startup to settle before returning `not found` or taking a stop-all snapshot.
 - Stop-all may release independent sessions concurrently, but must not duplicate release work for `stopping` sessions and must keep deterministic additive result fields.
 - Keep utilization backoff eco-safe: valid `busy_threshold` values are `-1` or `0..100`; when telemetry is unavailable and `busy_threshold >= 0`, controllers should sleep instead of running keepalive compute. Only `busy_threshold=-1` is the explicit unconditional mode.

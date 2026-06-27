@@ -118,6 +118,43 @@ def test_stop_requires_job_id_or_all():
     assert "Provide --job-id or use --all" in result.output
 
 
+def test_status_forwards_explicit_empty_job_id_to_service(monkeypatch):
+    called = {}
+
+    def fake_rpc(method, params, host, port):
+        called["rpc"] = (method, params, host, port)
+        raise RuntimeError("job_id must be a URL-path-safe non-empty string")
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status", "--job-id", ""])
+
+    assert result.exit_code == 1
+    assert "job_id must be a URL-path-safe non-empty string" in result.output
+    method, params, _host, _port = called["rpc"]
+    assert method == "status"
+    assert params == {"job_id": ""}
+
+
+def test_stop_forwards_explicit_empty_job_id_to_service(monkeypatch):
+    called = {}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        called["rpc"] = (method, params, host, port, timeout)
+        raise RuntimeError("job_id must be a URL-path-safe non-empty string")
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["stop", "--job-id", ""])
+
+    assert result.exit_code == 1
+    assert "job_id must be a URL-path-safe non-empty string" in result.output
+    method, params, _host, _port, timeout = called["rpc"]
+    assert method == "stop_keep"
+    assert params == {"job_id": ""}
+    assert timeout == 45.0
+
+
 def test_blocking_mode_remains_default(monkeypatch):
     called = {}
 

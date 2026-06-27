@@ -43,6 +43,7 @@ from keep_gpu.utilities.session_config import (
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
+    validate_job_id,
 )
 
 logger = setup_logger(__name__)
@@ -144,7 +145,9 @@ class KeepGPUServer:
         busy_threshold = validate_busy_threshold(busy_threshold)
         parse_vram_to_elements(vram)
 
-        job_id = job_id or str(uuid.uuid4())
+        job_id = validate_job_id(job_id)
+        if job_id is None:
+            job_id = str(uuid.uuid4())
         with self._sessions_lock:
             if job_id in self._sessions or job_id in self._starting_job_ids:
                 raise ValueError(f"job_id {job_id} already exists")
@@ -247,7 +250,8 @@ class KeepGPUServer:
             Dict with "stopped", "timed_out", "failed", and "errors" fields.
             If a specific job_id was not found, a "message" field explains the miss.
         """
-        if job_id:
+        job_id = validate_job_id(job_id)
+        if job_id is not None:
             with self._sessions_lock:
                 while job_id in self._starting_job_ids:
                     self._sessions_cond.wait()
@@ -366,7 +370,8 @@ class KeepGPUServer:
         return self._finalize_stop_result(result)
 
     def status(self, job_id: Optional[str] = None) -> Dict[str, Any]:
-        if job_id:
+        job_id = validate_job_id(job_id)
+        if job_id is not None:
             with self._sessions_lock:
                 session = self._sessions.get(job_id)
                 if not session:
@@ -483,6 +488,30 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
+    def _job_id_from_session_path(self, path: str) -> str:
+        prefix = "/api/sessions/"
+        if not path.startswith(prefix):
+            raise ValueError("Missing job_id")
+        encoded_job_id = path[len(prefix) :]
+        if encoded_job_id == "" or encoded_job_id.endswith("/"):
+            raise ValueError("Missing job_id")
+        if "/" in encoded_job_id:
+            raise ValueError("Invalid job_id path")
+        job_id = unquote(encoded_job_id)
+        validated = validate_job_id(job_id)
+        if validated is None:
+            raise ValueError("Missing job_id")
+        return validated
+
+    def _reject_session_route_components(self, parsed) -> bool:
+        if parsed.params or parsed.query or parsed.fragment:
+            self._json_response(
+                400,
+                {"error": {"message": "Invalid session path for job_id"}},
+            )
+            return True
+        return False
+
     def do_GET(self):  # noqa: N802
         parsed = urlparse(self.path)
         path = parsed.path
@@ -495,12 +524,17 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             self._json_response(200, server_ref.list_gpus())
             return
         if path == "/api/sessions":
+            if self._reject_session_route_components(parsed):
+                return
             self._json_response(200, server_ref.status())
             return
         if path.startswith("/api/sessions/"):
-            job_id = unquote(path.rsplit("/", 1)[-1]).strip()
-            if not job_id:
-                self._json_response(400, {"error": {"message": "Missing job_id"}})
+            if self._reject_session_route_components(parsed):
+                return
+            try:
+                job_id = self._job_id_from_session_path(path)
+            except ValueError as exc:
+                self._json_response(400, {"error": {"message": str(exc)}})
                 return
             self._json_response(200, server_ref.status(job_id=job_id))
             return
@@ -524,6 +558,8 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         try:
             payload = self._read_json_body()
             if path == "/api/sessions":
+                if self._reject_session_route_components(parsed):
+                    return
                 allowed_fields = {
                     "gpu_ids",
                     "vram",
@@ -584,12 +620,17 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
 
         if path == "/api/sessions":
+            if self._reject_session_route_components(parsed):
+                return
             self._json_response(200, server_ref.stop_keep(job_id=None))
             return
         if path.startswith("/api/sessions/"):
-            job_id = unquote(path.rsplit("/", 1)[-1]).strip()
-            if not job_id:
-                self._json_response(400, {"error": {"message": "Missing job_id"}})
+            if self._reject_session_route_components(parsed):
+                return
+            try:
+                job_id = self._job_id_from_session_path(path)
+            except ValueError as exc:
+                self._json_response(400, {"error": {"message": str(exc)}})
                 return
             self._json_response(200, server_ref.stop_keep(job_id=job_id))
             return

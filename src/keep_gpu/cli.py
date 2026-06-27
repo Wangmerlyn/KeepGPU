@@ -674,7 +674,7 @@ def status(
     try:
         result = _rpc_call(
             "status",
-            {"job_id": job_id} if job_id else {},
+            {} if job_id is None else {"job_id": job_id},
             host,
             port,
         )
@@ -700,7 +700,7 @@ def stop(
 ):
     """Stop one session or all sessions."""
     try:
-        if not job_id and not all_sessions:
+        if job_id is None and not all_sessions:
             raise RuntimeError("Provide --job-id or use --all.")
         if all_sessions:
             result = _stop_all_sessions_with_fallback(host, port)
