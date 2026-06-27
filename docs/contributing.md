@@ -67,7 +67,11 @@ expectations so you can get productive quickly and avoid surprises in CI.
 
 - Keep changesets focused; small commits are welcome.
 - For parallel agent work, branch from the latest `main` and place worktrees
-  under `.worktrees/`.
+  under `.worktrees/`:
+  ```bash
+  git fetch origin
+  git worktree add .worktrees/codex/my-fix -b codex/my-fix origin/main
+  ```
 - Add/adjust tests for new behavior; skip GPU-specific tests in CI by way of markers.
 - Update docs/README when behavior or interfaces change.
 - Run a local code review pass before merging; squash merge only after all

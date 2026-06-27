@@ -13,6 +13,7 @@ This file defines how coding agents should work in this repository.
 
 - Always branch from the latest `main` when starting a new feature or bug fix.
 - Use project-local worktrees under `.worktrees/` for parallel agent work.
+  - Example: `git worktree add .worktrees/codex/<topic> -b codex/<topic> origin/main`
 - Implement work on a new branch, validate changes, then open a PR to `main` for review.
 - Keep commits small and focused; avoid mixing unrelated changes.
 
