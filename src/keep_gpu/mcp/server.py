@@ -331,28 +331,27 @@ class KeepGPUServer:
         if job_id:
             with self._sessions_lock:
                 session = self._sessions.get(job_id)
-            if not session:
-                return {"active": False, "job_id": job_id}
-            return {
-                "active": True,
-                "job_id": job_id,
-                "params": session.params,
-                "state": session.state,
-                "last_error": session.last_error,
-            }
-        with self._sessions_lock:
-            session_items = list(self._sessions.items())
-        return {
-            "active_jobs": [
-                {
-                    "job_id": jid,
-                    "params": sess.params,
-                    "state": sess.state,
-                    "last_error": sess.last_error,
+                if not session:
+                    return {"active": False, "job_id": job_id}
+                return {
+                    "active": True,
+                    "job_id": job_id,
+                    "params": session.params,
+                    "state": session.state,
+                    "last_error": session.last_error,
                 }
-                for jid, sess in session_items
-            ]
-        }
+        with self._sessions_lock:
+            return {
+                "active_jobs": [
+                    {
+                        "job_id": jid,
+                        "params": sess.params,
+                        "state": sess.state,
+                        "last_error": sess.last_error,
+                    }
+                    for jid, sess in self._sessions.items()
+                ]
+            }
 
     def list_gpus(self) -> Dict[str, Any]:
         """Return detailed GPU info (id, name, memory, utilization)."""

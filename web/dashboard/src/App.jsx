@@ -5,6 +5,7 @@ import {
   formatSessionState,
   formatSessionStateDetail,
   formatStopResultMessage,
+  hasReleasableSessions,
   isSessionStopping
 } from "./lib/session"
 
@@ -15,7 +16,8 @@ const defaultForm = {
   busyThreshold: "25"
 }
 
-const REQUEST_TIMEOUT_MS = 10000
+const SERVER_RELEASE_TIMEOUT_MS = 10000
+export const REQUEST_TIMEOUT_MS = SERVER_RELEASE_TIMEOUT_MS + 5000
 
 async function api(method, path, body) {
   const controller = new AbortController()
@@ -112,6 +114,7 @@ export default function App() {
       averageUtilization
     }
   }, [gpus, sessions])
+  const canReleaseAny = hasReleasableSessions(sessions, stoppingIds, stoppingAll)
 
   async function refresh() {
     try {
@@ -311,7 +314,7 @@ export default function App() {
 
               <button
                 type="button"
-                disabled={stoppingAll || sessions.length === 0}
+                disabled={!canReleaseAny}
                 className="btn-muted"
                 onClick={stopAllSessions}
               >

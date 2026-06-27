@@ -5,6 +5,7 @@ import {
   formatSessionState,
   formatSessionStateDetail,
   formatStopResultMessage,
+  hasReleasableSessions,
   isSessionStopping,
   parseBusyThreshold,
   parseGpuIds,
@@ -70,6 +71,34 @@ describe("isSessionStopping", () => {
   it("treats backend stopping sessions as stopping after refresh", () => {
     expect(
       isSessionStopping({ job_id: "job-a", state: "stopping" }, new Set(), false)
+    ).toBe(true)
+  })
+})
+
+describe("hasReleasableSessions", () => {
+  it("disables stop-all when every tracked session is already stopping", () => {
+    expect(
+      hasReleasableSessions(
+        [
+          { job_id: "job-a", state: "stopping" },
+          { job_id: "job-b", state: "stopping" }
+        ],
+        new Set(),
+        false
+      )
+    ).toBe(false)
+  })
+
+  it("allows stop-all when a retained failed session can be retried", () => {
+    expect(
+      hasReleasableSessions(
+        [
+          { job_id: "job-a", state: "stopping" },
+          { job_id: "job-b", state: "stop_failed" }
+        ],
+        new Set(),
+        false
+      )
     ).toBe(true)
   })
 })

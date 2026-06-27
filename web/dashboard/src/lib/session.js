@@ -50,6 +50,13 @@ export function isSessionStopping(sessionOrJobId, stoppingIds, stoppingAll) {
   return stoppingAll || sessionOrJobId?.state === "stopping" || stoppingIds.has(jobId)
 }
 
+export function hasReleasableSessions(sessions, stoppingIds, stoppingAll) {
+  return (
+    !stoppingAll &&
+    sessions.some((session) => !isSessionStopping(session, stoppingIds, false))
+  )
+}
+
 export function formatSessionState(session) {
   switch (session?.state) {
     case undefined:

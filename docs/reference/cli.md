@@ -56,7 +56,7 @@ Starts a keep session and returns immediately with `job_id`.
 
 | Option | Description |
 | --- | --- |
-| `--job-id` | Optional session id; omit to list all active jobs. |
+| `--job-id` | Optional session id; omit to list all tracked sessions, including in-progress or failed releases. |
 | `--host`, `--port` | Service host/port. |
 
 ### `keep-gpu stop`
@@ -78,7 +78,7 @@ Stops local daemon process created by auto-start logic.
 | Option | Description |
 | --- | --- |
 | `--host`, `--port` | Service host/port. |
-| `--force` | Stop daemon even if active sessions exist. |
+| `--force` | Stop daemon even if tracked sessions still exist. |
 
 ## Service HTTP endpoints
 
@@ -86,7 +86,7 @@ Stops local daemon process created by auto-start logic.
 | --- | --- | --- |
 | `/health` | GET | Service liveness probe. |
 | `/api/gpus` | GET | GPU telemetry (`id`, `name`, memory, utilization; unsupported fields are `null`). |
-| `/api/sessions` | GET | Active keep sessions, including `state` and `last_error` for in-progress or failed stops. |
+| `/api/sessions` | GET | Tracked keep sessions, including `state` and `last_error` for in-progress or failed stops. |
 | `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active. |
 | `/api/sessions` | POST | Start session (`gpu_ids`, `vram`, `interval`, `busy_threshold`, `job_id`). |
 | `/api/sessions` | DELETE | Stop all sessions; returns `stopped`, `timed_out`, `failed`, and `errors`. |
