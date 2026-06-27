@@ -118,14 +118,6 @@ class RocmGPUController(BaseGPUController):
             logger.debug("ROCm utilization query failed: %s", exc)
             return None
 
-    @staticmethod
-    def _should_run_batch(gpu_utilization: Optional[int], busy_threshold: int) -> bool:
-        if busy_threshold < 0:
-            return True
-        if gpu_utilization is None:
-            return False
-        return gpu_utilization <= busy_threshold
-
     def _keep_loop(self) -> None:
         stop_evt = self._stop_evt
         if stop_evt is None:
@@ -188,9 +180,9 @@ class RocmGPUController(BaseGPUController):
                     self._run_batch(tensor)
                 else:
                     logger.debug(
-                        "rank %s: GPU utilization unavailable or busy (%s%%), sleeping",
+                        "rank %s: GPU utilization unavailable or busy (%s), sleeping",
                         self.rank,
-                        "n/a" if util is None else util,
+                        "n/a" if util is None else f"{util}%",
                     )
                 if stop_evt.wait(self.interval):
                     break

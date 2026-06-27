@@ -389,7 +389,10 @@ def main(
         -1,
         "--busy-threshold",
         "--util-threshold",
-        help="Max utilization threshold before backing off (blocking mode).",
+        help=(
+            "Back off when utilization is above this percent or telemetry is "
+            "unavailable; -1 disables utilization backoff (blocking mode)."
+        ),
     ),
 ):
     """Run blocking keep-alive mode when no subcommand is provided."""
@@ -433,7 +436,10 @@ def start(
         -1,
         "--busy-threshold",
         "--util-threshold",
-        help="Back off when utilization exceeds this percent.",
+        help=(
+            "Back off when utilization is above this percent or telemetry is "
+            "unavailable; -1 disables utilization backoff."
+        ),
     ),
     job_id: Optional[str] = typer.Option(
         None,

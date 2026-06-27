@@ -186,9 +186,9 @@ class CudaGPUController(BaseGPUController):
                 gpu_utilization = self._monitor_utilization(self.rank)
                 if not self._should_run_batch(gpu_utilization, self.busy_threshold):
                     logger.debug(
-                        "rank %s: GPU utilization unavailable or busy (%s%%), sleeping longer",
+                        "rank %s: GPU utilization unavailable or busy (%s), sleeping longer",
                         self.rank,
-                        "n/a" if gpu_utilization is None else gpu_utilization,
+                        "n/a" if gpu_utilization is None else f"{gpu_utilization}%",
                     )
                 else:
                     self._run_relu_batch(matrix)
@@ -238,12 +238,3 @@ class CudaGPUController(BaseGPUController):
         Returns None when telemetry is unavailable.
         """
         return get_gpu_utilization(rank)
-
-    @staticmethod
-    def _should_run_batch(gpu_utilization: Optional[int], busy_threshold: int) -> bool:
-        """Return whether keep-alive compute should run for this utilization."""
-        if busy_threshold < 0:
-            return True
-        if gpu_utilization is None:
-            return False
-        return gpu_utilization <= busy_threshold

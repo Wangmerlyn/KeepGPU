@@ -166,11 +166,3 @@ class MacMGPUController(BaseGPUController):
             self.rank,
             (toc - tic) * 1000 / max(1, self.iterations),
         )
-
-    @staticmethod
-    def _should_run_batch(gpu_utilization: Optional[int], busy_threshold: int) -> bool:
-        if busy_threshold < 0:
-            return True
-        if gpu_utilization is None:
-            return False
-        return gpu_utilization <= busy_threshold

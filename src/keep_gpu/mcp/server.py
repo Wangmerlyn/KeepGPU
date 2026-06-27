@@ -126,7 +126,9 @@ class KeepGPUServer:
             gpu_ids: GPU indices to target; None uses all available GPUs.
             vram: Human-readable VRAM size to keep (for example, "1GiB").
             interval: Seconds between controller checks/actions.
-            busy_threshold: Utilization above which the controller backs off.
+            busy_threshold: Backoff threshold. Non-negative values back off when
+                utilization is above this percent or telemetry is unavailable;
+                ``-1`` disables utilization backoff for unconditional keepalive.
             job_id: Optional session identifier; a UUID is generated if omitted.
 
         Returns:
