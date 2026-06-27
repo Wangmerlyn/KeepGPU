@@ -75,6 +75,10 @@ Methods:
 - `status(job_id?)`
 - `list_gpus()`
 
+For direct JSON-RPC calls, public validation failures and unknown parameters
+return JSON-RPC `-32602 Invalid params`. Unexpected server failures use
+`-32603 Internal error`.
+
 REST session creation accepts a JSON object body, not arrays or scalar values.
 Omitting `gpu_ids` means all GPUs visible to the service process. Omitting
 `busy_threshold` uses the eco-safe default `25`. Explicit GPU values are visible

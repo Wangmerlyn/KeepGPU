@@ -10,7 +10,12 @@ from typing import Any, cast
 
 import pytest
 
-from keep_gpu.mcp.server import KeepGPUServer, _handle_request
+from keep_gpu.mcp.server import (
+    JSONRPC_INTERNAL_ERROR,
+    JSONRPC_INVALID_PARAMS,
+    KeepGPUServer,
+    _handle_request,
+)
 
 
 class DummyController:
@@ -202,6 +207,7 @@ def test_jsonrpc_rejects_empty_gpu_ids():
     resp = _handle_request(server, req)
 
     assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
     assert "gpu_ids must select at least one GPU" in resp["error"]["message"]
     assert server.status()["active_jobs"] == []
 
@@ -217,6 +223,7 @@ def test_jsonrpc_rejects_duplicate_gpu_ids():
     resp = _handle_request(server, req)
 
     assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
     assert "gpu_ids must not contain duplicate values" in resp["error"]["message"]
     assert server.status()["active_jobs"] == []
 
@@ -232,6 +239,7 @@ def test_jsonrpc_rejects_non_positive_interval():
     resp = _handle_request(server, req)
 
     assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
     assert "interval must be positive" in resp["error"]["message"]
     assert server.status()["active_jobs"] == []
 
@@ -247,6 +255,7 @@ def test_jsonrpc_rejects_nan_interval_without_creating_session():
     resp = _handle_request(server, req)
 
     assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
     assert "interval must be finite and positive" in resp["error"]["message"]
     assert server.status()["active_jobs"] == []
 
@@ -262,10 +271,61 @@ def test_jsonrpc_rejects_busy_threshold_above_percent_range():
     resp = _handle_request(server, req)
 
     assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
     assert (
         "busy_threshold must be -1 or an integer between 0 and 100"
         in resp["error"]["message"]
     )
+    assert server.status()["active_jobs"] == []
+
+
+def test_jsonrpc_rejects_invalid_vram_type_without_creating_session():
+    server = make_server()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"gpu_ids": [0], "vram": []},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
+    assert "vram_to_keep must be str or int bytes" in resp["error"]["message"]
+    assert server.status()["active_jobs"] == []
+
+
+def test_jsonrpc_rejects_unknown_direct_method_param_without_internal_error():
+    server = make_server()
+    req = {
+        "id": 1,
+        "method": "status",
+        "params": {"unexpected": True},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
+    assert "Unknown params for status" in resp["error"]["message"]
+
+
+def test_jsonrpc_start_keep_runtime_value_error_remains_internal_error():
+    def failing_factory(**kwargs):
+        raise ValueError("controller startup failed")
+
+    server = KeepGPUServer(controller_factory=cast(Any, failing_factory))
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"gpu_ids": [0]},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INTERNAL_ERROR
+    assert "controller startup failed" in resp["error"]["message"]
     assert server.status()["active_jobs"] == []
 
 
@@ -337,6 +397,7 @@ def test_jsonrpc_stop_keep_rejects_empty_job_id_without_stopping_sessions():
     resp = _handle_request(server, req)
 
     assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
     assert "job_id" in resp["error"]["message"]
     assert server.status(active_job_id)["active"] is True
     assert controller.released is False
