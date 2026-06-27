@@ -9,6 +9,11 @@ def test_parse_gpu_ids_rejects_negative_values():
         cli._parse_gpu_ids("0,-1")
 
 
+def test_parse_gpu_ids_rejects_duplicate_values():
+    with pytest.raises(typer.BadParameter, match="duplicate values"):
+        cli._parse_gpu_ids("0,1,0")
+
+
 def test_apply_legacy_threshold_none():
     vram, threshold, mode = cli._apply_legacy_threshold("1GiB", None, -1)
     assert vram == "1GiB"

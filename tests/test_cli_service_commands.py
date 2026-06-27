@@ -149,6 +149,14 @@ def test_blocking_mode_rejects_non_positive_interval(monkeypatch):
     assert "interval must be positive" in result.output
 
 
+def test_blocking_mode_rejects_duplicate_gpu_ids():
+    result = runner.invoke(cli.app, ["--gpu-ids", "0,1,0"])
+
+    assert result.exit_code == 1
+    assert "gpu_ids must not contain duplicate values" in result.output
+    assert "Traceback" not in result.output
+
+
 def test_start_prints_dashboard_and_stop_hints(monkeypatch):
     def fake_ensure(host, port, auto_start=True):
         return True
