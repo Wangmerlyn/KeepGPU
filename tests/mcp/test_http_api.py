@@ -121,7 +121,7 @@ def test_http_session_lifecycle():
 
 def test_http_stop_timeout_keeps_session_visible(monkeypatch):
     server = make_server()
-    monkeypatch.setattr(server, "_release_with_timeout", lambda controller: False)
+    monkeypatch.setattr(server, "_release_with_timeout", lambda controller, **_: False)
 
     class _Server(TCPServer):
         allow_reuse_address = True

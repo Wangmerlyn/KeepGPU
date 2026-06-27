@@ -43,9 +43,12 @@ Methods:
 {"stopped": ["job-a"], "timed_out": [], "failed": [], "errors": {}}
 ```
 
-If a release times out or fails, the session remains visible in `status` with
-`state` set to `stopping` or `stop_failed` and `last_error` describing what
-happened. A job id only appears in `stopped` after cleanup has completed.
+If a release times out, the session remains visible in `status` with
+`state="stopping"` until the background release finishes. If that background
+release later succeeds, the session is removed; if it fails, the session remains
+visible with `state="stop_failed"` and `last_error` describing what happened. A
+job id only appears in `stopped` after cleanup has completed within the stop
+request timeout.
 
 ## REST quick examples
 

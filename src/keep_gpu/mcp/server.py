@@ -72,21 +72,40 @@ class KeepGPUServer:
     def _release_with_timeout(
         controller: GlobalGPUController,
         timeout_s: float = 10.0,
+        on_late_result: Optional[Callable[[Optional[Exception]], None]] = None,
     ) -> bool:
         done = threading.Event()
+        timed_out = threading.Event()
+        callback_called = threading.Event()
         error_holder: Dict[str, Exception] = {}
 
+        def _notify_late_result(error: Optional[Exception]) -> None:
+            if on_late_result is None or callback_called.is_set():
+                return
+            callback_called.set()
+            try:
+                on_late_result(error)
+            except Exception as exc:  # pragma: no cover - defensive callback guard
+                logger.warning("Late release callback failed: %s", exc)
+
         def _release() -> None:
+            error: Optional[Exception] = None
             try:
                 controller.release()
             except Exception as exc:  # pragma: no cover - defensive
+                error = exc
                 error_holder["error"] = exc
             finally:
                 done.set()
+                if timed_out.is_set():
+                    _notify_late_result(error)
 
         thread = threading.Thread(target=_release, daemon=True)
         thread.start()
         if not done.wait(timeout_s):
+            timed_out.set()
+            if done.is_set():
+                _notify_late_result(error_holder.get("error"))
             return False
         if "error" in error_holder:
             raise error_holder["error"]
@@ -179,6 +198,20 @@ class KeepGPUServer:
                 current.state = state
                 current.last_error = last_error
 
+    def _finalize_late_release(
+        self, job_id: str, session: Session, error: Optional[Exception]
+    ) -> None:
+        if error is None:
+            with self._sessions_lock:
+                if self._sessions.get(job_id) is session:
+                    self._sessions.pop(job_id, None)
+            logger.info("Completed delayed release for keep session %s", job_id)
+            return
+
+        message = str(error)
+        self._mark_session(job_id, session, "stop_failed", message)
+        logger.warning("Delayed release failed for keep session %s: %s", job_id, error)
+
     def stop_keep(
         self, job_id: Optional[str] = None, quiet: bool = False
     ) -> Dict[str, Any]:
@@ -205,7 +238,12 @@ class KeepGPUServer:
             if session:
                 result = self._empty_stop_result()
                 try:
-                    released = self._release_with_timeout(session.controller)
+                    released = self._release_with_timeout(
+                        session.controller,
+                        on_late_result=lambda error: self._finalize_late_release(
+                            job_id, session, error
+                        ),
+                    )
                 except Exception as exc:
                     error = str(exc)
                     self._mark_session(job_id, session, "stop_failed", error)
@@ -245,7 +283,12 @@ class KeepGPUServer:
         result = self._empty_stop_result()
         for job_id, session in session_items:
             try:
-                released = self._release_with_timeout(session.controller)
+                released = self._release_with_timeout(
+                    session.controller,
+                    on_late_result=lambda error, jid=job_id, sess=session: self._finalize_late_release(
+                        jid, sess, error
+                    ),
+                )
             except Exception as exc:
                 error = str(exc)
                 self._mark_session(job_id, session, "stop_failed", error)

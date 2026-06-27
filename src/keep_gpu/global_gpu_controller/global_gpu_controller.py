@@ -116,7 +116,14 @@ class GlobalGPUController:
         for t in threads:
             t.join()
         if errors:
-            details = "; ".join(f"rank {rank}: {exc}" for rank, exc in errors)
+            details = "; ".join(
+                (
+                    str(exc)
+                    if str(exc).startswith(f"rank {rank}:")
+                    else f"rank {rank}: {exc}"
+                )
+                for rank, exc in errors
+            )
             raise RuntimeError(f"Failed to release GPU controllers: {details}")
 
     def __enter__(self) -> "GlobalGPUController":

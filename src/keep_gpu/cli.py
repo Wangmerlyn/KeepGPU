@@ -296,6 +296,9 @@ def _stop_all_sessions_with_fallback(host: str, port: int) -> Dict[str, Any]:
             _stop_service_process(host, port)
             return {
                 "stopped": [],
+                "timed_out": [],
+                "failed": [],
+                "errors": {},
                 "message": (
                     "Service stop RPC timed out; force-stopped local daemon "
                     f"pid={managed_pid}. Reserved VRAM should be released by process exit."

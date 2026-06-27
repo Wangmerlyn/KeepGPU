@@ -30,8 +30,8 @@ Make start/stop/release state truthful across the Python controller API, JSON-RP
 - [x] Implement dashboard stop outcome helper and wire it into session/all-session release messages.
 - [x] Update AGENTS.md and docs for lifecycle state semantics.
 - [x] Run targeted tests, full tests, dashboard tests/build, docs build, and pre-commit.
-  - `PYTHONPATH=$PWD/src pytest tests/global_controller tests/single_gpu_controller tests/mcp -q`: 25 passed, 1 skipped.
-  - `PYTHONPATH=$PWD/src pytest tests -q`: 70 passed, 12 skipped.
+  - `PYTHONPATH=$PWD/src pytest tests/global_controller tests/single_gpu_controller tests/mcp tests/test_cli_service_commands.py -q`: 43 passed, 1 skipped.
+  - `PYTHONPATH=$PWD/src pytest tests -q`: 72 passed, 12 skipped.
   - `npm test` in `web/dashboard`: 11 passed.
   - `npm run build` in `web/dashboard`: passed and refreshed packaged static dashboard assets.
   - `PYTHONPATH=$PWD/src mkdocs build`: passed with existing Material warning and unnav'd docs notices.

@@ -1,3 +1,5 @@
+import threading
+import time
 from typing import Any, cast
 
 from keep_gpu.mcp.server import KeepGPUServer, _handle_request
@@ -25,6 +27,15 @@ def dummy_factory(**kwargs):
 
 def make_server() -> KeepGPUServer:
     return KeepGPUServer(controller_factory=cast(Any, dummy_factory))
+
+
+def _wait_until(condition, timeout_s=1.0):
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if condition():
+            return True
+        time.sleep(0.01)
+    return condition()
 
 
 def test_start_status_stop_cycle():
@@ -132,7 +143,7 @@ def test_stop_keep_returns_timeout_payload(monkeypatch):
     server = make_server()
     job_id = server.start_keep()["job_id"]
 
-    monkeypatch.setattr(server, "_release_with_timeout", lambda controller: False)
+    monkeypatch.setattr(server, "_release_with_timeout", lambda controller, **_: False)
 
     result = server.stop_keep(job_id)
     assert result["stopped"] == []
@@ -148,7 +159,7 @@ def test_stop_keep_returns_failed_payload_and_retains_session(monkeypatch):
     server = make_server()
     job_id = server.start_keep()["job_id"]
 
-    def fail_release(controller):
+    def fail_release(controller, **_):
         raise RuntimeError("release exploded")
 
     monkeypatch.setattr(server, "_release_with_timeout", fail_release)
@@ -172,7 +183,7 @@ def test_stop_all_tracks_timeouts(monkeypatch):
     monkeypatch.setattr(
         server,
         "_release_with_timeout",
-        lambda controller: next(outcomes),
+        lambda controller, **_: next(outcomes),
     )
 
     result = server.stop_keep()
@@ -184,13 +195,72 @@ def test_stop_all_tracks_timeouts(monkeypatch):
     assert status_b["state"] == "stopping"
 
 
+def test_timed_out_stop_removes_session_after_background_release_succeeds(monkeypatch):
+    release_gate = threading.Event()
+
+    class SlowSuccessController(DummyController):
+        def release(self):
+            release_gate.wait(timeout=1.0)
+            self.released = True
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: SlowSuccessController(**kwargs))
+    )
+    original_release_with_timeout = server._release_with_timeout
+
+    def short_timeout(controller, **kwargs):
+        kwargs["timeout_s"] = 0.01
+        return original_release_with_timeout(controller, **kwargs)
+
+    monkeypatch.setattr(server, "_release_with_timeout", short_timeout)
+    job_id = server.start_keep()["job_id"]
+
+    result = server.stop_keep(job_id)
+
+    assert result["timed_out"] == [job_id]
+    assert server.status(job_id)["state"] == "stopping"
+
+    release_gate.set()
+    assert _wait_until(lambda: server.status(job_id)["active"] is False)
+
+
+def test_timed_out_stop_marks_late_background_release_failure(monkeypatch):
+    release_gate = threading.Event()
+
+    class SlowFailController(DummyController):
+        def release(self):
+            release_gate.wait(timeout=1.0)
+            raise RuntimeError("late release failed")
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: SlowFailController(**kwargs))
+    )
+    original_release_with_timeout = server._release_with_timeout
+
+    def short_timeout(controller, **kwargs):
+        kwargs["timeout_s"] = 0.01
+        return original_release_with_timeout(controller, **kwargs)
+
+    monkeypatch.setattr(server, "_release_with_timeout", short_timeout)
+    job_id = server.start_keep()["job_id"]
+
+    result = server.stop_keep(job_id)
+
+    assert result["timed_out"] == [job_id]
+    release_gate.set()
+    assert _wait_until(lambda: server.status(job_id).get("state") == "stop_failed")
+    status = server.status(job_id)
+    assert status["active"] is True
+    assert status["last_error"] == "late release failed"
+
+
 def test_stop_all_reports_failures_and_continues(monkeypatch):
     server = make_server()
     job_a = server.start_keep(gpu_ids=[0])["job_id"]
     job_b = server.start_keep(gpu_ids=[1])["job_id"]
     job_c = server.start_keep(gpu_ids=[2])["job_id"]
 
-    def release_outcome(controller):
+    def release_outcome(controller, **_):
         if controller.gpu_ids == [1]:
             raise RuntimeError("release failed")
         return True

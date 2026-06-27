@@ -1,3 +1,5 @@
+import json
+
 from typer.testing import CliRunner
 
 from keep_gpu import cli
@@ -207,6 +209,11 @@ def test_stop_all_fallback_force_stops_managed_daemon(monkeypatch):
 
     assert result.exit_code == 0
     assert "force-stopped local daemon" in result.output
+    payload = json.loads(json.loads(result.output))
+    assert payload["stopped"] == []
+    assert payload["timed_out"] == []
+    assert payload["failed"] == []
+    assert payload["errors"] == {}
 
 
 def test_service_stop_force_skips_rpc(monkeypatch):
