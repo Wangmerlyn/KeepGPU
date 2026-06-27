@@ -1,3 +1,4 @@
+import math
 import re
 from typing import Any, List, Optional, Union
 
@@ -32,7 +33,9 @@ def validate_gpu_ids(gpu_ids: Any) -> Optional[List[int]]:
 
 def validate_interval(interval: Any) -> Union[int, float]:
     """Validate public interval input in seconds."""
-    if not _is_plain_number(interval) or interval <= 0:
+    if not _is_plain_number(interval) or not math.isfinite(interval):
+        raise ValueError("interval must be finite and positive")
+    if interval <= 0:
         raise ValueError("interval must be positive")
     return interval
 

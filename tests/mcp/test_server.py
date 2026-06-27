@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import subprocess
 import sys
@@ -232,6 +233,21 @@ def test_jsonrpc_rejects_non_positive_interval():
 
     assert "error" in resp
     assert "interval must be positive" in resp["error"]["message"]
+    assert server.status()["active_jobs"] == []
+
+
+def test_jsonrpc_rejects_nan_interval_without_creating_session():
+    server = make_server()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"gpu_ids": [0], "interval": math.nan},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert "interval must be finite and positive" in resp["error"]["message"]
     assert server.status()["active_jobs"] == []
 
 

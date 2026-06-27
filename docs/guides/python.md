@@ -24,7 +24,7 @@ train_model()                     # GPU memory is released automatically
   utilization resolves `ROCR_VISIBLE_DEVICES` as the base mask and one matching
   `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm
   SMI. If a mapping cannot be resolved, utilization is treated as unavailable.
-- `interval` is the positive pause between keep-alive bursts inside the background thread.
+- `interval` is the finite positive pause between keep-alive bursts inside the background thread.
 - `vram_to_keep` accepts integer bytes or human-readable strings (`parse_size` handles it).
 
 ## Start/stop manually
