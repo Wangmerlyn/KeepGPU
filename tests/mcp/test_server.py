@@ -960,6 +960,22 @@ def test_mcp_requests_require_id():
     assert resp["error"]["message"] == "Requests must include an id."
 
 
+@pytest.mark.parametrize(
+    "invalid_id",
+    [True, False, None, 1.5, {"unexpected": "object"}, ["array-id"]],
+)
+def test_mcp_invalid_request_id_types_return_null_id(invalid_id):
+    server = make_server()
+    req = {"jsonrpc": "2.0", "id": invalid_id, "method": "tools/list"}
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] is None
+    assert resp["error"]["code"] == -32600
+    assert resp["error"]["message"] == "Requests must include an id."
+
+
 def test_mcp_unrecognized_notification_has_no_response():
     server = make_server()
     req = {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {}}
