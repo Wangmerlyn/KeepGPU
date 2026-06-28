@@ -142,20 +142,27 @@ def test_release_cleans_cache_after_timed_out_worker_later_exits(
 
 @pytest.mark.parametrize("stop_evt", [None, threading.Event()])
 @pytest.mark.parametrize(
-    ("controller_cls", "cache_path"),
+    ("controller_cls", "cache_path", "extra_attrs"),
     [
         (
             CudaGPUController,
             "keep_gpu.single_gpu_controller.cuda_gpu_controller.torch.cuda.empty_cache",
+            {},
+        ),
+        (
+            RocmGPUController,
+            "keep_gpu.single_gpu_controller.rocm_gpu_controller.torch.cuda.empty_cache",
+            {"_rocm_smi": None},
         ),
         (
             MacMGPUController,
             "keep_gpu.single_gpu_controller.macm_gpu_controller.torch.mps.empty_cache",
+            {},
         ),
     ],
 )
-def test_release_cleans_dead_runtime_failed_cuda_mps_worker(
-    monkeypatch, controller_cls, cache_path, stop_evt
+def test_release_cleans_dead_runtime_failed_worker(
+    monkeypatch, controller_cls, cache_path, extra_attrs, stop_evt
 ):
     controller = controller_cls.__new__(controller_cls)
     controller.rank = 0
@@ -165,6 +172,8 @@ def test_release_cleans_dead_runtime_failed_cuda_mps_worker(
     controller._thread = thread
     controller._stop_evt = stop_evt
     controller._failure_exc = RuntimeError("worker failed")
+    for name, value in extra_attrs.items():
+        setattr(controller, name, value)
 
     cache_calls = []
     monkeypatch.setattr(cache_path, lambda: cache_calls.append("empty_cache"))
