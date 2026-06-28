@@ -111,6 +111,15 @@ class MacMGPUController(BaseGPUController):
         tensor = None
         while not stop_evt.is_set():
             try:
+                if not self._should_run_batch(None, self.busy_threshold):
+                    logger.debug(
+                        "rank %s: MPS utilization unavailable; deferring allocation because busy_threshold=%s",
+                        self.rank,
+                        self.busy_threshold,
+                    )
+                    if stop_evt.wait(self.interval):
+                        return
+                    continue
                 tensor = torch.rand(
                     num_elements,
                     device=self.device,

@@ -143,6 +143,16 @@ class RocmGPUController(BaseGPUController):
             return
         while not stop_evt.is_set():
             try:
+                util = self._query_utilization()
+                if not self._should_run_batch(util, self.busy_threshold):
+                    logger.debug(
+                        "rank %s: GPU utilization unavailable or busy (%s), deferring allocation",
+                        self.rank,
+                        "n/a" if util is None else f"{util}%",
+                    )
+                    if stop_evt.wait(self.interval):
+                        return
+                    continue
                 tensor = torch.rand(
                     num_elements,
                     device=self.device,
