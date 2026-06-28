@@ -180,6 +180,29 @@ def test_global_runtime_error_reports_first_child_allocation_failure():
     assert str(error) == "rank 1: allocation retries exhausted"
 
 
+def test_global_runtime_error_preserves_rank_prefixed_child_failure():
+    child_error = RuntimeError(
+        "rank 0: unexpected CUDA keep worker failure: device-side assert"
+    )
+
+    class DummyController:
+        rank = 0
+
+        @staticmethod
+        def allocation_status():
+            return child_error
+
+    controller = GlobalGPUController.__new__(GlobalGPUController)
+    controller.controllers = [DummyController()]
+
+    error = controller.runtime_error()
+
+    assert error is child_error
+    assert (
+        str(error) == "rank 0: unexpected CUDA keep worker failure: device-side assert"
+    )
+
+
 def test_global_runtime_error_ignores_healthy_or_unreported_controllers():
     class ControllerWithoutHealthHook:
         rank = 0
