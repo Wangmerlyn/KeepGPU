@@ -717,6 +717,18 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _json_runtime_error(self, method: str, path: str, exc: Exception) -> None:
+        logger.exception("%s request failed for path %s", method, path)
+        self._json_response(
+            500,
+            {
+                "error": {
+                    "message": str(exc),
+                    "type": exc.__class__.__name__,
+                }
+            },
+        )
+
     def _read_json_body(self) -> Any:
         length = int(self.headers.get("content-length", "0"))
         if length > MAX_JSON_BODY_BYTES:
@@ -780,35 +792,37 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802
         parsed = urlparse(self.path)
         path = parsed.path
-        server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
-
-        if path == "/health":
-            self._json_response(200, {"ok": True})
-            return
-        if path == "/api/gpus":
-            self._json_response(200, server_ref.list_gpus())
-            return
-        if path == "/api/sessions":
-            if self._reject_session_route_components(parsed):
+        try:
+            server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
+            if path == "/health":
+                self._json_response(200, {"ok": True})
                 return
-            self._json_response(200, server_ref.status())
-            return
-        if path.startswith("/api/sessions/"):
-            if self._reject_session_route_components(parsed):
+            if path == "/api/gpus":
+                self._json_response(200, server_ref.list_gpus())
                 return
-            try:
-                job_id = self._job_id_from_session_path(path)
-            except ValueError as exc:
-                self._json_response(400, {"error": {"message": str(exc)}})
+            if path == "/api/sessions":
+                if self._reject_session_route_components(parsed):
+                    return
+                self._json_response(200, server_ref.status())
                 return
-            self._json_response(200, server_ref.status(job_id=job_id))
-            return
+            if path.startswith("/api/sessions/"):
+                if self._reject_session_route_components(parsed):
+                    return
+                try:
+                    job_id = self._job_id_from_session_path(path)
+                except ValueError as exc:
+                    self._json_response(400, {"error": {"message": str(exc)}})
+                    return
+                self._json_response(200, server_ref.status(job_id=job_id))
+                return
 
-        if path.startswith("/api/"):
-            self._json_response(404, {"error": {"message": "Unknown endpoint"}})
-            return
+            if path.startswith("/api/"):
+                self._json_response(404, {"error": {"message": "Unknown endpoint"}})
+                return
 
-        self._serve_static(path)
+            self._serve_static(path)
+        except Exception as exc:  # noqa: BLE001  # pragma: no cover - defensive
+            self._json_runtime_error("GET", path, exc)
 
     def do_POST(self):  # noqa: N802
         """
@@ -819,35 +833,60 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         """
         parsed = urlparse(self.path)
         path = parsed.path
-        server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
         try:
-            payload = self._read_json_body()
-            if path == "/api/sessions":
-                if self._reject_session_route_components(parsed):
-                    return
-                if not isinstance(payload, dict):
-                    raise ValueError("JSON body must be an object")
-                allowed_fields = {
-                    "gpu_ids",
-                    "vram",
-                    "interval",
-                    "busy_threshold",
-                    "job_id",
-                }
-                unknown_fields = set(payload) - allowed_fields
-                if unknown_fields:
-                    raise ValueError(
-                        f"Unknown request fields: {sorted(unknown_fields)}"
-                    )
+            if path not in ("/api/sessions", "/", "/rpc"):
+                self._json_response(404, {"error": {"message": "Unknown endpoint"}})
+                return
 
-                safe_payload = {
-                    key: value
-                    for key, value in payload.items()
-                    if key in allowed_fields
-                }
-                gpu_ids = safe_payload.get("gpu_ids")
+            server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
+            if path == "/api/sessions" and self._reject_session_route_components(
+                parsed
+            ):
+                return
+
+            try:
+                payload = self._read_json_body()
+            except (
+                json.JSONDecodeError,
+                ValueError,
+                UnicodeDecodeError,
+                TypeError,
+            ) as exc:
+                self._json_response(400, {"error": {"message": f"Bad request: {exc}"}})
+                return
+
+            if path == "/api/sessions":
+                try:
+                    if not isinstance(payload, dict):
+                        raise ValueError("JSON body must be an object")
+                    allowed_fields = {
+                        "gpu_ids",
+                        "vram",
+                        "interval",
+                        "busy_threshold",
+                        "job_id",
+                    }
+                    unknown_fields = set(payload) - allowed_fields
+                    if unknown_fields:
+                        raise ValueError(
+                            f"Unknown request fields: {sorted(unknown_fields)}"
+                        )
+
+                    safe_payload = {
+                        key: value
+                        for key, value in payload.items()
+                        if key in allowed_fields
+                    }
+                    gpu_ids = safe_payload.get("gpu_ids")
+                    if gpu_ids is not None:
+                        validate_gpu_ids(gpu_ids)
+                except (ValueError, TypeError) as exc:
+                    self._json_response(
+                        400, {"error": {"message": f"Bad request: {exc}"}}
+                    )
+                    return
+
                 if gpu_ids is not None:
-                    validate_gpu_ids(gpu_ids)
                     visible_gpus = server_ref.list_gpus().get("gpus", [])
                     listed_ids = {
                         gpu["id"]
@@ -857,16 +896,32 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                     invalid_ids = [
                         gpu_id for gpu_id in gpu_ids if gpu_id not in listed_ids
                     ]
-                    if visible_gpus and invalid_ids:
-                        allowed_ids = ", ".join(
-                            str(gpu_id) for gpu_id in sorted(listed_ids)
+                    if invalid_ids:
+                        allowed_ids = (
+                            ", ".join(str(gpu_id) for gpu_id in sorted(listed_ids))
+                            or "none"
                         )
-                        raise ValueError(
-                            "gpu_ids must match listed visible GPU IDs"
-                            f" ({allowed_ids}); got {invalid_ids}"
+                        self._json_response(
+                            400,
+                            {
+                                "error": {
+                                    "message": (
+                                        "Bad request: gpu_ids must match listed "
+                                        f"visible GPU IDs ({allowed_ids}); got "
+                                        f"{invalid_ids}"
+                                    )
+                                }
+                            },
                         )
+                        return
 
-                result = server_ref.start_keep(**safe_payload)
+                try:
+                    result = server_ref.start_keep(**safe_payload)
+                except SessionInputError as exc:
+                    self._json_response(
+                        400, {"error": {"message": f"Bad request: {exc}"}}
+                    )
+                    return
                 self._json_response(200, result)
                 return
 
@@ -878,43 +933,32 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                     return
                 self._json_response(200, response)
                 return
-
-            self._json_response(404, {"error": {"message": "Unknown endpoint"}})
-        except (json.JSONDecodeError, ValueError, UnicodeDecodeError, TypeError) as exc:
-            self._json_response(400, {"error": {"message": f"Bad request: {exc}"}})
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.exception("POST request failed for path %s", path)
-            self._json_response(
-                500,
-                {
-                    "error": {
-                        "message": str(exc),
-                        "type": exc.__class__.__name__,
-                    }
-                },
-            )
+        except Exception as exc:  # noqa: BLE001  # pragma: no cover - defensive
+            self._json_runtime_error("POST", path, exc)
 
     def do_DELETE(self):  # noqa: N802
         parsed = urlparse(self.path)
         path = parsed.path
-        server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
-
-        if path == "/api/sessions":
-            if self._reject_session_route_components(parsed):
+        try:
+            server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
+            if path == "/api/sessions":
+                if self._reject_session_route_components(parsed):
+                    return
+                self._json_response(200, server_ref.stop_keep(job_id=None))
                 return
-            self._json_response(200, server_ref.stop_keep(job_id=None))
-            return
-        if path.startswith("/api/sessions/"):
-            if self._reject_session_route_components(parsed):
+            if path.startswith("/api/sessions/"):
+                if self._reject_session_route_components(parsed):
+                    return
+                try:
+                    job_id = self._job_id_from_session_path(path)
+                except ValueError as exc:
+                    self._json_response(400, {"error": {"message": str(exc)}})
+                    return
+                self._json_response(200, server_ref.stop_keep(job_id=job_id))
                 return
-            try:
-                job_id = self._job_id_from_session_path(path)
-            except ValueError as exc:
-                self._json_response(400, {"error": {"message": str(exc)}})
-                return
-            self._json_response(200, server_ref.stop_keep(job_id=job_id))
-            return
-        self._json_response(404, {"error": {"message": "Unknown endpoint"}})
+            self._json_response(404, {"error": {"message": "Unknown endpoint"}})
+        except Exception as exc:  # noqa: BLE001  # pragma: no cover - defensive
+            self._json_runtime_error("DELETE", path, exc)
 
     def log_message(self, format, *args):  # noqa: A003
         """Suppress default request logging."""
