@@ -23,7 +23,7 @@ These options apply when you run `keep-gpu` without subcommands.
 | `--interval INTEGER` | seconds | Finite positive sleep duration between utilization checks and keep-alive batches. |
 | `--gpu-ids TEXT` | comma-separated unique non-negative ints | Subset of visible device ordinals to guard (for example, `0,2`). Omit to use all visible GPUs; startup fails if that resolves to none or if an explicit ordinal is out of range. |
 | `--vram TEXT` | human size or bare bytes | Amount of memory each GPU controller allocates (`512MB`, `1GiB`, `1073741824`). |
-| `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | `0..100` backs off when utilization is above this value or unavailable; `-1` disables utilization backoff. |
+| `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | `0..100` backs off before allocation/compute when utilization is above this value or unavailable; `-1` disables utilization backoff. |
 | `--threshold TEXT` | deprecated | Legacy alias: numeric values map to busy-threshold, size strings map to vram. |
 
 ## Service mode

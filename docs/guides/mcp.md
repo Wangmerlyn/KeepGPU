@@ -162,7 +162,8 @@ available. Mac M series devices report best-effort MPS memory counters and use
 `null` for unsupported fields such as utilization.
 Valid `busy_threshold` values are `-1` or `0..100`, and omitted API values
 default to `25`. When utilization is unavailable and `busy_threshold` is
-non-negative, controllers sleep instead of running keepalive compute;
+non-negative, controllers sleep instead of allocating keep tensors or running
+keepalive compute;
 `busy_threshold=-1` is the explicit unconditional mode.
 Stop controls show timed-out or failed releases instead of claiming success when
 the backend keeps a session visible for follow-up cleanup. Retained session cards

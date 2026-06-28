@@ -171,6 +171,16 @@ class CudaGPUController(BaseGPUController):
         matrix = None
         while not stop_evt.is_set():
             try:
+                gpu_utilization = self._monitor_utilization(self.rank)
+                if not self._should_run_batch(gpu_utilization, self.busy_threshold):
+                    logger.debug(
+                        "rank %s: GPU utilization unavailable or busy (%s), deferring allocation",
+                        self.rank,
+                        "n/a" if gpu_utilization is None else f"{gpu_utilization}%",
+                    )
+                    if stop_evt.wait(self.interval):
+                        return
+                    continue
                 matrix = torch.rand(
                     num_elements,
                     device=self.device,

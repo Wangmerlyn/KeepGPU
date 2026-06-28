@@ -18,8 +18,9 @@ querying ROCm SMI. Unresolved mappings report unavailable utilization instead
 of falling back to a possibly wrong physical device.
 
 Public controller, CLI, REST, JSON-RPC, and MCP defaults use
-`busy_threshold=25`. Pass `busy_threshold=-1` only when you intentionally want
-unconditional keepalive compute without utilization backoff.
+`busy_threshold=25`, so busy or unavailable telemetry sleeps before allocating
+keep tensors or running compute. Pass `busy_threshold=-1` only when you
+intentionally want unconditional keepalive compute without utilization backoff.
 
 For service session IDs, `job_id=None` is the only omitted/all-sessions
 sentinel. Custom IDs must be non-empty strings containing only letters, digits,
