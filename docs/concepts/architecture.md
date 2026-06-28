@@ -75,7 +75,9 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
    or `0..100`; `busy_threshold=-1` is the explicit unconditional mode.
 6. When you call `release()` (or exit the context), every worker sets a stop
    event, joins the thread, and clears the device cache. Release attempts every
-   worker and then raises a summary if any worker failed to stop.
+   worker and then raises a summary if any worker failed to stop. If a timed-out
+   worker exits before a later release attempt, that later release still clears
+   the backend cache before dropping stale thread state.
 
 ## Why lightweight elementwise batches?
 
