@@ -20,7 +20,7 @@ These options apply when you run `keep-gpu` without subcommands.
 
 | Option | Type | Description |
 | --- | --- | --- |
-| `--interval INTEGER` | seconds | Finite positive sleep duration between utilization checks and keep-alive batches; values above the Python runtime wait limit are rejected. |
+| `--interval NUMBER` | seconds | Finite positive sleep duration, including fractional values, between utilization checks and keep-alive batches; values above the Python runtime wait limit are rejected. |
 | `--gpu-ids TEXT` | comma-separated unique non-negative ints | Subset of visible device ordinals to guard (for example, `0,2`). Omit to use all visible GPUs; explicit empty or whitespace-only values are invalid. Startup fails if all-visible resolution finds no GPUs or if an explicit ordinal is out of range. |
 | `--vram TEXT` | human size or bare bytes | Amount of memory each GPU controller allocates (`512MB`, `1GiB`, `1073741824`); byte-equivalent values above 1 PiB are rejected. |
 | `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | `0..100` backs off before allocation/compute when utilization is above this value or unavailable; `-1` disables utilization backoff. |
@@ -50,7 +50,7 @@ GPUs; explicit empty or whitespace-only values are invalid.
 | --- | --- | --- |
 | `--gpu-ids` | all | Comma-separated unique visible device ordinals in the service process environment. Omit for all visible GPUs; empty or whitespace-only values are invalid. |
 | `--vram` | `1GiB` | Per-GPU keep memory target; byte-equivalent values above 1 PiB are rejected. |
-| `--interval` | `300` | Finite positive keep cycle interval in seconds, capped by the Python runtime wait limit. |
+| `--interval` | `300` | Finite positive keep cycle interval in seconds, including fractional values, capped by the Python runtime wait limit. |
 | `--busy-threshold` / `--util-threshold` | `25` | `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
 | `--job-id` | auto | Optional URL-path-safe custom id. Invalid IDs are rejected locally before service auto-start; valid IDs must be unique across active and starting sessions. |
 | `--host` | `127.0.0.1` | Service host to contact; invalid values are rejected before auto-start. |

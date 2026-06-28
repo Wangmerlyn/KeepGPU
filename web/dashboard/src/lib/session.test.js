@@ -14,6 +14,7 @@ import {
   parseBusyThreshold,
   parseGpuIds,
   parsePositiveInt,
+  parsePositiveNumber,
   summarizeDashboardStats
 } from "./session"
 
@@ -42,8 +43,16 @@ describe("parseGpuIds", () => {
 
 describe("numeric parsing", () => {
   it("validates interval", () => {
-    expect(parsePositiveInt("5", "Interval")).toBe(5)
-    expect(() => parsePositiveInt("0", "Interval")).toThrow()
+    expect(parsePositiveNumber("5", "Interval")).toBe(5)
+    expect(parsePositiveNumber("0.5", "Interval")).toBe(0.5)
+    expect(() => parsePositiveNumber("0", "Interval")).toThrow()
+    expect(() => parsePositiveNumber("NaN", "Interval")).toThrow()
+    expect(() => parsePositiveNumber("Infinity", "Interval")).toThrow()
+  })
+
+  it("keeps integer-only helpers strict", () => {
+    expect(parsePositiveInt("5", "Iteration count")).toBe(5)
+    expect(() => parsePositiveInt("0.5", "Iteration count")).toThrow()
   })
 
   it("validates busy threshold", () => {
@@ -73,6 +82,19 @@ describe("buildSessionPayload", () => {
       vram: "1GiB",
       interval: 120,
       busy_threshold: 15
+    })
+  })
+
+  it("keeps fractional interval seconds in the payload", () => {
+    expect(
+      buildSessionPayload({
+        gpuIds: "",
+        vram: "1GiB",
+        interval: "0.5",
+        busyThreshold: "25"
+      })
+    ).toMatchObject({
+      interval: 0.5
     })
   })
 })

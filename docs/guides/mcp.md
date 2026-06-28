@@ -93,10 +93,10 @@ Omitting `gpu_ids` means all GPUs visible to the service process. Omitting
 device ordinals in that same process environment. Empty, duplicate, or
 out-of-range lists are invalid, and startup returns an error if the resolved
 selection contains zero devices. `interval` must be a finite positive number of
-seconds within the Python runtime wait limit; `NaN`, infinities, and oversized
-values are rejected before session creation. `vram` accepts human-readable
-sizes or bytes, but byte-equivalent requests above 1 PiB are rejected as public
-validation errors.
+seconds, including fractional seconds, within the Python runtime wait limit;
+`NaN`, infinities, and oversized values are rejected before session creation.
+`vram` accepts human-readable sizes or bytes, but byte-equivalent requests
+above 1 PiB are rejected as public validation errors.
 Cheap local fields (`vram`, `interval`, `busy_threshold`, `job_id`, duplicate
 custom `job_id`, and `gpu_ids` shape) are rejected before `/api/sessions` asks
 the service to list visible GPUs, so bad requests do not spend telemetry work.

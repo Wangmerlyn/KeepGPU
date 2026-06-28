@@ -33,7 +33,7 @@ class GlobalGPUController:
     def __init__(
         self,
         gpu_ids: Optional[List[int]] = None,
-        interval: int = 300,
+        interval: Union[int, float] = 300,
         vram_to_keep: Union[int, str] = "1GiB",
         busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
     ):

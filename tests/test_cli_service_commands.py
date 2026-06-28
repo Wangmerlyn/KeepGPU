@@ -1,4 +1,5 @@
 import json
+import re
 
 import pytest
 from typer.testing import CliRunner
@@ -6,12 +7,31 @@ from typer.testing import CliRunner
 from keep_gpu import cli
 
 runner = CliRunner()
+ANSI_PATTERN = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 def _single_decoded_json_object(output):
     payload = json.loads(output)
     assert isinstance(payload, dict)
     return payload
+
+
+def test_interval_help_uses_number_metavar():
+    root_help = runner.invoke(cli.app, ["--help"])
+    start_help = runner.invoke(cli.app, ["start", "--help"])
+    root_output = ANSI_PATTERN.sub("", root_help.output)
+    start_output = ANSI_PATTERN.sub("", start_help.output)
+
+    assert root_help.exit_code == 0
+    root_interval_line = next(
+        line for line in root_output.splitlines() if "--interval" in line
+    )
+    assert "NUMBER" in root_interval_line
+    assert start_help.exit_code == 0
+    start_interval_line = next(
+        line for line in start_output.splitlines() if "--interval" in line
+    )
+    assert "NUMBER" in start_interval_line
 
 
 def test_start_command_uses_rpc(monkeypatch):
@@ -60,6 +80,23 @@ def test_start_command_uses_rpc(monkeypatch):
     assert params["job_id"] == "custom-job"
     assert host == cli.DEFAULT_SERVICE_HOST
     assert port == cli.DEFAULT_SERVICE_PORT
+
+
+def test_start_command_accepts_fractional_interval(monkeypatch):
+    called = {}
+
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: None)
+
+    def fake_rpc(method, params, host, port):
+        called["params"] = params
+        return {"job_id": "job-fractional"}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["start", "--interval", "0.5"])
+
+    assert result.exit_code == 0
+    assert called["params"]["interval"] == 0.5
 
 
 def test_start_command_defaults_to_eco_safe_busy_threshold(monkeypatch):
@@ -186,6 +223,9 @@ def test_start_command_rejects_busy_threshold_above_percent_range(monkeypatch):
         (["--vram", "not-a-size"], "invalid format"),
         (["--vram", ("9" * 500) + "GiB"], "vram must be no more than"),
         (["--interval", str(10**1000)], "interval must be no more than"),
+        (["--interval", f"+{10**1000}"], "interval must be no more than"),
+        (["--interval", "NaN"], "interval must be finite and positive"),
+        (["--interval", "Infinity"], "interval must be finite and positive"),
     ],
 )
 def test_start_command_rejects_local_inputs_before_auto_start(
@@ -790,6 +830,28 @@ def test_blocking_mode_rejects_non_positive_interval(monkeypatch):
 
     assert result.exit_code == 1
     assert "interval must be positive" in result.output
+
+
+def test_invalid_root_interval_before_subcommand_is_rejected(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "_ensure_service_running",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("service should not be started")
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("RPC should not be called")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["--interval", "not-a-number", "start"])
+
+    assert result.exit_code == 1
+    assert "interval must be finite and positive" in result.output
 
 
 @pytest.mark.parametrize(

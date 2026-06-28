@@ -97,7 +97,8 @@ keep-gpu --interval 120 --gpu-ids 0 --vram 1GiB
 ```
 
 - `--interval` controls the finite positive sleep between utilization checks
-  (seconds). Values above the Python runtime wait limit are rejected.
+  (seconds), including fractional values such as `0.5`. Values above the
+  Python runtime wait limit are rejected.
 - `--gpu-ids` limits the job to a subset of visible device ordinals. Set
   `CUDA_VISIBLE_DEVICES` before starting KeepGPU if you need physical-device
   filtering. In service mode, `keep-gpu list-gpus` and the dashboard show these
