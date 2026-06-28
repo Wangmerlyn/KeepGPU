@@ -984,7 +984,10 @@ def test_service_stop_requires_live_status_without_force(monkeypatch):
         called["stop_process"] = True
         raise AssertionError("_stop_service_process must not be called")
 
-    monkeypatch.setattr(cli, "_service_available", lambda host, port: False)
+    def fake_rpc(*args, **kwargs):
+        raise cli.ServiceUnreachableError("mocked unreachable")
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
     monkeypatch.setattr(cli, "_stop_service_process", fail_stop_process)
 
     result = runner.invoke(cli.app, ["service-stop"])
