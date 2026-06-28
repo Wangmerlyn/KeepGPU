@@ -83,6 +83,10 @@ This file defines how coding agents should work in this repository.
 - JSON-RPC user parameter validation errors and unknown direct-method params must return `-32602 Invalid params`; reserve `-32603 Internal error` for unexpected server failures.
 - CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
 - CLI service RPC clients must reject malformed JSON-RPC service envelopes (wrong `jsonrpc`, mismatched `id`, missing `result`, non-object direct-method `result`, or non-object `error`) instead of treating them as successful empty responses or leaking tracebacks.
+- CLI commands that consume service-specific JSON-RPC results must validate
+  required result fields before rendering user-facing output; malformed
+  method-specific payloads should become clean `ServiceResponseError` messages,
+  not `KeyError`, tracebacks, or partial success text.
 - CLI service endpoint inputs (`--host`, `--port`) must be validated locally
   before service RPC, daemon auto-start, stop-all fallback, or daemon ownership
   operations. JSON-output commands must return structured `{"error": "..."}`

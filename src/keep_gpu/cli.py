@@ -811,16 +811,27 @@ def start(
             host,
             port,
         )
+        result_job_id = result.get("job_id")
+        try:
+            result_job_id = validate_job_id(result_job_id)
+        except ValueError as exc:
+            raise ServiceResponseError(
+                "Malformed JSON-RPC response: start_keep result must include job_id"
+            ) from exc
+        if result_job_id is None:
+            raise ServiceResponseError(
+                "Malformed JSON-RPC response: start_keep result must include job_id"
+            )
         if auto_started:
             console.print(
                 f"[bold cyan]Auto-started KeepGPU service[/bold cyan] at http://{host}:{port}/"
             )
         console.print(
-            f"[bold green]Started keep session[/bold green] job_id={result['job_id']}"
+            f"[bold green]Started keep session[/bold green] job_id={result_job_id}"
         )
         console.print(f"[cyan]Dashboard:[/cyan] http://{host}:{port}/")
         console.print(
-            f"[dim]Next: keep-gpu status --job-id {result['job_id']} | keep-gpu stop --job-id {result['job_id']}[/dim]"
+            f"[dim]Next: keep-gpu status --job-id {result_job_id} | keep-gpu stop --job-id {result_job_id}[/dim]"
         )
         console.print(
             "[dim]When all sessions are done, stop daemon with: keep-gpu service-stop[/dim]"

@@ -83,6 +83,24 @@ def test_start_command_uses_rpc(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    "rpc_result",
+    [{}, {"job_id": 123}, {"job_id": ""}, {"job_id": "   "}, {"job_id": "bad id"}],
+)
+def test_start_command_rejects_malformed_job_id_result(monkeypatch, rpc_result):
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cli, "_rpc_call", lambda *args, **kwargs: rpc_result)
+
+    result = runner.invoke(cli.app, ["start"])
+
+    assert result.exit_code == 1
+    assert (
+        "Malformed JSON-RPC response: start_keep result must include job_id"
+        in result.output
+    )
+    assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
     "root_args",
     [
         ["--gpu-ids", "0"],
@@ -957,7 +975,10 @@ def test_start_prints_dashboard_and_stop_hints(monkeypatch):
 
     assert result.exit_code == 0
     assert "Auto-started KeepGPU service" in result.output
+    assert "job_id=job-abc" in result.output
     assert "Dashboard:" in result.output
+    assert "keep-gpu status --job-id job-abc" in result.output
+    assert "keep-gpu stop --job-id job-abc" in result.output
     assert "keep-gpu service-stop" in result.output
 
 
