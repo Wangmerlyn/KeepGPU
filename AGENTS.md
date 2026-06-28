@@ -74,7 +74,11 @@ This file defines how coding agents should work in this repository.
 - JSON-RPC user parameter validation errors and unknown direct-method params must return `-32602 Invalid params`; reserve `-32603 Internal error` for unexpected server failures.
 - CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
 - CLI service RPC clients must reject malformed JSON-RPC service envelopes (wrong `jsonrpc`, mismatched `id`, missing `result`, non-object direct-method `result`, or non-object `error`) instead of treating them as successful empty responses or leaking tracebacks.
-- `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, and `--gpu-ids` before auto-starting the service daemon or making RPC calls.
+- CLI service endpoint inputs (`--host`, `--port`) must be validated locally
+  before service RPC, daemon auto-start, stop-all fallback, or daemon ownership
+  operations. JSON-output commands must return structured `{"error": "..."}`
+  objects for invalid endpoints, not tracebacks.
+- `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, and `--port` before auto-starting the service daemon or making RPC calls.
 - `keep-gpu status --job-id` and `keep-gpu stop --job-id` must validate
   explicit custom IDs locally before service RPC, stop-all fallback, or daemon
   side effects. Only omitting the option means all-session status or no stop

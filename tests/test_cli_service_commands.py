@@ -212,6 +212,117 @@ def test_start_command_rejects_local_inputs_before_auto_start(
     assert message in result.output
 
 
+def test_start_command_rejects_invalid_host_before_auto_start(monkeypatch):
+    called = {"ensure": False, "rpc": False}
+
+    def fake_ensure(*args, **kwargs):
+        called["ensure"] = True
+        return False
+
+    def fake_rpc(*args, **kwargs):
+        called["rpc"] = True
+        return {"job_id": "job-host"}
+
+    monkeypatch.setattr(cli, "_ensure_service_running", fake_ensure)
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["start", "--host", "bad host"])
+
+    assert result.exit_code == 1
+    assert "host must be a DNS hostname or IPv4 address" in result.output
+    assert "Traceback" not in result.output
+    assert called == {"ensure": False, "rpc": False}
+
+
+def test_start_command_rejects_invalid_port_before_auto_start(monkeypatch):
+    called = {"ensure": False, "rpc": False}
+
+    monkeypatch.setattr(
+        cli,
+        "_ensure_service_running",
+        lambda *args, **kwargs: called.__setitem__("ensure", True),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: called.__setitem__("rpc", True),
+    )
+
+    result = runner.invoke(cli.app, ["start", "--port", "0"])
+
+    assert result.exit_code == 1
+    assert "port must be an integer between 1 and 65535" in result.output
+    assert called == {"ensure": False, "rpc": False}
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "localhost",
+        "gpu-box",
+        "gpu-box.local",
+        "node-01.cluster.local",
+        "127.0.0.1",
+        "0.0.0.0",
+    ],
+)
+def test_validate_cli_service_host_accepts_dns_names_and_ipv4_literals(host):
+    assert cli._validate_cli_service_host(host) == host
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "",
+        " ",
+        "bad host",
+        "%",
+        "%zz",
+        "\\host",
+        "host\\path",
+        "*",
+        "-bad",
+        "bad-",
+        "bad..host",
+        "999.999.999.999",
+        "256.0.0.1",
+        "123",
+        "foo.123",
+        "http://localhost",
+        "localhost:8765",
+    ],
+)
+def test_validate_cli_service_host_rejects_malformed_values(host):
+    with pytest.raises(
+        cli.typer.BadParameter,
+        match="host must be a DNS hostname or IPv4 address",
+    ):
+        cli._validate_cli_service_host(host)
+
+
+def test_start_command_rejects_non_whitespace_malformed_host_before_auto_start(
+    monkeypatch,
+):
+    called = {"ensure": False, "rpc": False}
+
+    def fake_ensure(*args, **kwargs):
+        called["ensure"] = True
+        return False
+
+    def fake_rpc(*args, **kwargs):
+        called["rpc"] = True
+        return {"job_id": "job-host"}
+
+    monkeypatch.setattr(cli, "_ensure_service_running", fake_ensure)
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["start", "--host", "%"])
+
+    assert result.exit_code == 1
+    assert "host must be a DNS hostname or IPv4 address" in result.output
+    assert called == {"ensure": False, "rpc": False}
+
+
 def test_stop_requires_job_id_or_all():
     result = runner.invoke(cli.app, ["stop"])
     assert result.exit_code == 1
@@ -272,6 +383,98 @@ def test_stop_rejects_invalid_job_id_before_rpc_or_fallback(monkeypatch, job_id)
     assert result.exit_code == 1
     payload = _single_decoded_json_object(result.output)
     assert payload["error"] == "job_id must be a URL-path-safe non-empty string"
+
+
+@pytest.mark.parametrize(
+    ("command", "called_key"),
+    [
+        (["status", "--host", "bad host"], "rpc"),
+        (["stop", "--all", "--host", "bad host"], "stop_all"),
+        (["list-gpus", "--host", "bad host"], "rpc"),
+    ],
+)
+def test_service_json_commands_reject_invalid_host_before_rpc_or_fallback(
+    monkeypatch, command, called_key
+):
+    called = {"rpc": False, "stop_all": False}
+
+    def fake_rpc(*args, **kwargs):
+        called["rpc"] = True
+        return {}
+
+    def fake_stop_all(*args, **kwargs):
+        called["stop_all"] = True
+        return {"stopped": [], "timed_out": [], "failed": [], "errors": {}}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_all_sessions_with_fallback", fake_stop_all)
+
+    result = runner.invoke(cli.app, command)
+
+    assert result.exit_code == 1
+    payload = _single_decoded_json_object(result.output)
+    assert payload["error"] == "host must be a DNS hostname or IPv4 address"
+    assert called[called_key] is False
+
+
+def test_service_json_command_rejects_invalid_port_before_rpc(monkeypatch):
+    called = {"rpc": False}
+
+    def fake_rpc(*args, **kwargs):
+        called["rpc"] = True
+        return {}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status", "--port", "70000"])
+
+    assert result.exit_code == 1
+    payload = _single_decoded_json_object(result.output)
+    assert payload["error"] == "port must be an integer between 1 and 65535"
+    assert called["rpc"] is False
+
+
+def test_service_stop_rejects_invalid_host_before_daemon_operations(monkeypatch):
+    called = {"available": False, "stop": False}
+
+    def fake_available(*args, **kwargs):
+        called["available"] = True
+        return False
+
+    def fake_stop(*args, **kwargs):
+        called["stop"] = True
+        return True
+
+    monkeypatch.setattr(cli, "_service_available", fake_available)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop)
+
+    result = runner.invoke(cli.app, ["service-stop", "--host", "bad host", "--force"])
+
+    assert result.exit_code == 1
+    assert "host must be a DNS hostname or IPv4 address" in result.output
+    assert called == {"available": False, "stop": False}
+
+
+def test_http_json_request_wraps_malformed_url_as_service_unreachable():
+    with pytest.raises(cli.ServiceUnreachableError, match="Cannot reach KeepGPU"):
+        cli._http_json_request("GET", "http://bad host:8765/health")
+
+
+def test_http_json_request_reports_invalid_utf8_as_service_response_error(monkeypatch):
+    class InvalidUtf8Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return b"\xff"
+
+    monkeypatch.setattr(cli, "urlopen", lambda *args, **kwargs: InvalidUtf8Response())
+
+    with pytest.raises(cli.ServiceResponseError, match="Invalid UTF-8 response"):
+        cli._http_json_request("GET", "http://127.0.0.1:8765/health")
 
 
 def test_status_outputs_single_decoded_json_object(monkeypatch):

@@ -34,17 +34,17 @@ Starts local KeepGPU service (HTTP + JSON-RPC + dashboard).
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--host` | `127.0.0.1` | Service bind host. |
-| `--port` | `8765` | Service port. |
+| `--host` | `127.0.0.1` | Service bind host. Must be a DNS hostname or IPv4 address. |
+| `--port` | `8765` | Service port in `1..65535`. |
 
 ### `keep-gpu start`
 
 Starts a keep session and returns immediately with `job_id`.
 
 Local input validation runs before service auto-start. Invalid `--vram`,
-`--job-id`, `--interval`, `--busy-threshold`, or `--gpu-ids` values fail before
-daemon startup or RPC. Omit `--gpu-ids` to use all visible GPUs; explicit empty
-or whitespace-only values are invalid.
+`--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, or `--port`
+values fail before daemon startup or RPC. Omit `--gpu-ids` to use all visible
+GPUs; explicit empty or whitespace-only values are invalid.
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -53,8 +53,8 @@ or whitespace-only values are invalid.
 | `--interval` | `300` | Finite positive keep cycle interval in seconds, capped by the Python runtime wait limit. |
 | `--busy-threshold` / `--util-threshold` | `25` | `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
 | `--job-id` | auto | Optional URL-path-safe custom id. Invalid IDs are rejected locally before service auto-start; valid IDs must be unique across active and starting sessions. |
-| `--host` | `127.0.0.1` | Service host to contact. |
-| `--port` | `8765` | Service port to contact. |
+| `--host` | `127.0.0.1` | Service host to contact; invalid values are rejected before auto-start. |
+| `--port` | `8765` | Service port to contact; must be in `1..65535`. |
 | `--auto-start/--no-auto-start` | `--auto-start` | Auto-start local service if unavailable. |
 
 ### `keep-gpu status`
@@ -62,7 +62,7 @@ or whitespace-only values are invalid.
 | Option | Description |
 | --- | --- |
 | `--job-id` | Optional non-empty URL-path-safe session id; omit to list all tracked sessions, including in-progress starts, in-progress releases, or failed releases. Invalid explicit IDs are rejected locally before RPC. |
-| `--host`, `--port` | Service host/port. |
+| `--host`, `--port` | Service host/port. Invalid endpoint values are rejected locally and printed as JSON errors before RPC. |
 
 Prints a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
@@ -78,7 +78,7 @@ runtime failure.
 | --- | --- |
 | `--job-id` | Stop one non-empty URL-path-safe session id. Invalid explicit IDs are rejected locally before RPC or stop-all fallback. |
 | `--all` | Stop all sessions. |
-| `--host`, `--port` | Service host/port. |
+| `--host`, `--port` | Service host/port. Invalid endpoint values are rejected locally and printed as JSON errors before RPC or stop-all fallback. |
 
 `--job-id` and `--all` are mutually exclusive. Passing both returns a JSON
 error before any RPC or stop-all fallback runs.
@@ -99,15 +99,18 @@ ordinals accepted by `--gpu-ids` and service `gpu_ids`; optional `physical_id`
 or `uuid` fields are metadata only. The output is a directly parseable JSON
 object, including `{"error": "..."}` for service/runtime errors after CLI
 parsing succeeds. Malformed JSON-RPC service envelopes are reported as JSON
-error objects instead of empty success results.
+error objects instead of empty success results. Invalid endpoint values are
+reported as JSON errors before RPC.
 
 ### `keep-gpu service-stop`
 
 Stops the ownership-verified local daemon process created by auto-start logic.
+Invalid endpoint values are rejected locally before service checks or
+ownership-verified stop operations.
 
 | Option | Description |
 | --- | --- |
-| `--host`, `--port` | Service host/port. |
+| `--host`, `--port` | Service host/port. `--host` must be a DNS hostname or IPv4 address, and `--port` must be in `1..65535`. |
 | `--force` | Skip active-session RPC checks and stop the daemon only if the auto-start ownership record verifies the process. |
 
 ## Service HTTP endpoints
