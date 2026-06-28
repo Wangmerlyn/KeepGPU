@@ -49,6 +49,10 @@ keep-gpu stop --job-id <job_id>
 keep-gpu stop --all
 ```
 
+Use exactly one stop target. `--job-id` and `--all` are mutually exclusive, and
+passing both returns a JSON error before contacting the service or running the
+stop-all fallback.
+
 ### Stop local daemon
 
 ```bash

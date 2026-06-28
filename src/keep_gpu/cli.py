@@ -748,6 +748,8 @@ def stop(
 ):
     """Stop one session or all sessions."""
     try:
+        if job_id is not None and all_sessions:
+            raise RuntimeError("Use either --job-id or --all, not both.")
         if job_id is None and not all_sessions:
             raise RuntimeError("Provide --job-id or use --all.")
         if all_sessions:
