@@ -118,6 +118,29 @@ def test_start_command_rejects_negative_gpu_ids(monkeypatch):
     assert "non-negative integers" in result.output
 
 
+@pytest.mark.parametrize("gpu_ids", ["", "   "])
+def test_start_command_rejects_empty_gpu_ids_before_auto_start(monkeypatch, gpu_ids):
+    monkeypatch.setattr(
+        cli,
+        "_ensure_service_running",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("service should not be started")
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("RPC should not be called")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["start", "--gpu-ids", gpu_ids])
+
+    assert result.exit_code == 1
+    assert "gpu_ids must not be empty" in result.output
+
+
 def test_start_command_rejects_non_positive_interval(monkeypatch):
     monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: None)
     monkeypatch.setattr(

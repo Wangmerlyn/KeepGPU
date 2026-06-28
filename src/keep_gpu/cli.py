@@ -223,8 +223,12 @@ def _apply_legacy_threshold(
 
 
 def _parse_gpu_ids(gpu_ids: Optional[str]) -> Optional[List[int]]:
-    if not gpu_ids:
+    if gpu_ids is None:
         return None
+    if gpu_ids.strip() == "":
+        raise typer.BadParameter(
+            "gpu_ids must not be empty; omit --gpu-ids to use all visible GPUs"
+        )
     try:
         parsed = [int(i.strip()) for i in gpu_ids.split(",")]
     except ValueError as exc:
@@ -602,6 +606,7 @@ def main(
         return
     try:
         interval = _validate_cli_interval(interval)
+        _parse_gpu_ids(gpu_ids)
         _run_blocking(interval, gpu_ids, vram, legacy_threshold, busy_threshold)
     except typer.BadParameter as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")

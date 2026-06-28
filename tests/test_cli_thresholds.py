@@ -2,8 +2,21 @@ import os
 
 import pytest
 import typer
+from typer.testing import CliRunner
 
 from keep_gpu import cli
+
+runner = CliRunner()
+
+
+def test_parse_gpu_ids_treats_omitted_as_all_visible():
+    assert cli._parse_gpu_ids(None) is None
+
+
+@pytest.mark.parametrize("gpu_ids", ["", "   "])
+def test_parse_gpu_ids_rejects_empty_values(gpu_ids):
+    with pytest.raises(typer.BadParameter, match="gpu_ids must not be empty"):
+        cli._parse_gpu_ids(gpu_ids)
 
 
 def test_parse_gpu_ids_rejects_negative_values():
@@ -48,6 +61,21 @@ def test_validate_cli_busy_threshold_rejects_legacy_value_above_percent_range():
         match="busy_threshold must be -1 or an integer between 0 and 100",
     ):
         cli._validate_cli_busy_threshold(threshold)
+
+
+def test_blocking_command_rejects_empty_gpu_ids_before_run_blocking(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "_run_blocking",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("blocking mode should not start")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["--gpu-ids", ""])
+
+    assert result.exit_code == 1
+    assert "gpu_ids must not be empty" in result.output
 
 
 def test_run_blocking_preserves_cuda_visible_devices_for_gpu_ids(monkeypatch):
