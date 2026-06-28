@@ -67,6 +67,45 @@ export function formatGpuIdentity(gpu) {
   return label
 }
 
+function isKnownUtilization(value) {
+  return typeof value === "number" && Number.isFinite(value)
+}
+
+export function getRenderableGpus(gpus = []) {
+  return gpus.filter((gpu) => gpu !== null && gpu !== undefined)
+}
+
+export function summarizeDashboardStats(gpus = [], sessions = []) {
+  const renderableGpus = getRenderableGpus(gpus)
+  const knownUtilizations = renderableGpus
+    .map((gpu) => gpu?.utilization)
+    .filter(isKnownUtilization)
+  const averageUtilization =
+    knownUtilizations.length === 0
+      ? null
+      : Math.round(
+          knownUtilizations.reduce((acc, utilization) => acc + utilization, 0) /
+            knownUtilizations.length
+        )
+
+  return {
+    gpuCount: renderableGpus.length,
+    trackedCount: sessions.length,
+    averageUtilization
+  }
+}
+
+export function formatUtilizationLabel(utilization) {
+  return isKnownUtilization(utilization) ? `${utilization}%` : "n/a"
+}
+
+export function formatUtilizationWidth(utilization) {
+  if (!isKnownUtilization(utilization)) {
+    return null
+  }
+  return `${Math.max(0, Math.min(100, utilization))}%`
+}
+
 export function isSessionStopping(sessionOrJobId, stoppingIds, stoppingAll) {
   const isSession = typeof sessionOrJobId === "object" && sessionOrJobId !== null
   const jobId = isSession ? sessionOrJobId.job_id : sessionOrJobId

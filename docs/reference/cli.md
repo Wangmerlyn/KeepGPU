@@ -127,7 +127,7 @@ present, falling back to the plain response body or HTTP status only when needed
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
 | `/health` | GET | Service liveness probe. |
-| `/api/gpus` | GET | GPU telemetry (`id`/`visible_id` are start-compatible visible ordinals; optional `physical_id`/`uuid` are metadata; unsupported fields are `null`). |
+| `/api/gpus` | GET | GPU telemetry (`id`/`visible_id` are start-compatible visible ordinals; optional `physical_id`/`uuid` are metadata; unsupported fields are `null`; the dashboard treats unavailable utilization as `n/a`, not `0%`). |
 | `/api/sessions` | GET | Tracked keep sessions, including `state="starting"` during startup, `state="runtime_failed"` plus `last_error` for retained worker failures, and `state`/`last_error` for in-progress or failed stops. |
 | `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active, starting, runtime-failed, or retained after stop problems. |
 | `/api/sessions` | POST | Start session with a JSON object body (`gpu_ids`, `vram`, finite positive bounded `interval`, `busy_threshold`, `job_id`); `vram` accepts human sizes or bytes up to 1 PiB byte-equivalent, omitted `gpu_ids` means all GPUs visible to the service process, omitted `busy_threshold` uses `25`, and empty, duplicate, or out-of-range selections are invalid. |

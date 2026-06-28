@@ -111,6 +111,9 @@ The dashboard provides:
 - session creation form,
 - single-session and stop-all controls.
 
+Unavailable utilization readings are shown as `n/a`; they are excluded from
+summary averages and do not draw an idle-looking utilization fill.
+
 ## Command knobs
 
 | Option | Meaning | Default |

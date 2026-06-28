@@ -7,8 +7,12 @@ import {
   formatSessionState,
   formatSessionStateDetail,
   formatStopResultMessage,
+  formatUtilizationLabel,
+  formatUtilizationWidth,
+  getRenderableGpus,
   hasReleasableSessions,
-  isSessionStopping
+  isSessionStopping,
+  summarizeDashboardStats
 } from "./lib/session"
 
 const defaultForm = {
@@ -40,7 +44,7 @@ function formatGpuTarget(ids) {
 }
 
 function statusTone(utilization) {
-  if (utilization === null || utilization === undefined) {
+  if (typeof utilization !== "number" || !Number.isFinite(utilization)) {
     return "text-slate-500"
   }
   if (utilization >= 75) {
@@ -50,10 +54,6 @@ function statusTone(utilization) {
     return "text-amber-300"
   }
   return "text-emerald-300"
-}
-
-function utilizationWidth(utilization) {
-  return `${Math.max(0, Math.min(100, utilization ?? 0))}%`
 }
 
 export default function App() {
@@ -67,22 +67,11 @@ export default function App() {
 
   const serviceUrl = window.location.origin
 
-  const stats = useMemo(() => {
-    const gpuCount = gpus.length
-    const trackedCount = sessions.length
-    const averageUtilization =
-      gpus.length === 0
-        ? null
-        : Math.round(
-            gpus.reduce((acc, gpu) => acc + (gpu.utilization ?? 0), 0) / gpus.length
-          )
-
-    return {
-      gpuCount,
-      trackedCount,
-      averageUtilization
-    }
-  }, [gpus, sessions])
+  const renderableGpus = useMemo(() => getRenderableGpus(gpus), [gpus])
+  const stats = useMemo(
+    () => summarizeDashboardStats(renderableGpus, sessions),
+    [renderableGpus, sessions]
+  )
   const canReleaseAny = hasReleasableSessions(sessions, stoppingIds, stoppingAll)
 
   async function refresh() {
@@ -361,40 +350,46 @@ export default function App() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {gpus.length === 0 ? (
+              {renderableGpus.length === 0 ? (
                 <p className="col-span-full rounded-xl border border-dashed border-white/10 px-4 py-6 text-sm text-shell-500">
                   No GPU telemetry available.
                 </p>
               ) : (
-                gpus.map((gpu) => (
-                  <article
-                    key={`${gpu.platform}-${gpu.id}`}
-                    className="rounded-xl border border-white/10 bg-shell-900/65 p-4"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-medium text-shell-100">
-                        {gpu.name}
-                        <small className="mt-1 block font-mono text-[11px] text-shell-500">
-                          {formatGpuIdentity(gpu)} · {gpu.platform}
-                        </small>
-                      </h3>
-                      <span className={`font-mono text-xs ${statusTone(gpu.utilization)}`}>
-                        {gpu.utilization ?? "n/a"}%
-                      </span>
-                    </div>
+                renderableGpus.map((gpu) => {
+                  const utilizationBarWidth = formatUtilizationWidth(gpu.utilization)
 
-                    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-shell-800">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-amber-300 to-rose-300"
-                        style={{ width: utilizationWidth(gpu.utilization) }}
-                      />
-                    </div>
+                  return (
+                    <article
+                      key={`${gpu.platform}-${gpu.id}`}
+                      className="rounded-xl border border-white/10 bg-shell-900/65 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="text-sm font-medium text-shell-100">
+                          {gpu.name}
+                          <small className="mt-1 block font-mono text-[11px] text-shell-500">
+                            {formatGpuIdentity(gpu)} · {gpu.platform}
+                          </small>
+                        </h3>
+                        <span className={`font-mono text-xs ${statusTone(gpu.utilization)}`}>
+                          {formatUtilizationLabel(gpu.utilization)}
+                        </span>
+                      </div>
 
-                    <p className="mt-3 text-sm text-shell-400">
-                      {formatBytes(gpu.memory_used)} / {formatBytes(gpu.memory_total)} used
-                    </p>
-                  </article>
-                ))
+                      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-shell-800">
+                        {utilizationBarWidth === null ? null : (
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-amber-300 to-rose-300"
+                            style={{ width: utilizationBarWidth }}
+                          />
+                        )}
+                      </div>
+
+                      <p className="mt-3 text-sm text-shell-400">
+                        {formatBytes(gpu.memory_used)} / {formatBytes(gpu.memory_total)} used
+                      </p>
+                    </article>
+                  )
+                })
               )}
             </div>
           </section>

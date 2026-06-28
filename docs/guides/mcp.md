@@ -183,6 +183,9 @@ physical/vendor metadata.
 CUDA and ROCm devices include memory and utilization when the platform APIs are
 available. Mac M series devices report best-effort MPS memory counters and use
 `null` for unsupported fields such as utilization.
+Dashboard summary cards average only finite utilization readings and show `n/a`
+when every visible reading is unavailable, so unknown telemetry is not presented
+as idle. Per-GPU cards also omit the utilization fill for unavailable readings.
 Session cards may show retained runtime failures when a started worker reaches a
 terminal allocation/runtime error; those sessions can still be stopped.
 Valid `busy_threshold` values are `-1` or `0..100`, and omitted API values
