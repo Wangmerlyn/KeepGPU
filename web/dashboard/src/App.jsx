@@ -3,6 +3,7 @@ import { requestJson as api } from "./lib/api"
 
 import {
   buildSessionPayload,
+  formatBusyThresholdLabel,
   formatGpuIdentity,
   formatSessionState,
   formatSessionStateDetail,
@@ -323,7 +324,7 @@ export default function App() {
                         <p className="mt-1 text-sm text-shell-400">
                           Visible GPUs {formatGpuTarget(session.params.gpu_ids)} ·{" "}
                           {session.params.vram} · {session.params.interval}s · threshold{" "}
-                          {session.params.busy_threshold}%
+                          {formatBusyThresholdLabel(session.params.busy_threshold)}
                         </p>
                         {stateDetail ? (
                           <p className="mt-2 max-w-xl text-xs leading-relaxed text-shell-500">

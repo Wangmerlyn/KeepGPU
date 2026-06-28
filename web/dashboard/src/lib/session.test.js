@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildSessionPayload,
+  formatBusyThresholdLabel,
   formatUtilizationLabel,
   formatUtilizationWidth,
   formatGpuIdentity,
@@ -187,6 +188,18 @@ describe("formatUtilizationWidth", () => {
     expect(formatUtilizationWidth(-5)).toBe("0%")
     expect(formatUtilizationWidth(42)).toBe("42%")
     expect(formatUtilizationWidth(125)).toBe("100%")
+  })
+})
+
+describe("formatBusyThresholdLabel", () => {
+  it("labels unconditional keepalive mode semantically", () => {
+    expect(formatBusyThresholdLabel(-1)).toBe("unconditional")
+  })
+
+  it("labels normal utilization thresholds as percentages", () => {
+    expect(formatBusyThresholdLabel(0)).toBe("0%")
+    expect(formatBusyThresholdLabel(25)).toBe("25%")
+    expect(formatBusyThresholdLabel(100)).toBe("100%")
   })
 })
 
