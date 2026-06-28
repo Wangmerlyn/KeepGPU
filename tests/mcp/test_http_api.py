@@ -103,6 +103,25 @@ def _request_raw(method, url, data=None):
         return exc.code, json.loads(body) if body else {}
 
 
+@pytest.mark.parametrize("rpc_path", ["/", "/rpc"])
+def test_http_jsonrpc_parse_error_returns_jsonrpc_envelope(rpc_path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, payload = _request_raw("POST", f"{base}{rpc_path}", b"{")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 200
+    assert payload["jsonrpc"] == "2.0"
+    assert payload["id"] is None
+    assert payload["error"]["code"] == -32700
+
+
 def test_http_health_and_static_index():
     server = make_server()
 
