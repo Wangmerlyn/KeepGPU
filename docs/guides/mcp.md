@@ -174,6 +174,9 @@ only; clients should not send those metadata values as `gpu_ids`.
 On CUDA, NVML records are exposed only when Torch CUDA can start the same
 visible ordinal set, so NVML-only devices are omitted instead of advertised as
 usable session targets.
+On ROCm, records are emitted only for visible ordinals that Torch can select;
+nullable memory fields mean memory telemetry is unavailable after successful
+selection.
 On ROCm, `physical_id` is included only when KeepGPU can safely resolve
 `ROCR_VISIBLE_DEVICES` and one matching HIP/CUDA overlay to a ROCm SMI index;
 otherwise utilization is reported as unavailable rather than guessed.

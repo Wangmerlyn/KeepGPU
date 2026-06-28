@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 
 import pytest
@@ -64,10 +66,17 @@ class MultiGPUDummyNVML:
 
 
 class DummyTorchCudaROCm:
-    def __init__(self, count: int = 2):
+    def __init__(
+        self,
+        count: int = 2,
+        *,
+        set_device_errors: "dict[int, Exception] | None" = None,
+    ):
         self.count = count
         self.current = 0
+        self.set_device_attempts: list[int] = []
         self.set_devices: list[int] = []
+        self.set_device_errors = set_device_errors or {}
 
     @staticmethod
     def is_available():
@@ -80,6 +89,9 @@ class DummyTorchCudaROCm:
         return self.count
 
     def set_device(self, idx):
+        self.set_device_attempts.append(idx)
+        if idx in self.set_device_errors:
+            raise self.set_device_errors[idx]
         self.set_devices.append(idx)
         self.current = idx
 
@@ -162,12 +174,16 @@ def _install_rocm_gpu_info_mocks(
     count: int = 2,
     util_by_index: dict[int, int] | None = None,
     smi_count: int = 8,
+    set_device_errors: "dict[int, Exception] | None" = None,
 ):
     monkeypatch.setitem(sys.modules, "pynvml", None)
     dummy_rocm = DummyROCMSMI(util_by_index=util_by_index, count=smi_count)
     monkeypatch.setitem(sys.modules, "rocm_smi", dummy_rocm)
 
-    dummy_cuda = DummyTorchCudaROCm(count=count)
+    dummy_cuda = DummyTorchCudaROCm(
+        count=count,
+        set_device_errors=set_device_errors,
+    )
     dummy_torch = type(
         "T",
         (),
@@ -435,6 +451,30 @@ def test_get_gpu_info_rocm_composes_rocr_base_and_hip_visible_mask(monkeypatch):
     assert [info["utilization"] for info in infos] == [94]
     assert dummy_rocm.queried_indexes == [4]
     assert dummy_rocm.shutdown_calls == 1
+
+
+def test_get_gpu_info_rocm_hides_unstartable_visible_ordinals(monkeypatch):
+    monkeypatch.delenv("ROCR_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("HIP_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    dummy_rocm, dummy_cuda = _install_rocm_gpu_info_mocks(
+        monkeypatch,
+        count=2,
+        util_by_index={0: 70, 1: 91},
+        set_device_errors={1: RuntimeError("cannot select rocm:1")},
+    )
+
+    infos = gpu_info.get_gpu_info()
+
+    assert [info["id"] for info in infos] == [0]
+    assert [info["visible_id"] for info in infos] == [0]
+    assert [info["physical_id"] for info in infos] == [0]
+    assert [info["name"] for info in infos] == ["ROCm 0"]
+    assert [info["utilization"] for info in infos] == [70]
+    assert dummy_rocm.queried_indexes == [0]
+    assert dummy_rocm.shutdown_calls == 1
+    assert dummy_cuda.set_device_attempts == [0, 1, 0]
+    assert dummy_cuda.set_devices == [0, 0]
 
 
 def test_get_gpu_info_rocm_unresolved_mask_keeps_visible_records_without_utilization(

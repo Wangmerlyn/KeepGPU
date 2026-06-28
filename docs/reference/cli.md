@@ -99,10 +99,12 @@ ordinals accepted by `--gpu-ids` and service `gpu_ids`; optional `physical_id`
 or `uuid` fields are metadata only. The output is a directly parseable JSON
 object. On CUDA, NVML records are listed only when Torch CUDA can start the same
 visible ordinal set; NVML-only devices are hidden rather than advertised as
-usable `gpu_ids`. Service/runtime errors after CLI parsing succeeds are reported
-as `{"error": "..."}`. Malformed JSON-RPC service envelopes are reported as JSON
-error objects instead of empty success results. Invalid endpoint values are
-reported as JSON errors before RPC.
+usable `gpu_ids`. On ROCm, listed records are limited to visible ordinals that
+Torch can select; nullable memory fields mean memory telemetry is unavailable
+after selection succeeds. Service/runtime errors after CLI parsing succeeds are
+reported as `{"error": "..."}`. Malformed JSON-RPC service envelopes are
+reported as JSON error objects instead of empty success results. Invalid
+endpoint values are reported as JSON errors before RPC.
 
 ### `keep-gpu service-stop`
 
@@ -133,7 +135,7 @@ failures remain `-32603 Internal error`.
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
 | `/health` | GET | Service liveness probe. |
-| `/api/gpus` | GET | GPU telemetry (`id`/`visible_id` are start-compatible visible ordinals; optional `physical_id`/`uuid` are metadata; unsupported fields are `null`; the dashboard treats unavailable utilization as `n/a`, not `0%`). |
+| `/api/gpus` | GET | GPU telemetry (`id`/`visible_id` are start-compatible visible ordinals; optional `physical_id`/`uuid` are metadata; unselectable CUDA/ROCm records are omitted; unsupported fields are `null`; the dashboard treats unavailable utilization as `n/a`, not `0%`). |
 | `/api/sessions` | GET | Tracked keep sessions, including `state="starting"` during startup, `state="runtime_failed"` plus `last_error` for retained worker failures, and `state`/`last_error` for in-progress or failed stops. |
 | `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active, starting, runtime-failed, or retained after stop problems. |
 | `/api/sessions` | POST | Start session with a JSON object body (`gpu_ids`, `vram`, finite positive bounded `interval`, `busy_threshold`, `job_id`); `vram` accepts human sizes or bytes up to 1 PiB byte-equivalent, omitted `gpu_ids` means all GPUs visible to the service process, omitted `busy_threshold` uses `25`, and empty, duplicate, or out-of-range selections are invalid. |
