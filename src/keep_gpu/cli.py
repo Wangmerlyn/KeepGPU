@@ -12,7 +12,7 @@ import sys
 import time
 from http.client import InvalidURL
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -246,7 +246,22 @@ def _parse_gpu_ids(gpu_ids: Optional[str]) -> Optional[List[int]]:
         raise typer.BadParameter(str(exc)) from exc
 
 
-def _validate_cli_interval(interval: int) -> int:
+def _validate_cli_interval(interval: Any) -> Union[int, float]:
+    if isinstance(interval, bool):
+        raise typer.BadParameter("interval must be finite and positive")
+    if isinstance(interval, str):
+        normalized = interval.strip()
+        if not normalized:
+            raise typer.BadParameter("interval must be finite and positive")
+        try:
+            try:
+                interval = int(normalized)
+            except ValueError:
+                interval = float(normalized)
+        except ValueError as exc:
+            raise typer.BadParameter("interval must be finite and positive") from exc
+    if isinstance(interval, float) and interval.is_integer():
+        interval = int(interval)
     try:
         return validate_interval(interval)
     except ValueError as exc:
@@ -573,7 +588,7 @@ def _stop_all_sessions_with_fallback(host: str, port: int) -> Dict[str, Any]:
 
 
 def _run_blocking(
-    interval: int,
+    interval: Union[int, float],
     gpu_ids: Optional[str],
     vram: str,
     legacy_threshold: Optional[str],
@@ -631,8 +646,9 @@ def _run_blocking(
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    interval: int = typer.Option(
-        300,
+    interval: str = typer.Option(
+        "300",
+        metavar="NUMBER",
         help="Interval in seconds between GPU usage checks (blocking mode only).",
     ),
     gpu_ids: Optional[str] = typer.Option(
@@ -662,10 +678,10 @@ def main(
     ),
 ):
     """Run blocking keep-alive mode when no subcommand is provided."""
-    if ctx.invoked_subcommand is not None:
-        return
     try:
         interval = _validate_cli_interval(interval)
+        if ctx.invoked_subcommand is not None:
+            return
         _parse_gpu_ids(gpu_ids)
         _run_blocking(interval, gpu_ids, vram, legacy_threshold, busy_threshold)
     except typer.BadParameter as exc:
@@ -707,7 +723,9 @@ def start(
         help="Comma-separated visible GPU ordinals.",
     ),
     vram: str = typer.Option("1GiB", "--vram", help="VRAM to keep per GPU."),
-    interval: int = typer.Option(300, help="Interval in seconds between checks."),
+    interval: str = typer.Option(
+        "300", metavar="NUMBER", help="Interval in seconds between checks."
+    ),
     busy_threshold: int = typer.Option(
         DEFAULT_BUSY_THRESHOLD,
         "--busy-threshold",

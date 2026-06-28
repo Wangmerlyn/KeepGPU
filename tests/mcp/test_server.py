@@ -70,6 +70,16 @@ def test_start_status_stop_cycle():
     assert server.status(job_id)["active"] is False
 
 
+def test_start_keep_preserves_fractional_interval():
+    server = make_server()
+
+    res = server.start_keep(gpu_ids=[0], interval=0.5)
+    job_id = res["job_id"]
+
+    assert server.status(job_id)["params"]["interval"] == 0.5
+    assert server._sessions[job_id].controller.interval == 0.5
+
+
 def test_start_keep_defaults_to_eco_safe_busy_threshold():
     server = make_server()
 
@@ -359,6 +369,21 @@ def test_jsonrpc_rejects_nan_interval_without_creating_session():
     assert server.status()["active_jobs"] == []
 
 
+def test_jsonrpc_start_keep_preserves_fractional_interval():
+    server = make_server()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"gpu_ids": [0], "interval": 0.5},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert resp["result"]["job_id"]
+    status = server.status(resp["result"]["job_id"])
+    assert status["params"]["interval"] == 0.5
+
+
 @pytest.mark.parametrize(
     ("params", "message"),
     [
@@ -625,6 +650,8 @@ def test_mcp_tools_list_exposes_keepgpu_actions():
     assert set(start_schema["properties"]["vram"]["type"]) == {"string", "integer"}
     assert start_schema["properties"]["vram"]["maximum"] == PUBLIC_VRAM_MAX_BYTES
     assert "1 PiB" in start_schema["properties"]["vram"]["description"]
+    assert start_schema["properties"]["interval"]["type"] == "number"
+    assert start_schema["properties"]["interval"]["exclusiveMinimum"] == 0
     assert start_schema["properties"]["busy_threshold"]["default"] == 25
     assert tools["status"]["inputSchema"]["properties"]["job_id"]["type"] == [
         "string",

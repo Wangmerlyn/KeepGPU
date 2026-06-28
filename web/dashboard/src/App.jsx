@@ -208,7 +208,11 @@ export default function App() {
               Use the GPU number shown on telemetry cards. Leave blank for all visible GPUs.
             </p>
 
-            <form className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2" onSubmit={onStartSession}>
+            <form
+              className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2"
+              noValidate
+              onSubmit={onStartSession}
+            >
               <label className="field-label md:col-span-2">
                 <span>GPU IDs (visible ordinals)</span>
                 <input
@@ -238,7 +242,8 @@ export default function App() {
                 <input
                   className="field-input"
                   type="number"
-                  min="1"
+                  min="0.001"
+                  step="any"
                   value={form.interval}
                   onChange={(event) =>
                     setForm((previous) => ({ ...previous, interval: event.target.value }))

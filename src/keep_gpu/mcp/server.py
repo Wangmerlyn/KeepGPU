@@ -38,7 +38,7 @@ from http.server import BaseHTTPRequestHandler
 from socketserver import TCPServer, ThreadingMixIn
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import unquote, urlparse
 
 from keep_gpu import __version__
@@ -91,8 +91,8 @@ MCP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Human-readable VRAM amount or integer bytes to keep; byte-equivalent values must be no more than 1 PiB.",
                 },
                 "interval": {
-                    "type": "integer",
-                    "minimum": 1,
+                    "type": "number",
+                    "exclusiveMinimum": 0,
                     "maximum": PUBLIC_INTERVAL_MAX_SECONDS,
                     "default": 300,
                     "description": "Seconds between keep-alive checks.",
@@ -241,7 +241,7 @@ class KeepGPUServer:
         self,
         gpu_ids: Optional[List[int]] = None,
         vram: str = "1GiB",
-        interval: int = 300,
+        interval: Union[int, float] = 300,
         busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
         job_id: Optional[str] = None,
     ) -> Dict[str, Any]:

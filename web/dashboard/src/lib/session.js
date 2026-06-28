@@ -24,6 +24,21 @@ export function parsePositiveInt(value, fieldName) {
   return parsed
 }
 
+export function parsePositiveNumber(value, fieldName) {
+  if (typeof value === "boolean") {
+    throw new Error(`${fieldName} must be finite and positive`)
+  }
+  const normalized = typeof value === "string" ? value.trim() : value
+  if (normalized === "") {
+    throw new Error(`${fieldName} must be finite and positive`)
+  }
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${fieldName} must be finite and positive`)
+  }
+  return parsed
+}
+
 export function parseBusyThreshold(value) {
   if (typeof value === "boolean") {
     throw new Error("Busy threshold must be -1 or an integer between 0 and 100")
@@ -48,7 +63,7 @@ export function buildSessionPayload(form) {
   return {
     gpu_ids: parseGpuIds(form.gpuIds),
     vram: trimmedVram,
-    interval: parsePositiveInt(form.interval, "Interval"),
+    interval: parsePositiveNumber(form.interval, "Interval"),
     busy_threshold: parseBusyThreshold(form.busyThreshold)
   }
 }

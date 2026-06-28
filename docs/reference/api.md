@@ -18,9 +18,9 @@ they depend on the current visible device count. Its omitted `vram_to_keep`
 default is the shared low-power public default, `1GiB`, matching the CLI and
 service APIs. Direct `CudaGPUController`, `RocmGPUController`, and
 `MacMGPUController` constructors use the same omitted `vram_to_keep="1GiB"`
-default. Public interval values must be finite positive seconds capped by the
-Python runtime wait limit, and public VRAM byte-equivalent values must be no
-more than 1 PiB.
+default. Public interval values must be finite positive seconds, including
+fractional seconds, capped by the Python runtime wait limit, and public VRAM
+byte-equivalent values must be no more than 1 PiB.
 
 Direct CUDA/ROCm controller `rank` values are public visible device ordinals.
 They must be plain integers within `0..torch.cuda.device_count()-1` in the

@@ -202,6 +202,33 @@ def test_http_session_start_defaults_to_eco_safe_busy_threshold():
         thread.join(timeout=2)
 
 
+def test_http_session_start_preserves_fractional_interval():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, start_payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "job_id": "http-fractional",
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 0.5,
+            },
+        )
+
+        assert status_code == 200
+        assert start_payload == {"job_id": "http-fractional"}
+        _, status_payload = _request_json("GET", f"{base}/api/sessions/http-fractional")
+        assert status_payload["params"]["interval"] == 0.5
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
 def test_http_session_start_preserves_explicit_unconditional_busy_threshold():
     server = make_server()
     httpd, thread, base = _start_http_server(server)

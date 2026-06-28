@@ -78,6 +78,24 @@ def test_blocking_command_rejects_empty_gpu_ids_before_run_blocking(monkeypatch)
     assert "gpu_ids must not be empty" in result.output
 
 
+def test_blocking_command_accepts_fractional_interval(monkeypatch):
+    captured = {}
+
+    def fake_run_blocking(interval, gpu_ids, vram, legacy_threshold, busy_threshold):
+        captured["interval"] = interval
+        captured["gpu_ids"] = gpu_ids
+        captured["vram"] = vram
+        captured["legacy_threshold"] = legacy_threshold
+        captured["busy_threshold"] = busy_threshold
+
+    monkeypatch.setattr(cli, "_run_blocking", fake_run_blocking)
+
+    result = runner.invoke(cli.app, ["--interval", "0.5"])
+
+    assert result.exit_code == 0
+    assert captured["interval"] == 0.5
+
+
 def test_run_blocking_preserves_cuda_visible_devices_for_gpu_ids(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "7")
     captured = {}
