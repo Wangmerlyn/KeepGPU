@@ -569,6 +569,7 @@ _DIRECT_METHOD_PARAMS = {
     "status": {"job_id"},
     "list_gpus": set(),
 }
+_REST_SESSION_FIELDS = _DIRECT_METHOD_PARAMS["start_keep"]
 
 
 def _validate_direct_method_params(method: str, params: Dict[str, Any]) -> None:
@@ -644,6 +645,40 @@ def _mcp_call_tool(server: KeepGPUServer, params: Dict[str, Any]) -> Dict[str, A
         return _mcp_tool_result(_call_keepgpu_method(server, name, arguments))
     except Exception as exc:
         return _mcp_tool_result(str(exc), True)
+
+
+def _prevalidate_rest_session_payload(
+    server: KeepGPUServer, payload: Any
+) -> Dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("JSON body must be an object")
+    unknown_fields = set(payload) - _REST_SESSION_FIELDS
+    if unknown_fields:
+        raise ValueError(f"Unknown request fields: {sorted(unknown_fields)}")
+
+    safe_payload = dict(payload)
+    if "gpu_ids" in safe_payload:
+        safe_payload["gpu_ids"] = _validate_public_session_input(
+            validate_gpu_ids, safe_payload["gpu_ids"]
+        )
+    if "interval" in safe_payload:
+        safe_payload["interval"] = _validate_public_session_input(
+            validate_interval, safe_payload["interval"]
+        )
+    if "busy_threshold" in safe_payload:
+        safe_payload["busy_threshold"] = _validate_public_session_input(
+            validate_busy_threshold, safe_payload["busy_threshold"]
+        )
+    if "vram" in safe_payload:
+        _validate_public_session_input(parse_vram_to_elements, safe_payload["vram"])
+    if "job_id" in safe_payload:
+        job_id = _validate_public_session_input(validate_job_id, safe_payload["job_id"])
+        safe_payload["job_id"] = job_id
+        if job_id is not None:
+            with server._sessions_lock:
+                if job_id in server._sessions or job_id in server._starting_job_ids:
+                    raise SessionInputError(f"job_id {job_id} already exists")
+    return safe_payload
 
 
 def _handle_request(server: KeepGPUServer, payload: Any) -> Optional[Dict[str, Any]]:
@@ -857,29 +892,10 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
 
             if path == "/api/sessions":
                 try:
-                    if not isinstance(payload, dict):
-                        raise ValueError("JSON body must be an object")
-                    allowed_fields = {
-                        "gpu_ids",
-                        "vram",
-                        "interval",
-                        "busy_threshold",
-                        "job_id",
-                    }
-                    unknown_fields = set(payload) - allowed_fields
-                    if unknown_fields:
-                        raise ValueError(
-                            f"Unknown request fields: {sorted(unknown_fields)}"
-                        )
-
-                    safe_payload = {
-                        key: value
-                        for key, value in payload.items()
-                        if key in allowed_fields
-                    }
+                    safe_payload = _prevalidate_rest_session_payload(
+                        server_ref, payload
+                    )
                     gpu_ids = safe_payload.get("gpu_ids")
-                    if gpu_ids is not None:
-                        validate_gpu_ids(gpu_ids)
                 except (ValueError, TypeError) as exc:
                     self._json_response(
                         400, {"error": {"message": f"Bad request: {exc}"}}

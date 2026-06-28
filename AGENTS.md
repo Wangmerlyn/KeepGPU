@@ -75,6 +75,10 @@ This file defines how coding agents should work in this repository.
 - CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
 - `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, and `--gpu-ids` before auto-starting the service daemon or making RPC calls.
 - REST session creation bodies must be JSON objects; reject arrays/scalars before field validation or session state changes.
+- REST session creation must validate cheap local fields (`vram`, `interval`,
+  `busy_threshold`, `job_id`, duplicate custom `job_id`, and `gpu_ids` shape)
+  before telemetry/list_gpus probing. Valid explicit `gpu_ids` are still checked
+  against listed visible IDs before startup.
 - Supported REST API routes/methods must return structured JSON error objects
   for validation, unknown-endpoint, and unexpected runtime failures; do not let
   handler exceptions drop the HTTP connection.
