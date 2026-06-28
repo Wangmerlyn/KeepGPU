@@ -342,6 +342,18 @@ class KeepGPUServer:
                 current.state = state
                 current.last_error = last_error
 
+    @staticmethod
+    def _refresh_session_runtime_state(session: Session) -> None:
+        if session.state != "active":
+            return
+        runtime_error = getattr(session.controller, "runtime_error", None)
+        if not callable(runtime_error):
+            return
+        error = runtime_error()
+        if error is not None:
+            session.state = "runtime_failed"
+            session.last_error = str(error)
+
     def _mark_stop_timeout(self, job_id: str, session: Session) -> None:
         with self._sessions_lock:
             current = self._sessions.get(job_id)
@@ -515,6 +527,7 @@ class KeepGPUServer:
                             "last_error": None,
                         }
                     return {"active": False, "job_id": job_id}
+                self._refresh_session_runtime_state(session)
                 return {
                     "active": True,
                     "job_id": job_id,
@@ -523,6 +536,8 @@ class KeepGPUServer:
                     "last_error": session.last_error,
                 }
         with self._sessions_lock:
+            for session in self._sessions.values():
+                self._refresh_session_runtime_state(session)
             return {
                 "active_jobs": [
                     {

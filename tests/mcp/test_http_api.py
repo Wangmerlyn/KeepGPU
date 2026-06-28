@@ -232,6 +232,59 @@ def test_http_session_start_preserves_explicit_unconditional_busy_threshold():
         thread.join(timeout=2)
 
 
+def test_http_status_reports_runtime_failed_session():
+    class RuntimeFailedController(DummyController):
+        def runtime_error(self):
+            return RuntimeError("rank 0: allocation retries exhausted")
+
+    server = DummyKeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: RuntimeFailedController(**kwargs))
+    )
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, start_payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "job_id": "http-runtime-failure",
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 20,
+            },
+        )
+
+        assert status_code == 200
+        assert start_payload == {"job_id": "http-runtime-failure"}
+
+        _, session_payload = _request_json(
+            "GET", f"{base}/api/sessions/http-runtime-failure"
+        )
+        assert session_payload["active"] is True
+        assert session_payload["state"] == "runtime_failed"
+        assert session_payload["last_error"] == "rank 0: allocation retries exhausted"
+
+        _, list_payload = _request_json("GET", f"{base}/api/sessions")
+        assert list_payload["active_jobs"] == [
+            {
+                "job_id": "http-runtime-failure",
+                "params": {
+                    "gpu_ids": [0],
+                    "vram": "256MB",
+                    "interval": 20,
+                    "busy_threshold": 25,
+                },
+                "state": "runtime_failed",
+                "last_error": "rank 0: allocation retries exhausted",
+            }
+        ]
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+
 def test_http_start_validates_gpu_ids_against_listed_visible_ids(monkeypatch):
     controllers = []
 

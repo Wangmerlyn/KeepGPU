@@ -94,6 +94,12 @@ This file defines how coding agents should work in this repository.
 - Hardware probes must clean up vendor libraries after detection (for example, NVML shutdown and ROCm SMI shutdown after init).
 - ROCm/HIP PyTorch builds take precedence over NVML-based CUDA fallback: if `torch.version.hip` is truthy, `_check_cuda()` must not classify the runtime as CUDA or probe NVML.
 - Keep lifecycle state truthful: a reserved starting session must be visible in status as `state="starting"`; a session is removed only after release succeeds; timed-out or failed stops must stay visible with state and error details.
+- Runtime/allocation failures reported by a started worker must be retained in
+  status as `state="runtime_failed"` with `last_error`; the session remains
+  visible and stoppable. Busy or unavailable telemetry backoff is normal
+  deferred allocation behavior, not a runtime failure.
+- Controller runtime-health hooks used by service status must stay non-blocking
+  and read-only because status refresh runs under the session lock.
 - Single-GPU `keep()` must not report success until fatal backend startup setup
   has succeeded. CUDA/ROCm worker startup failures such as `set_device` errors
   must propagate synchronously so services cannot register false active sessions.

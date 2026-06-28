@@ -147,6 +147,25 @@ class GlobalGPUController:
             )
             raise RuntimeError(f"Failed to release GPU controllers: {details}")
 
+    def runtime_error(self) -> Optional[Exception]:
+        """Return the first terminal child-controller runtime error, if any."""
+        for ctrl in self.controllers:
+            allocation_status = getattr(ctrl, "allocation_status", None)
+            if not callable(allocation_status):
+                continue
+            try:
+                error = allocation_status()
+            except Exception as exc:  # noqa: BLE001 - health hook failure is health
+                error = exc
+            if error is None:
+                continue
+            rank = getattr(ctrl, "rank", "unknown")
+            message = str(error)
+            if message.startswith(f"rank {rank}:"):
+                return error
+            return RuntimeError(f"rank {rank}: {message}")
+        return None
+
     def __enter__(self) -> "GlobalGPUController":
         self.keep()
         return self

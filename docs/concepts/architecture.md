@@ -92,9 +92,14 @@ Elementwise keep-alive batches:
   `stop_keep` removes a session only after release succeeds. Timed-out sessions
   stay visible as `state="stopping"` until the background release finishes;
   failed releases stay visible as `state="stop_failed"` with `last_error`.
-- Fatal backend startup errors are reported before `keep()` returns. Later
-  runtime errors inside an already-started worker are logged; recoverable
-  allocation failures retry after clearing the device cache.
+- After startup, terminal worker runtime or allocation failures are surfaced as
+  `state="runtime_failed"` with `last_error`. The retained session remains
+  visible and can still be stopped. Busy-GPU or unavailable-telemetry deferral is
+  normal backoff behavior and does not change an active session to
+  `runtime_failed`.
+- Fatal backend startup errors are reported before `keep()` returns. Recoverable
+  later runtime errors are logged, and recoverable allocation failures retry
+  after clearing the device cache.
 
 ## Platform detection
 
