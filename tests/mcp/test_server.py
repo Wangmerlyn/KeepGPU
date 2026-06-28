@@ -696,6 +696,15 @@ def test_mcp_initialized_notification_has_no_response():
     assert resp is None
 
 
+def test_mcp_initialized_notification_with_bad_version_has_no_response():
+    server = make_server()
+    req = {"jsonrpc": "1.0", "method": "notifications/initialized"}
+
+    resp = _handle_request(server, req)
+
+    assert resp is None
+
+
 def test_mcp_tools_list_exposes_keepgpu_actions():
     server = make_server()
     req = {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}

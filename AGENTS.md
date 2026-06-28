@@ -64,8 +64,8 @@ This file defines how coding agents should work in this repository.
   (`initialize`, `notifications/initialized`, `tools/list`, `tools/call`) while
   preserving legacy direct JSON-RPC method calls for local scripts.
 - JSON-RPC handlers must reject explicit request versions other than `"2.0"`
-  with `-32600 Invalid Request` while preserving omitted-version legacy/internal
-  calls.
+  with `-32600 Invalid Request` for request messages while preserving
+  omitted-version legacy/internal calls and silent id-less notifications.
 - For stdio MCP, stdout must contain only JSON protocol messages; diagnostics
   and human logs belong on stderr.
 

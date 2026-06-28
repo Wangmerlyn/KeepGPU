@@ -16,13 +16,14 @@ The audit found that `_handle_request()` accepts requests such as `{"jsonrpc": "
 
 ## Solution
 
-Add explicit version validation in `_handle_request()` after confirming the payload is an object and before method dispatch. If `jsonrpc` is present and its value is not `"2.0"`, return `JSONRPC_INVALID_REQUEST` (`-32600`). Do not require `jsonrpc` for legacy/internal direct calls.
+Add explicit version validation in `_handle_request()` after confirming the payload is an object and before method dispatch. If a non-notification request message includes `jsonrpc` and its value is not `"2.0"`, return `JSONRPC_INVALID_REQUEST` (`-32600`). Do not require `jsonrpc` for legacy/internal direct calls, and keep id-less `notifications/*` messages silent even when they carry a malformed version.
 
 ## Tasks
 
 - [x] Add RED tests in `tests/mcp/test_server.py` for invalid explicit version, valid explicit `"2.0"`, and omitted legacy version.
 - [x] Run `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py -q` and confirm the invalid-version test fails before implementation.
 - [x] Implement the minimal `_handle_request()` validation in `src/keep_gpu/mcp/server.py`.
+- [x] Preserve id-less notification silence before request-only version validation.
 - [x] Update `AGENTS.md` with the JSON-RPC version compatibility note.
 - [x] Run `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py -q`.
 - [x] Run `git diff --check`.

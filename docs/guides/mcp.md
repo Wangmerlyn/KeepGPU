@@ -46,6 +46,10 @@ servers:
 The stdio transport writes only JSON protocol messages to stdout. KeepGPU logs
 and diagnostics go to stderr so MCP clients can parse stdout safely.
 
+JSON-RPC request messages that include a `jsonrpc` version must use `"2.0"`;
+id-less `notifications/*` messages remain silent and do not produce response
+envelopes.
+
 ## HTTP JSON-RPC quick example
 
 HTTP mode is KeepGPU's local JSON-RPC/REST/dashboard service. It accepts the
