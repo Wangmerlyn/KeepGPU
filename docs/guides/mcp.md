@@ -86,13 +86,19 @@ Successful direct-method responses are KeepGPU JSON-RPC envelopes with
 `jsonrpc: "2.0"`, the matching request `id`, and an object `result`.
 
 For direct JSON-RPC calls, public validation failures and unknown parameters
-return JSON-RPC `-32602 Invalid params`. Unexpected server failures use
+return JSON-RPC `-32602 Invalid params`. Expected startup-unavailable
+conditions, such as an unsupported controller platform or no usable visible
+GPUs, return `-32000` with the startup message. Unexpected server failures use
 `-32603 Internal error`.
+
+MCP `tools/call` responses keep protocol envelopes successful. If a tool cannot
+start because hardware or the platform is unavailable, the response contains
+`result.isError=true` and the startup-unavailable text in the tool content.
 
 For supported REST route/method calls, service errors stay parseable. Public
 validation failures return JSON `400` responses, unknown API routes return JSON
-`404`, and unexpected runtime failures return JSON `500` responses with an
-`error` object.
+`404`, expected startup-unavailable session creation returns JSON `503`, and
+unexpected runtime failures return JSON `500` responses with an `error` object.
 
 REST session creation accepts a JSON object body, not arrays or scalar values.
 Omitting `gpu_ids` means all GPUs visible to the service process. Omitting

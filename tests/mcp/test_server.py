@@ -14,7 +14,9 @@ from keep_gpu.mcp.server import (
     JSONRPC_INTERNAL_ERROR,
     JSONRPC_INVALID_REQUEST,
     JSONRPC_INVALID_PARAMS,
+    JSONRPC_STARTUP_UNAVAILABLE,
     KeepGPUServer,
+    SessionStartupUnavailable,
     _handle_request,
 )
 from keep_gpu.mcp import server as server_module
@@ -540,6 +542,71 @@ def test_jsonrpc_start_keep_runtime_value_error_remains_internal_error():
     assert server.status()["active_jobs"] == []
 
 
+def test_jsonrpc_start_keep_startup_unavailable_returns_public_code():
+    def failing_factory(**kwargs):
+        raise SessionStartupUnavailable("No usable GPUs are available")
+
+    server = KeepGPUServer(controller_factory=cast(Any, failing_factory))
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"job_id": "no-usable-gpus", "gpu_ids": [0]},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_STARTUP_UNAVAILABLE
+    assert "No usable GPUs are available" in resp["error"]["message"]
+    assert server.status()["active_jobs"] == []
+
+
+def test_jsonrpc_start_keep_unsupported_platform_returns_public_code(monkeypatch):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CPU)
+    server = KeepGPUServer()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"job_id": "unsupported-platform"},
+    }
+
+    try:
+        resp = _handle_request(server, req)
+
+        assert "error" in resp
+        assert resp["error"]["code"] == JSONRPC_STARTUP_UNAVAILABLE
+        assert (
+            "GlobalGPUController not implemented for platform"
+            in resp["error"]["message"]
+        )
+        assert server.status()["active_jobs"] == []
+    finally:
+        server.shutdown()
+
+
+def test_jsonrpc_start_keep_zero_visible_gpus_returns_public_code(monkeypatch):
+    import torch
+
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 0)
+    server = KeepGPUServer()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"job_id": "zero-visible-gpus"},
+    }
+
+    try:
+        resp = _handle_request(server, req)
+
+        assert "error" in resp
+        assert resp["error"]["code"] == JSONRPC_STARTUP_UNAVAILABLE
+        assert "No GPUs available for GlobalGPUController" in resp["error"]["message"]
+        assert server.status()["active_jobs"] == []
+    finally:
+        server.shutdown()
+
+
 def test_jsonrpc_cuda_worker_startup_failure_creates_no_active_session(monkeypatch):
     import torch
 
@@ -806,6 +873,32 @@ def test_mcp_tools_call_rejects_oversized_integer_vram_as_tool_error():
     result = resp["result"]
     assert result["isError"] is True
     assert "vram must be no more than" in result["content"][0]["text"]
+    assert server.status()["active_jobs"] == []
+
+
+def test_mcp_tools_call_startup_unavailable_returns_tool_error():
+    def failing_factory(**kwargs):
+        raise SessionStartupUnavailable("No usable GPUs are available")
+
+    server = KeepGPUServer(controller_factory=cast(Any, failing_factory))
+    req = {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+            "name": "start_keep",
+            "arguments": {"job_id": "tool-no-gpus", "gpu_ids": [0]},
+        },
+    }
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 4
+    assert "result" in resp
+    result = resp["result"]
+    assert result["isError"] is True
+    assert "No usable GPUs are available" in result["content"][0]["text"]
     assert server.status()["active_jobs"] == []
 
 

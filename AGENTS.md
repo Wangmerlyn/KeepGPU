@@ -81,6 +81,10 @@ This file defines how coding agents should work in this repository.
 - Keep GPU telemetry helpers in `src/keep_gpu/utilities/gpu_info.py` and related utility modules.
 - Keep public session input validation centralized in `src/keep_gpu/utilities/session_config.py`; CLI, Python, REST, and JSON-RPC entry points must share the same contract.
 - JSON-RPC user parameter validation errors and unknown direct-method params must return `-32602 Invalid params`; reserve `-32603 Internal error` for unexpected server failures.
+- Expected controller startup unavailability, such as no usable visible GPUs or
+  unsupported platforms, must surface as explicit startup-unavailable errors
+  (direct JSON-RPC `-32000`, REST `503`, MCP tool `isError=true`) while
+  arbitrary unexpected startup/runtime failures remain internal errors.
 - CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
 - CLI service RPC clients must reject malformed JSON-RPC service envelopes (wrong `jsonrpc`, mismatched `id`, missing `result`, non-object direct-method `result`, or non-object `error`) instead of treating them as successful empty responses or leaking tracebacks.
 - CLI commands that consume service-specific JSON-RPC results must validate
