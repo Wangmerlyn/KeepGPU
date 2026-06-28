@@ -12,10 +12,11 @@ metadata such as `physical_id`, but those fields are not accepted as selection
 IDs.
 
 CUDA telemetry resolves visible ordinals through `CUDA_VISIBLE_DEVICES` before
-querying NVML. ROCm telemetry resolves `ROCR_VISIBLE_DEVICES` as the base mask
-and one matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before
-querying ROCm SMI. Unresolved mappings report unavailable utilization instead
-of falling back to a possibly wrong physical device.
+querying NVML; duplicate or ambiguous masks report unavailable utilization.
+ROCm telemetry resolves `ROCR_VISIBLE_DEVICES` as the base mask and one
+matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying
+ROCm SMI. Unresolved mappings report unavailable utilization instead of falling
+back to a possibly wrong physical device.
 
 Public controller, CLI, REST, JSON-RPC, and MCP defaults use
 `busy_threshold=25`, so busy or unavailable telemetry sleeps before allocating
