@@ -18,6 +18,9 @@ train_model()                     # GPU memory is released automatically
 ```
 
 - `rank` matches the visible device index after environment filtering.
+  Direct CUDA/ROCm controllers validate this value during construction: it must
+  be a plain integer in the current visible range, and invalid ranks fail before
+  a device handle or keep worker is created.
   CUDA utilization backoff resolves that visible rank through
   `CUDA_VISIBLE_DEVICES` before querying NVML; for example, with
   `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads physical GPU `5`. Malformed,
@@ -54,6 +57,7 @@ The controller spins up a daemon thread. Repeated `keep()` calls are idempotent
 and simply warn if the worker is already running. CUDA and ROCm `keep()` calls
 return only after fatal backend startup setup succeeds, so startup failures such
 as device-selection errors are raised before your guarded work begins.
+Invalid direct `rank` values are rejected even earlier, during construction.
 
 ## Guard multiple GPUs with a single context
 

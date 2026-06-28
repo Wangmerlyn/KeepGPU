@@ -8,6 +8,7 @@ from keep_gpu.single_gpu_controller.rocm_gpu_controller import RocmGPUController
 def test_rocm_keep_raises_when_worker_startup_fails(monkeypatch):
     import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
 
+    monkeypatch.setattr(rocm_module.torch.cuda, "device_count", lambda: 1)
     ctrl = RocmGPUController(
         rank=0,
         interval=0.01,
@@ -29,6 +30,7 @@ def test_rocm_keep_raises_when_worker_startup_fails(monkeypatch):
 def test_rocm_keep_shuts_down_smi_when_worker_startup_fails(monkeypatch):
     import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
 
+    monkeypatch.setattr(rocm_module.torch.cuda, "device_count", lambda: 1)
     calls = []
 
     class DummyRocmSmi:
@@ -57,7 +59,11 @@ def test_rocm_keep_shuts_down_smi_when_worker_startup_fails(monkeypatch):
     assert calls == ["init", "shutdown"]
 
 
-def test_rocm_keep_rejects_retry_while_startup_thread_is_stopping():
+def test_rocm_keep_rejects_retry_while_startup_thread_is_stopping(monkeypatch):
+    import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
+
+    monkeypatch.setattr(rocm_module.torch.cuda, "device_count", lambda: 1)
+
     class AliveThread:
         def is_alive(self):
             return True

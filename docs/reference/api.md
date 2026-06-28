@@ -22,6 +22,13 @@ default. Public interval values must be finite positive seconds capped by the
 Python runtime wait limit, and public VRAM byte-equivalent values must be no
 more than 1 PiB.
 
+Direct CUDA/ROCm controller `rank` values are public visible device ordinals.
+They must be plain integers within `0..torch.cuda.device_count()-1` in the
+current process environment. Non-integer ranks raise `TypeError`, and negative
+or out-of-range ranks raise `ValueError` during construction, before KeepGPU
+creates a `torch.device`, calls backend device selection, starts a worker, or
+queries telemetry.
+
 CUDA telemetry resolves visible ordinals through `CUDA_VISIBLE_DEVICES` before
 querying NVML; malformed, duplicate/equivalent, ambiguous, or out-of-range
 masks report unavailable utilization before partial handle lookup.

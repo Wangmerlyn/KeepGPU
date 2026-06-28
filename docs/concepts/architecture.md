@@ -12,7 +12,9 @@ schedulers that the GPU is still busy, without burning a full training workload.
    validates selected visible ordinals against the current device count, and
    instantiates one single-GPU controller per selected device.
 3. **`CudaGPUController`** / **`RocmGPUController`** / **`MacMGPUController`** –
-   Platform-specific implementations for per-GPU keep-alive loops.
+   Platform-specific implementations for per-GPU keep-alive loops. Direct
+   CUDA/ROCm controllers validate `rank` as a visible ordinal during
+   construction, before creating device handles or starting workers.
 4. **GPU monitor (NVML/ROCm/MPS)** – Wraps `nvidia-ml-py` (the `pynvml`
    module) for CUDA telemetry, optionally `rocm-smi` when installed by way of
    the `rocm` extra, and best-effort MPS memory counters on Mac M series.
@@ -41,6 +43,9 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
    If a later worker fails to start, already-started workers are released before
    the original start error is re-raised.
 3. Each CUDA worker:
+   - Has already validated its direct visible `rank` against the current CUDA
+     device count before `torch.device`, `set_device`, telemetry, or allocation
+     can target an invalid ordinal.
    - Starts a daemon thread and confirms fatal backend startup setup before
      `keep()` reports success.
    - Performs intervalled lightweight elementwise batches after startup.

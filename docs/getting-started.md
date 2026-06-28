@@ -141,6 +141,10 @@ with CudaGPUController(rank=0, interval=0.5, vram_to_keep="1GiB"):
 train_model()              # GPU freed upon exiting the context
 ```
 
+Direct CUDA/ROCm `rank` values are visible ordinals in the current process and
+are rejected during construction if they are non-integer, negative, or outside
+the visible device count.
+
 Prefer to manage multiple devices at once?
 
 ```python
