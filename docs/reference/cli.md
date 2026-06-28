@@ -121,6 +121,8 @@ digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
 Supported REST route/method errors are JSON objects: validation errors return
 `400`, unknown API routes return `404`, and unexpected service/runtime failures
 return `500` instead of dropping the connection.
+The dashboard consumes those JSON objects and displays `error.message` when it is
+present, falling back to the plain response body or HTTP status only when needed.
 
 | Endpoint | Method | Purpose |
 | --- | --- | --- |
