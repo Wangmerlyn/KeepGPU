@@ -11,7 +11,9 @@ empty, duplicate, or out-of-range list is invalid, and startup raises
 metadata such as `physical_id`, but those fields are not accepted as selection
 IDs. On CUDA, NVML telemetry records are returned only when Torch CUDA can start
 the same visible ordinal set, so NVML-only devices are not exposed as public
-`gpu_ids`.
+`gpu_ids`. On ROCm, telemetry records are returned only for visible ordinals
+that Torch can select; nullable memory fields mean memory telemetry is
+unavailable after successful selection.
 
 `GlobalGPUController` validates local constructor inputs (`gpu_ids`, `interval`,
 `busy_threshold`, and `vram_to_keep`) before platform or hardware probing.

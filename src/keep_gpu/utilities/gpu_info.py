@@ -218,6 +218,12 @@ def _query_rocm() -> List[Dict[str, Any]]:
         # Use torch to enumerate devices for names/memory
         count = torch.cuda.device_count() if torch.cuda.is_available() else 0
         for idx in range(count):
+            try:
+                torch.cuda.set_device(idx)
+            except Exception as exc:
+                logger.debug("ROCm visible ordinal %s is not startable: %s", idx, exc)
+                continue
+
             physical_id = resolve_rocm_visible_rank_to_smi_index(
                 idx,
                 monitor_count=monitor_count,
@@ -231,7 +237,6 @@ def _query_rocm() -> List[Dict[str, Any]]:
                     logger.debug("ROCm util query failed for %s: %s", physical_id, exc)
 
             try:
-                torch.cuda.set_device(idx)
                 free, total = torch.cuda.mem_get_info()
                 used = total - free
             except Exception:

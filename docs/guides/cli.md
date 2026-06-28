@@ -83,9 +83,11 @@ keep-gpu list-gpus
 The `id` field in this output is the visible ordinal to pass to `--gpu-ids`.
 On CUDA, NVML telemetry is listed only when Torch CUDA can start the same
 visible ordinal set; NVML-only devices are hidden rather than advertised as
-usable selections. `status`, `stop`, and `list-gpus` print JSON objects, including
-`{"error": "..."}` for service/runtime errors after CLI parsing succeeds, that
-can be parsed directly with `jq` or a single `json.loads()` call.
+usable selections. On ROCm, listed records are limited to visible ordinals that
+Torch can select; nullable memory fields mean memory telemetry is unavailable
+after selection succeeds. `status`, `stop`, and `list-gpus` print JSON objects,
+including `{"error": "..."}` for service/runtime errors after CLI parsing
+succeeds, that can be parsed directly with `jq` or a single `json.loads()` call.
 Malformed JSON-RPC service envelopes are reported as JSON error objects instead
 of empty success results. Invalid service endpoints are also reported as JSON
 errors before any RPC or stop-all fallback runs.
