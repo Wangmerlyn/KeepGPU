@@ -66,6 +66,9 @@ This file defines how coding agents should work in this repository.
 - JSON-RPC handlers must reject explicit request versions other than `"2.0"`
   with `-32600 Invalid Request` for request messages while preserving
   omitted-version legacy/internal calls and silent id-less notifications.
+- JSON-RPC error envelopes must use `id: null` when the request id is missing or
+  has an invalid response-id type, and must echo only valid non-boolean string or
+  integer ids.
 - HTTP JSON-RPC endpoints (`/` and `/rpc`) must return JSON-RPC envelopes for
   protocol parse errors, including `jsonrpc`, `id`, and numeric `error.code`;
   REST routes keep REST-shaped structured JSON errors.

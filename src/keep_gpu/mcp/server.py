@@ -598,6 +598,10 @@ def _jsonrpc_error(req_id: Any, code: int, message: str) -> Dict[str, Any]:
     }
 
 
+def _is_valid_jsonrpc_id(req_id: Any) -> bool:
+    return isinstance(req_id, (str, int)) and not isinstance(req_id, bool)
+
+
 _DIRECT_METHOD_PARAMS = {
     "start_keep": {"gpu_ids", "vram", "interval", "busy_threshold", "job_id"},
     "stop_keep": {"job_id"},
@@ -736,7 +740,9 @@ def _handle_request(server: KeepGPUServer, payload: Any) -> Optional[Dict[str, A
             raise JSONRPCError(
                 JSONRPC_INVALID_REQUEST, "JSON-RPC messages must be objects."
             )
-        req_id = payload.get("id")
+        raw_id = payload.get("id")
+        if "id" in payload and _is_valid_jsonrpc_id(raw_id):
+            req_id = raw_id
         method = payload.get("method")
         params = payload.get("params", {})
         if not isinstance(method, str) or not method:
@@ -745,11 +751,7 @@ def _handle_request(server: KeepGPUServer, payload: Any) -> Optional[Dict[str, A
             return None
         if "jsonrpc" in payload and payload["jsonrpc"] != "2.0":
             raise JSONRPCError(JSONRPC_INVALID_REQUEST, "JSON-RPC version must be 2.0.")
-        if (
-            "id" not in payload
-            or not isinstance(req_id, (str, int))
-            or isinstance(req_id, bool)
-        ):
+        if "id" not in payload or not _is_valid_jsonrpc_id(raw_id):
             raise JSONRPCError(JSONRPC_INVALID_REQUEST, "Requests must include an id.")
         if method.startswith("notifications/"):
             raise JSONRPCError(
