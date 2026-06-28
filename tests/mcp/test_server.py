@@ -95,6 +95,103 @@ def test_start_keep_preserves_explicit_unconditional_busy_threshold():
     assert server.status(job_id)["params"]["busy_threshold"] == -1
 
 
+def test_status_marks_active_session_runtime_failed_when_controller_reports_error():
+    class RuntimeFailedController(DummyController):
+        def runtime_error(self):
+            return RuntimeError("rank 0: allocation retries exhausted")
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: RuntimeFailedController(**kwargs))
+    )
+    job_id = server.start_keep(job_id="runtime-failure", gpu_ids=[0])["job_id"]
+
+    status = server.status(job_id)
+
+    assert status["active"] is True
+    assert status["state"] == "runtime_failed"
+    assert status["last_error"] == "rank 0: allocation retries exhausted"
+    assert server._sessions[job_id].controller.released is False
+
+
+def test_status_list_marks_runtime_failed_sessions():
+    class RuntimeFailedController(DummyController):
+        def runtime_error(self):
+            return RuntimeError("rank 0: allocation retries exhausted")
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: RuntimeFailedController(**kwargs))
+    )
+    job_id = server.start_keep(job_id="runtime-failure", gpu_ids=[0])["job_id"]
+
+    status = server.status()
+
+    assert status["active_jobs"] == [
+        {
+            "job_id": job_id,
+            "params": {
+                "gpu_ids": [0],
+                "vram": "1GiB",
+                "interval": 300,
+                "busy_threshold": 25,
+            },
+            "state": "runtime_failed",
+            "last_error": "rank 0: allocation retries exhausted",
+        }
+    ]
+
+
+def test_status_retains_first_runtime_failure_without_refreshing_again():
+    class RuntimeFailedController(DummyController):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.runtime_error_calls = 0
+
+        def runtime_error(self):
+            self.runtime_error_calls += 1
+            return RuntimeError(f"failure {self.runtime_error_calls}")
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: RuntimeFailedController(**kwargs))
+    )
+    job_id = server.start_keep(job_id="runtime-failure", gpu_ids=[0])["job_id"]
+    controller = server._sessions[job_id].controller
+
+    first_status = server.status(job_id)
+    second_status = server.status(job_id)
+
+    assert first_status["state"] == "runtime_failed"
+    assert first_status["last_error"] == "failure 1"
+    assert second_status["state"] == "runtime_failed"
+    assert second_status["last_error"] == "failure 1"
+    assert controller.runtime_error_calls == 1
+
+
+def test_status_runtime_health_does_not_overwrite_retained_stop_states():
+    class RuntimeFailedController(DummyController):
+        def runtime_error(self):
+            return RuntimeError("rank 0: allocation retries exhausted")
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: RuntimeFailedController(**kwargs))
+    )
+    stopping_job = server.start_keep(job_id="stopping-job", gpu_ids=[0])["job_id"]
+    stop_failed_job = server.start_keep(job_id="stop-failed-job", gpu_ids=[1])["job_id"]
+
+    server._sessions[stopping_job].state = "stopping"
+    server._sessions[stopping_job].last_error = "release still running"
+    server._sessions[stop_failed_job].state = "stop_failed"
+    server._sessions[stop_failed_job].last_error = "release failed"
+
+    assert server.status(stopping_job)["state"] == "stopping"
+    assert server.status(stopping_job)["last_error"] == "release still running"
+    assert server.status(stop_failed_job)["state"] == "stop_failed"
+    assert server.status(stop_failed_job)["last_error"] == "release failed"
+
+    jobs = {job["job_id"]: job for job in server.status()["active_jobs"]}
+    assert jobs[stopping_job]["state"] == "stopping"
+    assert jobs[stop_failed_job]["state"] == "stop_failed"
+
+
 def test_status_reports_starting_session_during_controller_keep():
     keep_started = threading.Event()
     keep_release = threading.Event()

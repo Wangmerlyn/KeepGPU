@@ -90,6 +90,8 @@ export function formatSessionState(session) {
       return "Starting"
     case "stopping":
       return "Releasing"
+    case "runtime_failed":
+      return "Runtime failed"
     case "stop_failed":
       return "Release failed"
     default:
@@ -106,6 +108,12 @@ export function formatSessionStateDetail(session) {
   }
   if (session?.state === "stop_failed") {
     return session.last_error || "Release failed. Inspect the session before retrying."
+  }
+  if (session?.state === "runtime_failed") {
+    return (
+      session.last_error ||
+      "Keep worker failed after startup. Inspect the session before retrying."
+    )
   }
   return null
 }

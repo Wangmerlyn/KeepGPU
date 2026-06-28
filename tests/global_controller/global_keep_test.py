@@ -158,6 +158,62 @@ def test_global_release_attempts_all_controllers_and_reports_failures():
     assert [ctrl.released for ctrl in controllers] == [True, True, True]
 
 
+def test_global_runtime_error_reports_first_child_allocation_failure():
+    class DummyController:
+        def __init__(self, rank, error=None):
+            self.rank = rank
+            self.error = error
+
+        def allocation_status(self):
+            return self.error
+
+    controller = GlobalGPUController.__new__(GlobalGPUController)
+    controller.controllers = [
+        DummyController(0),
+        DummyController(1, RuntimeError("allocation retries exhausted")),
+        DummyController(2, RuntimeError("later failure")),
+    ]
+
+    error = controller.runtime_error()
+
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "rank 1: allocation retries exhausted"
+
+
+def test_global_runtime_error_ignores_healthy_or_unreported_controllers():
+    class ControllerWithoutHealthHook:
+        rank = 0
+
+    class HealthyController:
+        rank = 1
+
+        @staticmethod
+        def allocation_status():
+            return None
+
+    controller = GlobalGPUController.__new__(GlobalGPUController)
+    controller.controllers = [ControllerWithoutHealthHook(), HealthyController()]
+
+    assert controller.runtime_error() is None
+
+
+def test_global_runtime_error_wraps_health_hook_exceptions():
+    class FailingHealthController:
+        rank = 0
+
+        @staticmethod
+        def allocation_status():
+            raise RuntimeError("health probe exploded")
+
+    controller = GlobalGPUController.__new__(GlobalGPUController)
+    controller.controllers = [FailingHealthController()]
+
+    error = controller.runtime_error()
+
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "rank 0: health probe exploded"
+
+
 def test_global_controller_accepts_fractional_interval(monkeypatch):
     monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
 

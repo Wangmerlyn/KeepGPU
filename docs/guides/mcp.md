@@ -115,6 +115,11 @@ session state changes.
 Status calls show reserved jobs as `state="starting"` while controller startup
 is still in progress. That includes both `status(job_id)` and the all-session
 `status()` list, so agents do not mistake an in-progress start for no session.
+If an already-started worker later reports a terminal runtime or allocation
+failure, the retained session is refreshed to `state="runtime_failed"` with
+`last_error`. It remains visible and stoppable. This is distinct from normal
+busy-GPU or unavailable-telemetry backoff, where the controller defers
+allocation and the session stays active.
 
 `stop_keep` returns additive outcome fields:
 
@@ -177,6 +182,8 @@ physical/vendor metadata.
 CUDA and ROCm devices include memory and utilization when the platform APIs are
 available. Mac M series devices report best-effort MPS memory counters and use
 `null` for unsupported fields such as utilization.
+Session cards may show retained runtime failures when a started worker reaches a
+terminal allocation/runtime error; those sessions can still be stopped.
 Valid `busy_threshold` values are `-1` or `0..100`, and omitted API values
 default to `25`. When utilization is unavailable and `busy_threshold` is
 non-negative, controllers sleep instead of allocating keep tensors or running

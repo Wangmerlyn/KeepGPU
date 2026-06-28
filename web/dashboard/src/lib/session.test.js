@@ -133,6 +133,7 @@ describe("session state formatting", () => {
     expect(formatSessionState({ state: "active" })).toBe("Active")
     expect(formatSessionState({ state: "starting" })).toBe("Starting")
     expect(formatSessionState({ state: "stopping" })).toBe("Releasing")
+    expect(formatSessionState({ state: "runtime_failed" })).toBe("Runtime failed")
     expect(formatSessionState({ state: "stop_failed" })).toBe("Release failed")
   })
 
@@ -149,6 +150,15 @@ describe("session state formatting", () => {
         last_error: "release exploded"
       })
     ).toBe("release exploded")
+  })
+
+  it("surfaces retained runtime failure details", () => {
+    expect(
+      formatSessionStateDetail({
+        state: "runtime_failed",
+        last_error: "allocation retries exhausted"
+      })
+    ).toBe("allocation retries exhausted")
   })
 })
 
