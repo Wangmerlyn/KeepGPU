@@ -9,6 +9,7 @@ from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
+    validate_positive_integer,
 )
 from keep_gpu.utilities.rocm_visibility import resolve_rocm_visible_rank_to_smi_index
 
@@ -35,7 +36,7 @@ class RocmGPUController(BaseGPUController):
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
         self.busy_threshold = validate_busy_threshold(busy_threshold)
-        self.iterations = iterations
+        self.iterations = validate_positive_integer(iterations, "iterations")
         self.max_allocation_retries = max_allocation_retries
         self._stop_evt: Optional[threading.Event] = None
         self._thread: Optional[threading.Thread] = None

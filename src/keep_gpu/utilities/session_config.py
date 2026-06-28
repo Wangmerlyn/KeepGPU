@@ -49,6 +49,15 @@ def validate_busy_threshold(busy_threshold: Any) -> int:
     return busy_threshold
 
 
+def validate_positive_integer(value: Any, name: str) -> int:
+    """Validate a public positive integer input."""
+    if not _is_plain_int(value):
+        raise TypeError(f"{name} must be an integer")
+    if value <= 0:
+        raise ValueError(f"{name} must be positive")
+    return value
+
+
 def validate_job_id(job_id: Any) -> Optional[str]:
     """Validate public session job_id input."""
     if job_id is None:

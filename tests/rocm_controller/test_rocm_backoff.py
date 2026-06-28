@@ -1,4 +1,12 @@
+import pytest
+
 from keep_gpu.single_gpu_controller.rocm_gpu_controller import RocmGPUController
+
+
+@pytest.mark.parametrize("iterations", [0, -1])
+def test_rocm_controller_rejects_non_positive_iterations(iterations):
+    with pytest.raises(ValueError, match="iterations must be positive"):
+        RocmGPUController(rank=0, vram_to_keep=4, iterations=iterations)
 
 
 class _StopAfterOneWait:

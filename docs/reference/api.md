@@ -28,6 +28,12 @@ Public controller, CLI, REST, JSON-RPC, and MCP defaults use
 keep tensors or running compute. Pass `busy_threshold=-1` only when you
 intentionally want unconditional keepalive compute without utilization backoff.
 
+Single-GPU workload iteration controls must be positive integers. CUDA exposes
+`relu_iterations`; ROCm and Mac M expose `iterations`. Non-integer values raise
+`TypeError`, and non-positive values raise `ValueError` before a worker can
+start, rather than creating a silent no-op keep loop or a background thread
+crash.
+
 For service session IDs, `job_id=None` is the only omitted/all-sessions
 sentinel. Custom IDs must be non-empty strings containing only letters, digits,
 `.`, `_`, `-`, or `~`; invalid values raise `ValueError` before session state

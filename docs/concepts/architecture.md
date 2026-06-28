@@ -71,8 +71,10 @@ Elementwise keep-alive batches:
 
 - Allocate continuous VRAM quickly, which is what schedulers monitor.
 - Exercise compute units enough to show non-zero utilization spikes.
-- Are deterministic and easy to tune with interval and iteration settings, trading
-  power draw for stronger “busy” signals.
+- Are deterministic and easy to tune with interval and positive integer
+  iteration settings, trading power draw for stronger "busy" signals.
+  Non-integer and non-positive iteration counts are rejected so a keep session
+  cannot crash later or silently do no useful keep-alive work.
 
 ## Threading & responsiveness
 
