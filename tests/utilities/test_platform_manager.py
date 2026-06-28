@@ -77,9 +77,9 @@ def test_rocm_detects_hip(monkeypatch):
     assert pm._check_rocm() is True
 
 
-def test_cuda_detection_falls_back_to_nvml(monkeypatch):
-    _reset_cache(monkeypatch)
-    # Force torch to look like ROCm build to ensure NVML takes precedence
+def test_get_platform_prefers_rocm_torch_over_nvml(monkeypatch):
+    monkeypatch.setattr(pm, "_cached_platform", None)
+    monkeypatch.delenv("KEEP_GPU_PLATFORM", raising=False)
     monkeypatch.setattr(pm.torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(pm.torch, "version", type("v", (), {"hip": "6.0"}))
 
@@ -88,8 +88,62 @@ def test_cuda_detection_falls_back_to_nvml(monkeypatch):
         def nvmlInit():
             return None
 
+        @staticmethod
+        def nvmlShutdown():
+            return None
+
     monkeypatch.setitem(sys.modules, "pynvml", DummyNVML)
+
+    assert pm.get_platform() == pm.ComputingPlatform.ROCM
+
+
+def test_cuda_detection_skips_nvml_for_rocm_torch_build(monkeypatch):
+    _reset_cache(monkeypatch)
+
+    def fail_cuda_probe():
+        raise AssertionError("CUDA availability should not be probed for HIP builds")
+
+    monkeypatch.setattr(pm.torch.cuda, "is_available", fail_cuda_probe)
+    monkeypatch.setattr(pm.torch, "version", type("v", (), {"hip": "6.0"}))
+
+    class DummyNVML:
+        init_calls = 0
+
+        @staticmethod
+        def nvmlInit():
+            DummyNVML.init_calls += 1
+            return None
+
+    monkeypatch.setitem(sys.modules, "pynvml", DummyNVML)
+    assert pm._check_cuda() is False
+    assert DummyNVML.init_calls == 0
+
+
+def test_cuda_detection_uses_torch_when_hip_attr_missing(monkeypatch):
+    _reset_cache(monkeypatch)
+    cuda_calls = 0
+
+    def cuda_available():
+        nonlocal cuda_calls
+        cuda_calls += 1
+        return True
+
+    monkeypatch.setattr(pm.torch.cuda, "is_available", cuda_available)
+    monkeypatch.delattr(pm.torch.version, "hip", raising=False)
+
+    class DummyNVML:
+        init_calls = 0
+
+        @staticmethod
+        def nvmlInit():
+            DummyNVML.init_calls += 1
+            raise RuntimeError("NVML should not be needed when torch sees CUDA")
+
+    monkeypatch.setitem(sys.modules, "pynvml", DummyNVML)
+
     assert pm._check_cuda() is True
+    assert cuda_calls == 1
+    assert DummyNVML.init_calls == 0
 
 
 def test_cuda_detection_shuts_down_nvml_probe(monkeypatch):
