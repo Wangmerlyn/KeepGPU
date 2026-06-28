@@ -929,14 +929,20 @@ def service_stop(
             )
             return
 
-        if _service_available(host, port):
+        try:
             status = _rpc_call("status", {}, host, port)
-            active_jobs = status.get("active_jobs", [])
-            if active_jobs:
-                raise RuntimeError(
-                    "Tracked keep sessions detected. Stop sessions first (`keep-gpu stop --all`) or re-run with --force."
-                )
-            _rpc_call("stop_keep", {}, host, port, timeout=45.0)
+        except ServiceUnreachableError as exc:
+            raise RuntimeError(
+                f"KeepGPU service is unavailable at {host}:{port}. Non-force service-stop must verify no tracked keep sessions before stopping the daemon. "
+                "For an unresponsive auto-started daemon, run `keep-gpu service-stop --force`."
+            ) from exc
+
+        active_jobs = status.get("active_jobs", [])
+        if active_jobs:
+            raise RuntimeError(
+                "Tracked keep sessions detected. Stop sessions first (`keep-gpu stop --all`) or re-run with --force."
+            )
+        _rpc_call("stop_keep", {}, host, port, timeout=45.0)
 
         stopped = _stop_service_process(host, port)
         if not stopped:
