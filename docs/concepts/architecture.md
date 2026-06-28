@@ -96,4 +96,6 @@ Elementwise keep-alive batches:
 `get_platform()` inspects the system and enables the CUDA, ROCm, or Mac M series
 (MPS) path. Detection order: CUDA → ROCm → Mac M → CPU fallback.
 Vendor detection probes initialize and then shut down their telemetry libraries
-immediately, so detection does not leave NVML or ROCm SMI handles open.
+immediately, so detection does not leave NVML or ROCm SMI handles open. A PyTorch
+build with a truthy `torch.version.hip` is treated as ROCm before any NVML-based
+CUDA fallback, even if NVML is available on the host.

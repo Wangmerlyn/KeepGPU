@@ -27,7 +27,9 @@ def _check_cuda():
     """
     try:
         # ROCm builds set torch.version.hip; treat those as non-CUDA.
-        if torch.cuda.is_available() and torch.version.hip is None:
+        if getattr(torch.version, "hip", None):
+            return False
+        if torch.cuda.is_available():
             return True
     except Exception as exc:  # pragma: no cover - torch edge cases
         logger.debug("torch.cuda.is_available() failed: %s", exc)
