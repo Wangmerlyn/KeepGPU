@@ -314,6 +314,169 @@ def test_list_gpus_error_outputs_single_decoded_json_object(monkeypatch):
     assert payload["error"] == "telemetry service unavailable"
 
 
+def test_rpc_call_rejects_success_envelope_without_result(monkeypatch):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+
+    def fake_http_json_request(method, url, payload, timeout=8.0):
+        assert method == "POST"
+        assert url == "http://127.0.0.1:8765/rpc"
+        assert payload["id"] == 1000
+        return {"jsonrpc": "2.0", "id": 1000}
+
+    monkeypatch.setattr(cli, "_http_json_request", fake_http_json_request)
+
+    with pytest.raises(cli.ServiceResponseError, match="missing result"):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
+def test_rpc_call_rejects_success_envelope_with_non_object_result(monkeypatch):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {"jsonrpc": "2.0", "id": 1000, "result": []},
+    )
+
+    with pytest.raises(cli.ServiceResponseError, match="result must be an object"):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
+@pytest.mark.parametrize("version", [None, "1.0"])
+def test_rpc_call_rejects_success_envelope_with_invalid_jsonrpc_version(
+    monkeypatch, version
+):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    response = {"id": 1000, "result": {}}
+    if version is not None:
+        response["jsonrpc"] = version
+    monkeypatch.setattr(cli, "_http_json_request", lambda *args, **kwargs: response)
+
+    with pytest.raises(cli.ServiceResponseError, match="jsonrpc must be 2.0"):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
+def test_rpc_call_rejects_success_envelope_with_mismatched_id(monkeypatch):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {"jsonrpc": "2.0", "id": 999, "result": {}},
+    )
+
+    with pytest.raises(cli.ServiceResponseError, match="mismatched id"):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
+def test_rpc_call_rejects_error_envelope_with_non_object_error(monkeypatch):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {"jsonrpc": "2.0", "id": 1000, "error": "bad"},
+    )
+
+    with pytest.raises(cli.ServiceResponseError, match="error must be an object"):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
+def test_rpc_call_propagates_error_envelope_with_null_id(monkeypatch):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": -32700, "message": "Parse error"},
+        },
+    )
+
+    with pytest.raises(cli.ServiceRPCError, match="Parse error"):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
+def test_rpc_call_rejects_error_envelope_without_id_member(monkeypatch):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {
+            "jsonrpc": "2.0",
+            "error": {"code": -32600, "message": "Requests must include an id."},
+        },
+    )
+
+    with pytest.raises(cli.ServiceResponseError, match="missing id"):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
+def test_rpc_call_rejects_envelope_with_both_error_and_result(monkeypatch):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {
+            "jsonrpc": "2.0",
+            "id": 1000,
+            "error": {"code": -32000, "message": "service failed"},
+            "result": {},
+        },
+    )
+
+    with pytest.raises(
+        cli.ServiceResponseError, match="both error and result members are present"
+    ):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
+def test_rpc_call_rejects_non_object_jsonrpc_response(monkeypatch):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(cli, "_http_json_request", lambda *args, **kwargs: [])
+
+    with pytest.raises(cli.ServiceResponseError, match="response must be an object"):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
+@pytest.mark.parametrize(
+    ("command", "method", "params"),
+    [
+        (["status"], "status", {}),
+        (["stop", "--job-id", "job-1"], "stop_keep", {"job_id": "job-1"}),
+        (["list-gpus"], "list_gpus", {}),
+    ],
+)
+def test_service_json_commands_output_json_error_for_non_object_rpc_response(
+    monkeypatch, command, method, params
+):
+    def fake_http_json_request(http_method, url, payload, timeout=8.0):
+        assert payload["method"] == method
+        assert payload["params"] == params
+        return []
+
+    monkeypatch.setattr(cli, "_http_json_request", fake_http_json_request)
+
+    result = runner.invoke(cli.app, command)
+
+    assert result.exit_code == 1
+    payload = _single_decoded_json_object(result.output)
+    assert "response must be an object" in payload["error"]
+
+
+def test_status_outputs_json_error_for_malformed_rpc_success_envelope(monkeypatch):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {"jsonrpc": "2.0", "id": 1000},
+    )
+
+    result = runner.invoke(cli.app, ["status"])
+
+    assert result.exit_code == 1
+    payload = _single_decoded_json_object(result.output)
+    assert "missing result" in payload["error"]
+
+
 def test_blocking_mode_defaults_to_eco_safe_busy_threshold(monkeypatch):
     called = {}
 

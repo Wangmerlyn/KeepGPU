@@ -75,6 +75,9 @@ Methods:
 - `status(job_id?)`
 - `list_gpus()`
 
+Successful direct-method responses are KeepGPU JSON-RPC envelopes with
+`jsonrpc: "2.0"`, the matching request `id`, and an object `result`.
+
 For direct JSON-RPC calls, public validation failures and unknown parameters
 return JSON-RPC `-32602 Invalid params`. Unexpected server failures use
 `-32603 Internal error`.
