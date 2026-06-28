@@ -92,6 +92,48 @@ class DummyTorchCudaROCm:
         return f"ROCm {idx}"
 
 
+class DummyTorchCudaCUDA:
+    def __init__(
+        self,
+        count: int = 1,
+        *,
+        available: bool = True,
+        device_count_error: Exception | None = None,
+        set_device_error: Exception | None = None,
+    ):
+        self.count = count
+        self.available = available
+        self.device_count_error = device_count_error
+        self.set_device_error = set_device_error
+        self.current = 0
+        self.set_devices: list[int] = []
+
+    def is_available(self):
+        return self.available
+
+    def current_device(self):
+        return self.current
+
+    def device_count(self):
+        if self.device_count_error is not None:
+            raise self.device_count_error
+        return self.count
+
+    def set_device(self, idx):
+        if self.set_device_error is not None:
+            raise self.set_device_error
+        self.set_devices.append(idx)
+        self.current = idx
+
+    @staticmethod
+    def mem_get_info():
+        return (50, 100)
+
+    @staticmethod
+    def get_device_name(idx):
+        return f"CUDA {idx}"
+
+
 class DummyROCMSMI:
     def __init__(self, util_by_index: dict[int, int] | None = None, count: int = 8):
         self.util_by_index = util_by_index or {}
@@ -147,6 +189,41 @@ def _install_rocm_gpu_info_mocks(
     return dummy_rocm, dummy_cuda
 
 
+def _install_cuda_gpu_info_mocks(
+    monkeypatch,
+    *,
+    count: int = 1,
+    available: bool = True,
+    device_count_error: Exception | None = None,
+    set_device_error: Exception | None = None,
+    has_version: bool = True,
+):
+    monkeypatch.setitem(sys.modules, "rocm_smi", None)
+    dummy_cuda = DummyTorchCudaCUDA(
+        count=count,
+        available=available,
+        device_count_error=device_count_error,
+        set_device_error=set_device_error,
+    )
+    torch_attrs = {
+        "cuda": dummy_cuda,
+        "backends": type(
+            "Backends",
+            (),
+            {
+                "mps": type(
+                    "MPSBackend", (), {"is_available": staticmethod(lambda: False)}
+                )
+            },
+        ),
+    }
+    if has_version:
+        torch_attrs["version"] = type("V", (), {"hip": None})
+    dummy_torch = type("T", (), torch_attrs)
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+    return dummy_cuda
+
+
 def test_get_gpu_info_nvml(monkeypatch):
     class DummyNVML:
         def __init__(self):
@@ -182,6 +259,7 @@ def test_get_gpu_info_nvml(monkeypatch):
 
     dummy_nvml = DummyNVML()
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=1)
 
     infos = gpu_info.get_gpu_info()
     assert len(infos) == 1
@@ -199,6 +277,7 @@ def test_get_gpu_info_nvml_maps_cuda_visible_devices_to_visible_ordinals(
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "2, 0")
     dummy_nvml = MultiGPUDummyNVML(count=4)
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=2)
 
     infos = gpu_info.get_gpu_info()
 
@@ -215,6 +294,7 @@ def test_get_gpu_info_nvml_maps_cuda_uuid_mask_to_visible_ordinal(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-abc123")
     dummy_nvml = MultiGPUDummyNVML(count=4, uuid_to_index={"GPU-abc123": 2})
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=1)
 
     infos = gpu_info.get_gpu_info()
 
@@ -233,6 +313,7 @@ def test_get_gpu_info_nvml_empty_cuda_visible_devices_hides_all(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
     dummy_nvml = MultiGPUDummyNVML(count=2)
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=0)
 
     assert gpu_info.get_gpu_info() == []
     assert dummy_nvml.queried_indexes == []
@@ -243,6 +324,7 @@ def test_get_gpu_info_nvml_negative_cuda_visible_devices_hides_all(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "-1")
     dummy_nvml = MultiGPUDummyNVML(count=2)
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=0)
 
     assert gpu_info.get_gpu_info() == []
     assert dummy_nvml.queried_indexes == []
@@ -255,10 +337,11 @@ def test_get_gpu_info_nvml_unresolved_uuid_mask_does_not_list_placeholder(
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-typo")
     dummy_nvml = MultiGPUDummyNVML(count=2)
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=0)
 
     assert gpu_info.get_gpu_info() == []
     assert dummy_nvml.queried_indexes == []
-    assert dummy_nvml.queried_uuids == ["GPU-typo", b"GPU-typo"]
+    assert dummy_nvml.queried_uuids == []
     assert dummy_nvml.shutdown_calls == 1
 
 
@@ -266,6 +349,7 @@ def test_get_gpu_info_nvml_malformed_cuda_visible_devices_hides_all(monkeypatch)
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,,2")
     dummy_nvml = MultiGPUDummyNVML(count=3)
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=0)
 
     assert gpu_info.get_gpu_info() == []
     assert dummy_nvml.queried_indexes == []
@@ -278,6 +362,7 @@ def test_get_gpu_info_nvml_out_of_range_cuda_visible_devices_hides_all(
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,99,2")
     dummy_nvml = MultiGPUDummyNVML(count=3)
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=0)
 
     assert gpu_info.get_gpu_info() == []
     assert dummy_nvml.queried_indexes == []
@@ -288,23 +373,27 @@ def test_get_gpu_info_nvml_duplicate_cuda_visible_devices_hides_all(monkeypatch)
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,0")
     dummy_nvml = MultiGPUDummyNVML(count=2)
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=0)
 
     assert gpu_info.get_gpu_info() == []
     assert dummy_nvml.queried_indexes == []
     assert dummy_nvml.shutdown_calls == 1
 
 
-def test_get_gpu_info_nvml_duplicate_resolved_uuid_devices_hides_all(monkeypatch):
+def test_get_gpu_info_nvml_duplicate_uuid_mask_hides_all_when_torch_has_no_devices(
+    monkeypatch,
+):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-a,GPU-b")
     dummy_nvml = MultiGPUDummyNVML(
         count=3,
         uuid_to_index={"GPU-a": 2, "GPU-b": 2},
     )
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=0)
 
     assert gpu_info.get_gpu_info() == []
     assert dummy_nvml.queried_indexes == []
-    assert dummy_nvml.queried_uuids == ["GPU-a", "GPU-b"]
+    assert dummy_nvml.queried_uuids == []
     assert dummy_nvml.shutdown_calls == 1
 
 
@@ -428,26 +517,12 @@ def test_get_gpu_info_hip_torch_skips_nvml_when_rocm_smi_unavailable(monkeypatch
     assert dummy_nvml.shutdown_calls == 0
 
 
-def test_get_gpu_info_allows_torch_without_version_attribute(monkeypatch):
+def test_get_gpu_info_cuda_nvml_allows_torch_without_version_attribute_when_startable(
+    monkeypatch,
+):
     dummy_nvml = MultiGPUDummyNVML(count=1)
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
-    dummy_torch = type(
-        "T",
-        (),
-        {
-            "cuda": type("Cuda", (), {"is_available": staticmethod(lambda: False)}),
-            "backends": type(
-                "Backends",
-                (),
-                {
-                    "mps": type(
-                        "MPSBackend", (), {"is_available": staticmethod(lambda: False)}
-                    )
-                },
-            ),
-        },
-    )
-    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=1, has_version=False)
 
     infos = gpu_info.get_gpu_info()
 
@@ -455,6 +530,119 @@ def test_get_gpu_info_allows_torch_without_version_attribute(monkeypatch):
     assert infos[0]["platform"] == "cuda"
     assert dummy_nvml.queried_indexes == [0]
     assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_cuda_nvml_hides_devices_when_torch_unavailable(monkeypatch):
+    dummy_nvml = MultiGPUDummyNVML(count=1)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, available=False)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_cuda_nvml_hides_devices_when_torch_count_is_zero(monkeypatch):
+    dummy_nvml = MultiGPUDummyNVML(count=1)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=0)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_cuda_nvml_hides_devices_when_torch_count_fails(monkeypatch):
+    dummy_nvml = MultiGPUDummyNVML(count=1)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(
+        monkeypatch,
+        device_count_error=RuntimeError("cuda runtime unavailable"),
+    )
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_cuda_nvml_hides_devices_when_torch_set_device_fails(
+    monkeypatch,
+):
+    dummy_nvml = MultiGPUDummyNVML(count=1)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    dummy_cuda = _install_cuda_gpu_info_mocks(
+        monkeypatch,
+        count=1,
+        set_device_error=RuntimeError("cannot select cuda:0"),
+    )
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+    assert dummy_cuda.set_devices == []
+
+
+def test_get_gpu_info_cuda_nvml_mask_mismatch_falls_back_to_torch(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,2")
+    dummy_nvml = MultiGPUDummyNVML(count=3)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    dummy_cuda = _install_cuda_gpu_info_mocks(monkeypatch, count=1)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert [info["id"] for info in infos] == [0]
+    assert [info["visible_id"] for info in infos] == [0]
+    assert [info["platform"] for info in infos] == ["cuda"]
+    assert "physical_id" not in infos[0]
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+    assert dummy_cuda.set_devices == [0, 0]
+
+
+def test_get_gpu_info_cuda_nvml_mismatch_prefers_torch_over_rocm_smi(
+    monkeypatch,
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,2")
+    dummy_nvml = MultiGPUDummyNVML(count=3)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    dummy_rocm = DummyROCMSMI(util_by_index={0: 77})
+    monkeypatch.setitem(sys.modules, "rocm_smi", dummy_rocm)
+    dummy_cuda = _install_cuda_gpu_info_mocks(monkeypatch, count=1)
+    monkeypatch.setitem(sys.modules, "rocm_smi", dummy_rocm)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert [info["id"] for info in infos] == [0]
+    assert [info["visible_id"] for info in infos] == [0]
+    assert [info["platform"] for info in infos] == ["cuda"]
+    assert "physical_id" not in infos[0]
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+    assert dummy_rocm.init_calls == 0
+    assert dummy_rocm.queried_indexes == []
+    assert dummy_cuda.set_devices == [0, 0]
+
+
+def test_get_gpu_info_cuda_unstartable_torch_does_not_fall_back_to_rocm_smi(
+    monkeypatch,
+):
+    dummy_nvml = MultiGPUDummyNVML(count=1)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    dummy_rocm = DummyROCMSMI(util_by_index={0: 77})
+    monkeypatch.setitem(sys.modules, "rocm_smi", dummy_rocm)
+    dummy_cuda = _install_cuda_gpu_info_mocks(
+        monkeypatch,
+        count=1,
+        set_device_error=RuntimeError("cannot select cuda:0"),
+    )
+    monkeypatch.setitem(sys.modules, "rocm_smi", dummy_rocm)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+    assert dummy_rocm.init_calls == 0
+    assert dummy_rocm.queried_indexes == []
+    assert dummy_cuda.set_devices == []
 
 
 def test_get_gpu_info_torch_fallback_allows_missing_version_attribute(monkeypatch):

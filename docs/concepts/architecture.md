@@ -124,3 +124,8 @@ GPU listing follows the same precedence. On HIP/ROCm torch builds, `list_gpus`
 prefers ROCm records and ROCm SMI metadata instead of returning NVML CUDA records
 first on mixed hosts. If ROCm SMI is unavailable, listing falls back to
 torch's HIP-backed device records rather than NVML CUDA records.
+On non-HIP CUDA builds, NVML records are returned only when Torch CUDA reports a
+matching positive visible-device count and each visible ordinal can be selected
+with `torch.cuda.set_device()`. If that NVML/Torch trust check fails, listing
+falls back to Torch CUDA records and does not probe ROCm SMI on non-HIP builds,
+so CUDA devices are not misreported as ROCm inventory.

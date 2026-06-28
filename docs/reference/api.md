@@ -9,7 +9,9 @@ visible device ordinals after CUDA or ROCm visibility filtering. Passing an
 empty, duplicate, or out-of-range list is invalid, and startup raises
 `ValueError` if discovery resolves to zero devices. Telemetry may expose
 metadata such as `physical_id`, but those fields are not accepted as selection
-IDs.
+IDs. On CUDA, NVML telemetry records are returned only when Torch CUDA can start
+the same visible ordinal set, so NVML-only devices are not exposed as public
+`gpu_ids`.
 
 `GlobalGPUController` validates local constructor inputs (`gpu_ids`, `interval`,
 `busy_threshold`, and `vram_to_keep`) before platform or hardware probing.
