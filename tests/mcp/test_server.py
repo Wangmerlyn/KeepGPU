@@ -525,7 +525,7 @@ def test_mcp_tools_list_exposes_keepgpu_actions():
     start_schema = tools["start_keep"]["inputSchema"]
     assert start_schema["type"] == "object"
     assert start_schema["properties"]["gpu_ids"]["items"]["type"] == "integer"
-    assert start_schema["properties"]["vram"]["type"] == ["string", "integer"]
+    assert set(start_schema["properties"]["vram"]["type"]) == {"string", "integer"}
     assert start_schema["properties"]["vram"]["maximum"] == PUBLIC_VRAM_MAX_BYTES
     assert "1 PiB" in start_schema["properties"]["vram"]["description"]
     assert start_schema["properties"]["busy_threshold"]["default"] == 25

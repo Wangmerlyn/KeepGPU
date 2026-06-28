@@ -113,6 +113,7 @@ validation lane.
 - Modify: `README.md`
 - Modify: `docs/guides/cli.md`
 - Modify: `docs/guides/mcp.md`
+- Modify: `docs/guides/python.md`
 - Modify: `docs/reference/cli.md`
 - Modify: `docs/getting-started.md`
 - Modify: `docs/concepts/architecture.md`

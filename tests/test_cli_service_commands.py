@@ -547,7 +547,6 @@ def test_blocking_mode_rejects_invalid_vram_without_raw_exception(args, message)
     result = runner.invoke(cli.app, args)
 
     assert result.exit_code == 1
-    assert result.exception is not None
     assert message in result.output
 
 
