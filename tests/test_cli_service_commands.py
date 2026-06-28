@@ -82,6 +82,68 @@ def test_start_command_uses_rpc(monkeypatch):
     assert port == cli.DEFAULT_SERVICE_PORT
 
 
+@pytest.mark.parametrize(
+    "root_args",
+    [
+        ["--gpu-ids", "0"],
+        ["--vram", "2GiB"],
+        ["--interval", "60"],
+        ["--busy-threshold", "30"],
+        ["--util-threshold", "30"],
+        ["--threshold", "30"],
+    ],
+)
+def test_start_rejects_root_blocking_options_before_service_calls(
+    monkeypatch, root_args
+):
+    called = {"ensure": False, "rpc": False}
+
+    def fake_ensure(host, port, auto_start=True):
+        called["ensure"] = True
+        return False
+
+    def fake_rpc(method, params, host, port):
+        called["rpc"] = True
+        return {"job_id": "job-root-options"}
+
+    monkeypatch.setattr(cli, "_ensure_service_running", fake_ensure)
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, [*root_args, "start"])
+
+    normalized_output = " ".join(result.output.split())
+    assert result.exit_code == 1
+    assert "Omit blocking-mode root options before service subcommands" in (
+        normalized_output
+    )
+    assert "keep-gpu start --gpu-ids 0" in normalized_output
+    assert called == {"ensure": False, "rpc": False}
+
+
+def test_status_rejects_root_blocking_options_before_service_rpc(monkeypatch):
+    called = {"rpc": False}
+
+    def fake_rpc(method, params, host, port):
+        called["rpc"] = True
+        return {"active_jobs": []}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["--gpu-ids", "0", "status"])
+
+    normalized_output = " ".join(result.output.split())
+    assert result.exit_code == 1
+    assert "`status` service subcommand" in normalized_output
+    assert "Omit blocking-mode root options before service subcommands" in (
+        normalized_output
+    )
+    assert called == {"rpc": False}
+
+
+def test_root_option_source_helper_accepts_raw_commandline_value():
+    assert cli._is_commandline_parameter_source("COMMANDLINE") is True
+
+
 def test_start_command_accepts_fractional_interval(monkeypatch):
     called = {}
 
@@ -850,8 +912,12 @@ def test_invalid_root_interval_before_subcommand_is_rejected(monkeypatch):
 
     result = runner.invoke(cli.app, ["--interval", "not-a-number", "start"])
 
+    normalized_output = " ".join(result.output.split())
     assert result.exit_code == 1
-    assert "interval must be finite and positive" in result.output
+    assert "--interval" in normalized_output
+    assert "Omit blocking-mode root options before service subcommands" in (
+        normalized_output
+    )
 
 
 @pytest.mark.parametrize(

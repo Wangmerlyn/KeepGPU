@@ -33,6 +33,13 @@ DEFAULT_SERVICE_HOST = "127.0.0.1"
 DEFAULT_SERVICE_PORT = 8765
 SERVICE_HOST_ERROR = "host must be a DNS hostname or IPv4 address"
 SERVICE_PORT_ERROR = "port must be an integer between 1 and 65535"
+ROOT_BLOCKING_OPTION_LABELS = {
+    "gpu_ids": "--gpu-ids",
+    "vram": "--vram",
+    "legacy_threshold": "--threshold",
+    "busy_threshold": "--busy-threshold/--util-threshold",
+    "interval": "--interval",
+}
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -329,6 +336,29 @@ def _validate_cli_service_port(port: int) -> int:
 
 def _validate_cli_service_endpoint(host: str, port: int) -> Tuple[str, int]:
     return _validate_cli_service_host(host), _validate_cli_service_port(port)
+
+
+def _is_commandline_parameter_source(source: Any) -> bool:
+    # Typer can return its vendored Click enum or a string; compare semantics.
+    return getattr(source, "name", source) == "COMMANDLINE"
+
+
+def _reject_root_blocking_options_before_subcommand(ctx: typer.Context) -> None:
+    explicit_options = [
+        option_label
+        for param_name, option_label in ROOT_BLOCKING_OPTION_LABELS.items()
+        if _is_commandline_parameter_source(ctx.get_parameter_source(param_name))
+    ]
+    if not explicit_options:
+        return
+
+    option_text = ", ".join(explicit_options)
+    raise typer.BadParameter(
+        f"Root blocking option(s) {option_text} were placed before the "
+        f"`{ctx.invoked_subcommand}` service subcommand. Omit blocking-mode "
+        "root options before service subcommands; for start options, place "
+        "them after `start`, for example: `keep-gpu start --gpu-ids 0`."
+    )
 
 
 def _service_base_url(host: str, port: int) -> str:
@@ -679,9 +709,10 @@ def main(
 ):
     """Run blocking keep-alive mode when no subcommand is provided."""
     try:
-        interval = _validate_cli_interval(interval)
         if ctx.invoked_subcommand is not None:
+            _reject_root_blocking_options_before_subcommand(ctx)
             return
+        interval = _validate_cli_interval(interval)
         _parse_gpu_ids(gpu_ids)
         _run_blocking(interval, gpu_ids, vram, legacy_threshold, busy_threshold)
     except typer.BadParameter as exc:

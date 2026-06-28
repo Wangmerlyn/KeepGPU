@@ -84,6 +84,11 @@ This file defines how coding agents should work in this repository.
 - MCP executable HTTP endpoint inputs (`--host`, `--port`) must be validated
   before socket bind, matching the CLI service endpoint contract.
 - `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, and `--port` before auto-starting the service daemon or making RPC calls.
+- Blocking-mode root CLI options (`--gpu-ids`, `--vram`,
+  `--busy-threshold`/`--util-threshold`, hidden `--threshold`, and
+  `--interval`) must be rejected when explicitly supplied before a service
+  subcommand; service options belong after the subcommand, for example
+  `keep-gpu start --gpu-ids 0`.
 - `keep-gpu status --job-id` and `keep-gpu stop --job-id` must validate
   explicit custom IDs locally before service RPC, stop-all fallback, or daemon
   side effects. Only omitting the option means all-session status or no stop
