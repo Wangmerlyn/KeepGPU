@@ -102,3 +102,8 @@ Vendor detection probes initialize and then shut down their telemetry libraries
 immediately, so detection does not leave NVML or ROCm SMI handles open. A PyTorch
 build with a truthy `torch.version.hip` is treated as ROCm before any NVML-based
 CUDA fallback, even if NVML is available on the host.
+
+GPU listing follows the same precedence. On HIP/ROCm torch builds, `list_gpus`
+prefers ROCm records and ROCm SMI metadata instead of returning NVML CUDA records
+first on mixed hosts. If ROCm SMI is unavailable, listing falls back to
+torch's HIP-backed device records rather than NVML CUDA records.

@@ -106,6 +106,10 @@ This file defines how coding agents should work in this repository.
 - Keep CUDA telemetry aligned with visible CUDA ordinals: `get_gpu_utilization(index)` receives the visible rank used by `CudaGPUController`, and `gpu_monitor.py` resolves `CUDA_VISIBLE_DEVICES` numeric/UUID tokens to the correct NVML handle. If that mapping is duplicate, ambiguous, or unsupported, return `None` rather than falling back to a possibly wrong physical index.
 - Keep ROCm telemetry aligned with visible ROCm ordinals: resolve `ROCR_VISIBLE_DEVICES` as the base mask and one matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm SMI. If the mapping is malformed, conflicting, unsupported, or out of range, return unavailable utilization rather than querying a guessed SMI index.
 - Keep GPU listing IDs aligned with start APIs: `list_gpus`/`/api/gpus` must expose `id` as the visible ordinal users can pass as `gpu_ids`; physical/vendor identifiers belong in explicit metadata fields such as `physical_id` and must not be accepted implicitly as selection IDs.
+- Keep GPU listing platform precedence aligned with controller platform
+  detection: HIP/ROCm torch builds must prefer ROCm listing over NVML CUDA
+  listing, and must not fall back to NVML CUDA records when torch's active
+  runtime is HIP.
 - Global controller startup must fail clearly when GPU selection resolves to zero or duplicate devices; do not create silent no-op or duplicate-worker keep sessions.
 - Avoid scattering platform-specific branching across unrelated modules; prefer one clear decision path then platform-specific controller classes.
 - Preserve simple controller flow: global controller orchestrates per-GPU controllers; single-GPU controllers handle device-level keep/release loops.
