@@ -339,8 +339,8 @@ def _validate_cli_service_endpoint(host: str, port: int) -> Tuple[str, int]:
 
 
 def _is_commandline_parameter_source(source: Any) -> bool:
-    # Typer can return its vendored Click enum, so compare the semantic name.
-    return getattr(source, "name", None) == "COMMANDLINE"
+    # Typer can return its vendored Click enum or a string; compare semantics.
+    return getattr(source, "name", source) == "COMMANDLINE"
 
 
 def _reject_root_blocking_options_before_subcommand(ctx: typer.Context) -> None:

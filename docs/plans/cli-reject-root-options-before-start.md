@@ -26,6 +26,8 @@ explicitly supplied must remain ignored so normal service commands keep working.
 - [x] Preserve blocking mode when no subcommand is invoked.
 - [x] Add a non-`start` service-command regression so the broader guard stays
       intentional.
+- [x] Address hosted review by accepting raw `"COMMANDLINE"` parameter-source
+      values as well as Click enum members.
 - [x] Add the root/subcommand option-placement guideline to `AGENTS.md`.
 - [x] Run targeted tests and `git diff --check`.
 - [x] Commit with `fix(cli): reject root options before service commands`.
@@ -35,5 +37,6 @@ explicitly supplied must remain ignored so normal service commands keep working.
 - RED: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_start_rejects_root_blocking_options_before_service_calls -q` failed before implementation with 6 failing parameter cases because the command exited successfully instead of rejecting root options.
 - GREEN: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_start_rejects_root_blocking_options_before_service_calls -q` passed with 6 cases after the guard.
 - Review-polish check: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_status_rejects_root_blocking_options_before_service_rpc -q` passed after adding the non-`start` service-command regression.
+- Hosted-review RED/GREEN: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_root_option_source_helper_accepts_raw_commandline_value -q` failed before the fallback and passed after the helper accepted raw string sources.
 - Final targeted suite: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py tests/test_cli_thresholds.py -q` passed with 126 tests.
 - Diff hygiene: `git diff --check` passed.

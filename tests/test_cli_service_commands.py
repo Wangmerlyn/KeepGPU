@@ -140,6 +140,10 @@ def test_status_rejects_root_blocking_options_before_service_rpc(monkeypatch):
     assert called == {"rpc": False}
 
 
+def test_root_option_source_helper_accepts_raw_commandline_value():
+    assert cli._is_commandline_parameter_source("COMMANDLINE") is True
+
+
 def test_start_command_accepts_fractional_interval(monkeypatch):
     called = {}
 
