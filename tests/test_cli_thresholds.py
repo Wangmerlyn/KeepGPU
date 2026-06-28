@@ -194,5 +194,5 @@ def test_run_blocking_logs_busy_threshold_semantically(
         for record in caplog.records
         if record.name == cli.logger.name
     ]
-    assert expected_message in messages
-    assert forbidden_message not in messages
+    assert any(expected_message in message for message in messages)
+    assert not any(forbidden_message in message for message in messages)

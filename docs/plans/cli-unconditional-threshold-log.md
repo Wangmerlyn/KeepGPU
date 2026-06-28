@@ -44,6 +44,8 @@ without changing CLI validation or controller inputs.
   - `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py tests/test_cli_thresholds.py -q`
   - `git diff --check`
   - `pre-commit run --all-files` if available and cheap
+- [x] Strengthen the hosted-review follow-up assertion so forbidden messages
+      are checked as substrings of captured log entries.
 - [x] Commit with `fix(cli): label unconditional threshold logs`.
 
 ## Verification Notes
@@ -63,5 +65,9 @@ without changing CLI validation or controller inputs.
   passed with 136 tests.
 - Hygiene:
   `git diff --check` passed, and `pre-commit run --all-files` passed.
+- Hosted review follow-up:
+  Gemini noted the forbidden-message check needed substring matching. The test
+  now checks `expected_message` and `forbidden_message` against captured log
+  entry substrings before re-running verification.
 - The final diff avoids controller behavior changes and keeps all changes scoped
   to CLI logging, tests, docs guidance, and this plan.
