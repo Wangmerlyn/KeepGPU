@@ -1,7 +1,9 @@
 import inspect
+import math
 
 import pytest
 
+from keep_gpu.global_gpu_controller import global_gpu_controller as global_module
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 from keep_gpu.single_gpu_controller.macm_gpu_controller import MacMGPUController
@@ -35,3 +37,36 @@ def test_global_controller_rejects_empty_gpu_ids(monkeypatch):
 
     with pytest.raises(ValueError, match="gpu_ids must select at least one GPU"):
         GlobalGPUController(gpu_ids=[])
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"gpu_ids": []}, "gpu_ids must select at least one GPU"),
+        ({"gpu_ids": [0, 0]}, "gpu_ids must not contain duplicate values"),
+        ({"gpu_ids": [-1]}, "gpu_ids must contain non-negative integers"),
+        ({"interval": 0}, "interval must be positive"),
+        ({"interval": math.nan}, "interval must be finite and positive"),
+        (
+            {"busy_threshold": -2},
+            "busy_threshold must be -1 or an integer between 0 and 100",
+        ),
+        (
+            {"busy_threshold": 101},
+            "busy_threshold must be -1 or an integer between 0 and 100",
+        ),
+        ({"vram_to_keep": []}, "vram_to_keep must be str or int bytes"),
+        ({"vram_to_keep": "not-a-size"}, "invalid format"),
+        ({"vram_to_keep": 1}, "memory size must be at least 4 bytes"),
+    ],
+)
+def test_global_controller_validates_local_inputs_before_platform_probe(
+    monkeypatch, kwargs, message
+):
+    def fail_platform_probe():
+        raise AssertionError("platform probe should not run for invalid inputs")
+
+    monkeypatch.setattr(global_module, "get_platform", fail_platform_probe)
+
+    with pytest.raises((TypeError, ValueError), match=message):
+        GlobalGPUController(**kwargs)
