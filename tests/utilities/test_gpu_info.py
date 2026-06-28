@@ -366,6 +366,127 @@ def test_get_gpu_info_rocm_unresolved_mask_keeps_visible_records_without_utiliza
     assert dummy_rocm.shutdown_calls == 1
 
 
+def test_get_gpu_info_prefers_rocm_when_hip_torch_and_nvml_are_both_available(
+    monkeypatch,
+):
+    monkeypatch.delenv("ROCR_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("HIP_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    dummy_nvml = MultiGPUDummyNVML(count=2)
+    dummy_rocm, _ = _install_rocm_gpu_info_mocks(
+        monkeypatch,
+        count=1,
+        util_by_index={0: 71},
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["platform"] == "rocm"
+    assert infos[0]["visible_id"] == 0
+    assert infos[0]["physical_id"] == 0
+    assert infos[0]["name"] == "ROCm 0"
+    assert infos[0]["utilization"] == 71
+    assert dummy_rocm.queried_indexes == [0]
+    assert dummy_rocm.shutdown_calls == 1
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 0
+
+
+def test_get_gpu_info_hip_torch_skips_nvml_when_rocm_smi_unavailable(monkeypatch):
+    dummy_nvml = MultiGPUDummyNVML(count=2)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    monkeypatch.setitem(sys.modules, "rocm_smi", None)
+    dummy_cuda = DummyTorchCudaROCm(count=1)
+    dummy_torch = type(
+        "T",
+        (),
+        {
+            "cuda": dummy_cuda,
+            "version": type("V", (), {"hip": "6.0"}),
+            "backends": type(
+                "Backends",
+                (),
+                {
+                    "mps": type(
+                        "MPSBackend", (), {"is_available": staticmethod(lambda: False)}
+                    )
+                },
+            ),
+        },
+    )
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["platform"] == "rocm"
+    assert infos[0]["visible_id"] == 0
+    assert infos[0]["utilization"] is None
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 0
+
+
+def test_get_gpu_info_allows_torch_without_version_attribute(monkeypatch):
+    dummy_nvml = MultiGPUDummyNVML(count=1)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    dummy_torch = type(
+        "T",
+        (),
+        {
+            "cuda": type("Cuda", (), {"is_available": staticmethod(lambda: False)}),
+            "backends": type(
+                "Backends",
+                (),
+                {
+                    "mps": type(
+                        "MPSBackend", (), {"is_available": staticmethod(lambda: False)}
+                    )
+                },
+            ),
+        },
+    )
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["platform"] == "cuda"
+    assert dummy_nvml.queried_indexes == [0]
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_torch_fallback_allows_missing_version_attribute(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    monkeypatch.setitem(sys.modules, "rocm_smi", None)
+    dummy_cuda = DummyTorchCudaROCm(count=1)
+    dummy_torch = type(
+        "T",
+        (),
+        {
+            "cuda": dummy_cuda,
+            "backends": type(
+                "Backends",
+                (),
+                {
+                    "mps": type(
+                        "MPSBackend", (), {"is_available": staticmethod(lambda: False)}
+                    )
+                },
+            ),
+        },
+    )
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["platform"] == "cuda"
+    assert infos[0]["visible_id"] == 0
+    assert dummy_cuda.set_devices == [0, 0]
+
+
 @pytest.mark.rocm
 def test_get_gpu_info_rocm(monkeypatch):
     # remove nvml so ROCm path is used

@@ -239,7 +239,11 @@ def _query_torch() -> List[Dict[str, Any]]:
                 {
                     "id": idx,
                     "visible_id": idx,
-                    "platform": "cuda" if torch.version.hip is None else "rocm",
+                    "platform": (
+                        "cuda"
+                        if getattr(getattr(torch, "version", None), "hip", None) is None
+                        else "rocm"
+                    ),
                     "name": name,
                     "memory_total": int(total) if total is not None else None,
                     "memory_used": int(used) if used is not None else None,
@@ -302,8 +306,24 @@ def get_gpu_info() -> List[Dict[str, Any]]:
     memory_used, and utilization. Backends may add physical_id or uuid metadata
     when the underlying vendor identity is known.
 
-    Tries NVML first (CUDA), then ROCm SMI, then torch.cuda, then MPS data.
+    Tries ROCm first for HIP torch builds, otherwise NVML first (CUDA), then
+    ROCm SMI, then torch.cuda, then MPS data.
     """
+    if getattr(getattr(torch, "version", None), "hip", None):
+        try:
+            infos = _query_rocm()
+            if infos:
+                return infos
+        except Exception as exc:
+            logger.debug("ROCm info failed: %s", exc)
+        try:
+            infos = _query_torch()
+            if infos:
+                return infos
+        except Exception as exc:
+            logger.debug("Torch GPU info failed: %s", exc)
+        return _query_mps()
+
     try:
         infos = _query_nvml()
         if infos:
