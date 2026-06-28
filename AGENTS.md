@@ -94,6 +94,10 @@ This file defines how coding agents should work in this repository.
   required result fields before rendering user-facing output; malformed
   method-specific payloads should become clean `ServiceResponseError` messages,
   not `KeyError`, tracebacks, or partial success text.
+- Keep `_rpc_call()` limited to generic JSON-RPC envelope validation; validate
+  method-specific `status`, `stop_keep`, and `list_gpus` result payloads at CLI
+  call sites before reading fields or triggering daemon stop side effects, while
+  allowing extra result fields for forward compatibility.
 - CLI service endpoint inputs (`--host`, `--port`) must be validated locally
   before service RPC, daemon auto-start, stop-all fallback, or daemon ownership
   operations. JSON-output commands must return structured `{"error": "..."}`

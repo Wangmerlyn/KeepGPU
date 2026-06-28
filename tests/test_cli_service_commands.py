@@ -638,7 +638,7 @@ def test_status_job_outputs_single_decoded_json_object(monkeypatch):
     def fake_rpc(method, params, host, port):
         assert method == "status"
         assert params == {"job_id": "job-1"}
-        return {"active": True, "job": {"job_id": "job-1"}}
+        return {"active": True, "job_id": "job-1"}
 
     monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
 
@@ -646,7 +646,48 @@ def test_status_job_outputs_single_decoded_json_object(monkeypatch):
 
     assert result.exit_code == 0
     payload = _single_decoded_json_object(result.output)
-    assert payload["job"]["job_id"] == "job-1"
+    assert payload["job_id"] == "job-1"
+
+
+@pytest.mark.parametrize("payload", [{}, {"active_jobs": {}}])
+def test_status_rejects_malformed_all_session_payloads(monkeypatch, payload):
+    def fake_rpc(method, params, host, port):
+        assert method == "status"
+        assert params == {}
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "active_jobs must be a list" in decoded["error"]
+    assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"active": "yes", "job_id": "job-1"},
+        {"active": True, "job_id": 1},
+    ],
+)
+def test_status_job_rejects_malformed_payloads(monkeypatch, payload):
+    def fake_rpc(method, params, host, port):
+        assert method == "status"
+        assert params == {"job_id": "job-1"}
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status", "--job-id", "job-1"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed status response" in decoded["error"]
+    assert "Traceback" not in result.output
 
 
 def test_stop_job_outputs_single_decoded_json_object(monkeypatch):
@@ -663,6 +704,40 @@ def test_stop_job_outputs_single_decoded_json_object(monkeypatch):
     assert result.exit_code == 0
     payload = _single_decoded_json_object(result.output)
     assert payload["stopped"] == ["job-1"]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"stopped": "job-1", "timed_out": [], "failed": [], "errors": {}},
+        {"stopped": [], "timed_out": {}, "failed": [], "errors": {}},
+        {"stopped": [], "timed_out": [], "failed": None, "errors": {}},
+        {"stopped": [], "timed_out": [], "failed": [], "errors": []},
+        {
+            "stopped": [],
+            "timed_out": [],
+            "failed": [],
+            "errors": {},
+            "message": {"text": "bad"},
+        },
+    ],
+)
+def test_stop_job_rejects_malformed_payloads(monkeypatch, payload):
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        assert method == "stop_keep"
+        assert params == {"job_id": "job-1"}
+        assert timeout == 45.0
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["stop", "--job-id", "job-1"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed stop_keep response" in decoded["error"]
+    assert "Traceback" not in result.output
 
 
 def test_stop_all_outputs_single_decoded_json_object(monkeypatch):
@@ -684,6 +759,33 @@ def test_stop_all_outputs_single_decoded_json_object(monkeypatch):
     assert payload["stopped"] == ["job-1"]
 
 
+def test_stop_all_rejects_malformed_payload(monkeypatch):
+    called = {"stop_process": False}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        assert method == "stop_keep"
+        assert params == {}
+        assert timeout == 45.0
+        return {"stopped": []}
+
+    def fake_stop_process(host, port):
+        called["stop_process"] = True
+        raise AssertionError("_stop_service_process must not be called")
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: 1234)
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["stop", "--all"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed stop_keep response" in decoded["error"]
+    assert called["stop_process"] is False
+    assert "Traceback" not in result.output
+
+
 def test_list_gpus_outputs_single_decoded_json_object(monkeypatch):
     def fake_rpc(method, params, host, port):
         assert method == "list_gpus"
@@ -697,6 +799,23 @@ def test_list_gpus_outputs_single_decoded_json_object(monkeypatch):
     assert result.exit_code == 0
     payload = _single_decoded_json_object(result.output)
     assert payload["gpus"][0]["id"] == 0
+
+
+@pytest.mark.parametrize("payload", [{}, {"gpus": {}}, {"gpus": [1]}])
+def test_list_gpus_rejects_malformed_payloads(monkeypatch, payload):
+    def fake_rpc(method, params, host, port):
+        assert method == "list_gpus"
+        assert params == {}
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["list-gpus"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed list_gpus response" in decoded["error"]
+    assert "Traceback" not in result.output
 
 
 def test_list_gpus_error_outputs_single_decoded_json_object(monkeypatch):
@@ -1007,7 +1126,7 @@ def test_service_stop_requires_managed_pid(monkeypatch):
     def fake_rpc(method, params, host, port, timeout=8.0):
         if method == "status":
             return {"active_jobs": []}
-        return {"stopped": []}
+        return {"stopped": [], "timed_out": [], "failed": [], "errors": {}}
 
     monkeypatch.setattr(cli, "_service_available", lambda host, port: True)
     monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
@@ -1017,6 +1136,69 @@ def test_service_stop_requires_managed_pid(monkeypatch):
 
     assert result.exit_code == 1
     assert "No managed daemon PID found" in result.output
+
+
+@pytest.mark.parametrize("payload", [{}, {"active_jobs": {}}])
+def test_service_stop_rejects_malformed_status_before_side_effects(
+    monkeypatch, payload
+):
+    calls = {"stop_keep": 0, "stop_process": 0}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        if method == "status":
+            return payload
+        if method == "stop_keep":
+            calls["stop_keep"] += 1
+            return {"stopped": [], "timed_out": [], "failed": [], "errors": {}}
+        raise AssertionError(f"unexpected method {method}")
+
+    def fake_stop_process(host, port):
+        calls["stop_process"] += 1
+        return True
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["service-stop"])
+
+    assert result.exit_code == 1
+    assert "active_jobs must be a list" in result.output
+    assert calls == {"stop_keep": 0, "stop_process": 0}
+    assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"stopped": [], "timed_out": [], "failed": [], "errors": []},
+    ],
+)
+def test_service_stop_rejects_malformed_stop_keep_before_stopping_daemon(
+    monkeypatch, payload
+):
+    calls = {"stop_process": 0}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        if method == "status":
+            return {"active_jobs": []}
+        if method == "stop_keep":
+            return payload
+        raise AssertionError(f"unexpected method {method}")
+
+    def fake_stop_process(host, port):
+        calls["stop_process"] += 1
+        return True
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["service-stop"])
+
+    assert result.exit_code == 1
+    assert "Malformed stop_keep response" in result.output
+    assert calls["stop_process"] == 0
+    assert "Traceback" not in result.output
 
 
 def test_service_stop_requires_live_status_without_force(monkeypatch):
