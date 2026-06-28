@@ -79,6 +79,9 @@ This file defines how coding agents should work in this repository.
   `BaseHTTPRequestHandler` HTML errors; known API/RPC routes return structured
   JSON `405 Method Not Allowed` responses with `Allow`, and unknown `/api/*`
   routes return structured JSON `404 Unknown endpoint` responses.
+- `/rpc` is a POST-only JSON-RPC endpoint; `GET /rpc` must return structured
+  JSON `405 Method Not Allowed` with `Allow: POST` and must never serve the
+  dashboard/static fallback.
 - For stdio MCP, stdout must contain only JSON protocol messages; diagnostics
   and human logs belong on stderr.
 
