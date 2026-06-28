@@ -75,6 +75,10 @@ This file defines how coding agents should work in this repository.
 - HTTP body readers must validate `Content-Length` as a non-negative integer
   before reading; invalid values must fail quickly with REST JSON 400 errors or
   JSON-RPC `-32700` parse-error envelopes.
+- API/RPC unsupported HTTP methods must not fall back to
+  `BaseHTTPRequestHandler` HTML errors; known API/RPC routes return structured
+  JSON `405 Method Not Allowed` responses with `Allow`, and unknown `/api/*`
+  routes return structured JSON `404 Unknown endpoint` responses.
 - For stdio MCP, stdout must contain only JSON protocol messages; diagnostics
   and human logs belong on stderr.
 

@@ -39,7 +39,7 @@ from http.server import BaseHTTPRequestHandler
 from socketserver import TCPServer, ThreadingMixIn
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import unquote, urlparse
 
 from keep_gpu import __version__
@@ -785,13 +785,71 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         self.send_header("content-length", "0")
         self.end_headers()
 
-    def _json_response(self, status: int, payload: Dict[str, Any]) -> None:
+    def _json_response(
+        self,
+        status: int,
+        payload: Dict[str, Any],
+        headers: Optional[Dict[str, str]] = None,
+        write_body: bool = True,
+    ) -> None:
         data = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("content-type", "application/json")
         self.send_header("content-length", str(len(data)))
+        if headers is not None:
+            for name, value in headers.items():
+                self.send_header(name, value)
         self.end_headers()
-        self.wfile.write(data)
+        if write_body:
+            self.wfile.write(data)
+
+    @staticmethod
+    def _allowed_methods_for_path(path: str) -> Optional[Tuple[str, ...]]:
+        if path == "/health":
+            return ("GET",)
+        if path == "/api/gpus":
+            return ("GET",)
+        if path == "/api/sessions":
+            return ("GET", "POST", "DELETE")
+        if path.startswith("/api/sessions/"):
+            encoded_job_id = path[len("/api/sessions/") :]
+            if encoded_job_id == "" or "/" in encoded_job_id:
+                return None
+            return ("GET", "DELETE")
+        if path == "/":
+            return ("GET", "POST")
+        if path == "/rpc":
+            return ("GET", "POST")
+        return None
+
+    def _send_api_rpc_unsupported_method_response(self) -> bool:
+        if not hasattr(self, "path") or not hasattr(self, "command"):
+            return False
+        parsed = urlparse(self.path)
+        path = parsed.path
+        write_body = self.command != "HEAD"
+        allowed_methods = self._allowed_methods_for_path(path)
+        if allowed_methods is not None:
+            self._json_response(
+                405,
+                {"error": {"message": "Method not allowed"}},
+                headers={"Allow": ", ".join(allowed_methods)},
+                write_body=write_body,
+            )
+            return True
+        if path.startswith("/api/"):
+            self._json_response(
+                404,
+                {"error": {"message": "Unknown endpoint"}},
+                write_body=write_body,
+            )
+            return True
+        return False
+
+    def send_error(self, code, message=None, explain=None):  # noqa: ANN001, N802
+        if int(code) == 501 and self._send_api_rpc_unsupported_method_response():
+            return
+        super().send_error(code, message, explain)
 
     def _json_runtime_error(self, method: str, path: str, exc: Exception) -> None:
         logger.exception("%s request failed for path %s", method, path)

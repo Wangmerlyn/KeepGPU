@@ -108,6 +108,26 @@ def _request_raw(method, url, data=None):
         return exc.code, json.loads(body) if body else {}
 
 
+def _request_http_response(method, url, data=None):
+    request = Request(url=url, data=data, method=method)
+    request.add_header("content-type", "application/json")
+    try:
+        with urlopen(request, timeout=2.0) as response:  # nosec B310
+            body = response.read()
+            return response.status, response.headers, body
+    except HTTPError as exc:
+        body = exc.read()
+        return exc.code, exc.headers, body
+
+
+def _allow_methods(headers):
+    return {
+        method.strip()
+        for method in headers.get("allow", "").split(",")
+        if method.strip()
+    }
+
+
 def _raw_post_with_content_length(httpd, path: str, content_length: str):
     host, port = httpd.server_address
     request = (
@@ -142,6 +162,126 @@ def _raw_post_with_content_length(httpd, path: str, content_length: str):
     status_line = header_bytes.splitlines()[0].decode("iso-8859-1")
     status_code = int(status_line.split()[1])
     return status_code, json.loads(body.decode("utf-8")) if body else {}
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "allowed_methods"),
+    [
+        ("PUT", "/api/sessions", {"GET", "POST", "DELETE"}),
+        ("PATCH", "/api/sessions/demo", {"GET", "DELETE"}),
+        ("OPTIONS", "/api/sessions", {"GET", "POST", "DELETE"}),
+    ],
+)
+def test_http_api_known_routes_reject_unsupported_methods_with_json_405(
+    method, path, allowed_methods
+):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response(method, f"{base}{path}")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 405
+    assert headers.get("content-type") == "application/json"
+    assert _allow_methods(headers) == allowed_methods
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Method not allowed"}
+    }
+
+
+def test_http_rpc_rejects_unsupported_options_with_json_405():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("OPTIONS", f"{base}/rpc")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 405
+    assert headers.get("content-type") == "application/json"
+    assert _allow_methods(headers) == {"GET", "POST"}
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Method not allowed"}
+    }
+
+
+@pytest.mark.parametrize("method", ["PUT", "OPTIONS"])
+def test_http_unknown_api_routes_reject_unsupported_methods_with_json_404(method):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response(method, f"{base}/api/unknown")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get("content-type") == "application/json"
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Unknown endpoint"}
+    }
+
+
+def test_http_multisegment_session_route_rejects_unsupported_method_with_json_404():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response(
+            "OPTIONS", f"{base}/api/sessions/foo/bar"
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get("content-type") == "application/json"
+    assert "allow" not in {name.lower() for name in headers.keys()}
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Unknown endpoint"}
+    }
+
+
+def test_http_head_api_sessions_rejects_with_json_405_headers_and_empty_body():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("HEAD", f"{base}/api/sessions")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 405
+    assert headers.get("content-type") == "application/json"
+    assert _allow_methods(headers) == {"GET", "POST", "DELETE"}
+    assert body == b""
+
+
+def test_http_unsupported_method_helper_ignores_uninitialized_handler():
+    handler = _JSONRPCHandler.__new__(_JSONRPCHandler)
+
+    assert handler._send_api_rpc_unsupported_method_response() is False
 
 
 @pytest.mark.parametrize("rpc_path", ["/", "/rpc"])
