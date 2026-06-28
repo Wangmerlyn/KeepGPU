@@ -7,6 +7,25 @@ from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUContro
 from keep_gpu.utilities import platform_manager as pm
 
 
+def test_global_controller_propagates_default_vram_to_child_controller(monkeypatch):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+    captured = {}
+
+    class DummyController:
+        def __init__(self, *, rank, interval, vram_to_keep, busy_threshold):
+            captured["vram_to_keep"] = vram_to_keep
+
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    monkeypatch.setattr(cuda_module, "CudaGPUController", DummyController)
+
+    GlobalGPUController(gpu_ids=[0])
+
+    assert captured["vram_to_keep"] == "1GiB"
+
+
 def test_global_keep_rolls_back_started_controllers(monkeypatch):
     monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
     monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)

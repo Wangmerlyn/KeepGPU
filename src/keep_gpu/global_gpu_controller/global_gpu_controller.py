@@ -34,7 +34,7 @@ class GlobalGPUController:
         self,
         gpu_ids: Optional[List[int]] = None,
         interval: int = 300,
-        vram_to_keep: Union[int, str] = 10 * (2**30),
+        vram_to_keep: Union[int, str] = "1GiB",
         busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
     ):
         self.interval = validate_interval(interval)
