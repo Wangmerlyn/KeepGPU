@@ -38,5 +38,5 @@ explicitly supplied must remain ignored so normal service commands keep working.
 - GREEN: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_start_rejects_root_blocking_options_before_service_calls -q` passed with 6 cases after the guard.
 - Review-polish check: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_status_rejects_root_blocking_options_before_service_rpc -q` passed after adding the non-`start` service-command regression.
 - Hosted-review RED/GREEN: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_root_option_source_helper_accepts_raw_commandline_value -q` failed before the fallback and passed after the helper accepted raw string sources.
-- Final targeted suite: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py tests/test_cli_thresholds.py -q` passed with 126 tests.
+- Final targeted suite: `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py tests/test_cli_thresholds.py -q` passed with 127 tests.
 - Diff hygiene: `git diff --check` passed.
