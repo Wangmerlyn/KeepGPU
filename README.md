@@ -179,6 +179,8 @@ to zero devices.
   errors use JSON `400` responses, unknown API routes use JSON `404`, and
   unexpected service/runtime failures use JSON `500` instead of closing the
   connection without a response.
+  The dashboard reads those structured payloads and displays `error.message`
+  instead of the raw JSON body.
 - Stop responses distinguish completed cleanup from partial cleanup:
   `stopped` means released, while `timed_out` sessions remain visible as
   `stopping` until background cleanup completes and `failed` sessions remain

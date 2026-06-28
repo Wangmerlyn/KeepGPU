@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { requestJson as api } from "./lib/api"
 
 import {
   buildSessionPayload,
@@ -15,39 +16,6 @@ const defaultForm = {
   vram: "1GiB",
   interval: "300",
   busyThreshold: "25"
-}
-
-const SERVER_RELEASE_TIMEOUT_MS = 10000
-export const REQUEST_TIMEOUT_MS = SERVER_RELEASE_TIMEOUT_MS + 5000
-
-async function api(method, path, body) {
-  const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-
-  try {
-    const response = await fetch(path, {
-      method,
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: controller.signal
-    })
-
-    if (!response.ok) {
-      const text = await response.text()
-      throw new Error(text || `Request failed (${response.status})`)
-    }
-
-    return response.json()
-  } catch (error) {
-    if (error.name === "AbortError") {
-      throw new Error("Request timed out")
-    }
-    throw error
-  } finally {
-    window.clearTimeout(timeout)
-  }
 }
 
 function formatBytes(value) {
