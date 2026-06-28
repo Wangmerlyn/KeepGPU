@@ -16,6 +16,20 @@ from keep_gpu.utilities.platform_manager import ComputingPlatform, get_platform
 logger = setup_logger(__name__)
 
 
+class ControllerStartupUnavailable(Exception):
+    """Expected hardware/platform unavailability during controller startup."""
+
+
+class NoGPUAvailableError(ControllerStartupUnavailable, ValueError):
+    """No visible GPU devices are available for a global keep session."""
+
+
+class UnsupportedControllerPlatformError(
+    ControllerStartupUnavailable, NotImplementedError
+):
+    """The current platform cannot run the global GPU controller."""
+
+
 def _resolve_visible_gpu_ids(gpu_ids: Optional[List[int]]) -> List[int]:
     visible_count = torch.cuda.device_count()
     if gpu_ids is None:
@@ -62,7 +76,7 @@ class GlobalGPUController:
 
             controller_cls = MacMGPUController
         else:
-            raise NotImplementedError(
+            raise UnsupportedControllerPlatformError(
                 f"GlobalGPUController not implemented for platform {self.computing_platform}"
             )
 
@@ -84,7 +98,7 @@ class GlobalGPUController:
             self.gpu_ids = gpu_ids
 
         if not self.gpu_ids:
-            raise ValueError("No GPUs available for GlobalGPUController")
+            raise NoGPUAvailableError("No GPUs available for GlobalGPUController")
 
         self.controllers = [
             controller_cls(

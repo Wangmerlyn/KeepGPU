@@ -119,10 +119,14 @@ Only omitted/`null` `job_id` values mean generated IDs or all-sessions, dependin
 on the method. Custom IDs must be non-empty strings containing only letters,
 digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
 Supported REST route/method errors are JSON objects: validation errors return
-`400`, unknown API routes return `404`, and unexpected service/runtime failures
-return `500` instead of dropping the connection.
+`400`, unknown API routes return `404`, expected startup-unavailable session
+creation returns `503`, and unexpected service/runtime failures return `500`
+instead of dropping the connection.
 The dashboard consumes those JSON objects and displays `error.message` when it is
 present, falling back to the plain response body or HTTP status only when needed.
+Direct JSON-RPC service calls report the same expected hardware/platform
+startup-unavailable conditions with error code `-32000`; arbitrary runtime
+failures remain `-32603 Internal error`.
 
 | Endpoint | Method | Purpose |
 | --- | --- | --- |

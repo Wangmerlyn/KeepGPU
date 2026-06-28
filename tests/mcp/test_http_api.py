@@ -9,7 +9,11 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from keep_gpu.mcp.server import KeepGPUServer, _JSONRPCHandler
+from keep_gpu.mcp.server import (
+    KeepGPUServer,
+    SessionStartupUnavailable,
+    _JSONRPCHandler,
+)
 
 
 class DummyController:
@@ -992,6 +996,30 @@ def test_http_post_sessions_runtime_value_error_returns_json_500(monkeypatch):
     assert status_code == 500
     assert payload["error"]["message"] == "startup invariant broke"
     assert payload["error"]["type"] == "ValueError"
+
+
+def test_http_post_sessions_startup_unavailable_returns_json_503(monkeypatch):
+    server = make_server()
+    monkeypatch.setattr(
+        server,
+        "start_keep",
+        lambda **_: (_ for _ in ()).throw(
+            SessionStartupUnavailable("No usable GPUs are available")
+        ),
+    )
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("POST", f"{base}/api/sessions", {})
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status_code == 503
+    assert payload["error"]["message"] == "No usable GPUs are available"
+    assert payload["error"]["type"] == "SessionStartupUnavailable"
 
 
 def test_http_get_setup_runtime_error_returns_json_500():

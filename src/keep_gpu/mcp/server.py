@@ -43,7 +43,10 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import unquote, urlparse
 
 from keep_gpu import __version__
-from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
+from keep_gpu.global_gpu_controller.global_gpu_controller import (
+    ControllerStartupUnavailable,
+    GlobalGPUController,
+)
 from keep_gpu.utilities.humanized_input import (
     PUBLIC_VRAM_MAX_BYTES,
     parse_vram_to_elements,
@@ -68,6 +71,7 @@ JSONRPC_INVALID_REQUEST = -32600
 JSONRPC_METHOD_NOT_FOUND = -32601
 JSONRPC_INVALID_PARAMS = -32602
 JSONRPC_INTERNAL_ERROR = -32603
+JSONRPC_STARTUP_UNAVAILABLE = -32000
 MCP_ENDPOINT_HOST_ERROR = "host must be a DNS hostname or IPv4 address"
 MCP_ENDPOINT_PORT_ERROR = "port must be an integer between 1 and 65535"
 
@@ -175,6 +179,10 @@ class JSONRPCError(Exception):
 
 class SessionInputError(ValueError):
     """Public session input validation error."""
+
+
+class SessionStartupUnavailable(Exception):
+    """Expected session startup failure caused by unavailable hardware/platform."""
 
 
 def _validate_public_session_input(validator: Callable[..., Any], *args: Any) -> Any:
@@ -297,11 +305,13 @@ class KeepGPUServer:
                 busy_threshold=busy_threshold,
             )
             controller.keep()
-        except Exception:
+        except Exception as exc:
             with self._sessions_lock:
                 self._starting_job_ids.discard(job_id)
                 self._starting_params.pop(job_id, None)
                 self._sessions_cond.notify_all()
+            if isinstance(exc, ControllerStartupUnavailable):
+                raise SessionStartupUnavailable(str(exc)) from exc
             raise
 
         with self._sessions_lock:
@@ -625,6 +635,8 @@ def _call_keepgpu_method(
             return server.list_gpus()
     except SessionInputError as exc:
         raise JSONRPCError(JSONRPC_INVALID_PARAMS, str(exc)) from exc
+    except SessionStartupUnavailable as exc:
+        raise JSONRPCError(JSONRPC_STARTUP_UNAVAILABLE, str(exc)) from exc
     raise JSONRPCError(JSONRPC_METHOD_NOT_FOUND, f"Unknown method: {method}")
 
 
@@ -974,6 +986,17 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                 except SessionInputError as exc:
                     self._json_response(
                         400, {"error": {"message": f"Bad request: {exc}"}}
+                    )
+                    return
+                except SessionStartupUnavailable as exc:
+                    self._json_response(
+                        503,
+                        {
+                            "error": {
+                                "message": str(exc),
+                                "type": exc.__class__.__name__,
+                            }
+                        },
                     )
                     return
                 self._json_response(200, result)
