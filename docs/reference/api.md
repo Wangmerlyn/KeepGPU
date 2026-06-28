@@ -16,8 +16,10 @@ IDs.
 Visible-count checks for explicit IDs still run after backend discovery because
 they depend on the current visible device count. Its omitted `vram_to_keep`
 default is the shared low-power public default, `1GiB`, matching the CLI and
-service APIs. Public interval values must be finite positive seconds capped by
-the Python runtime wait limit, and public VRAM byte-equivalent values must be no
+service APIs. Direct `CudaGPUController`, `RocmGPUController`, and
+`MacMGPUController` constructors use the same omitted `vram_to_keep="1GiB"`
+default. Public interval values must be finite positive seconds capped by the
+Python runtime wait limit, and public VRAM byte-equivalent values must be no
 more than 1 PiB.
 
 CUDA telemetry resolves visible ordinals through `CUDA_VISIBLE_DEVICES` before
@@ -27,11 +29,12 @@ matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying
 ROCm SMI. Unresolved mappings report unavailable utilization instead of falling
 back to a possibly wrong physical device.
 
-Public controller, CLI, REST, JSON-RPC, and MCP defaults use `vram_to_keep`/`vram`
-`1GiB` and `busy_threshold=25`, so omitted settings reserve a modest VRAM signal
-and busy or unavailable telemetry sleeps before allocating keep tensors or
-running compute. Pass `busy_threshold=-1` only when you intentionally want
-unconditional keepalive compute without utilization backoff.
+Public Python controller, CLI, REST, JSON-RPC, and MCP defaults use
+`vram_to_keep`/`vram` `1GiB` and `busy_threshold=25`, so omitted settings
+reserve a modest VRAM signal and busy or unavailable telemetry sleeps before
+allocating keep tensors or running compute. Pass `busy_threshold=-1` only when
+you intentionally want unconditional keepalive compute without utilization
+backoff.
 
 CUDA and ROCm `keep()` calls wait for fatal backend startup setup to succeed
 before reporting success. Startup failures such as device-selection errors are

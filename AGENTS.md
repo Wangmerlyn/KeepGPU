@@ -86,7 +86,7 @@ This file defines how coding agents should work in this repository.
   handler exceptions drop the HTTP connection.
 - Public `interval` values must be finite positive seconds capped by the Python runtime wait limit; reject `NaN`, `Infinity`, and oversized values before creating or mutating session state so keep loops cannot spin, crash, or wedge.
 - Keep human VRAM parsing centralized in `src/keep_gpu/utilities/humanized_input.py`; public integer values and digit-only strings mean bytes, public VRAM byte-equivalent values must be no more than 1 PiB, and controllers may convert valid inputs to internal tensor element counts.
-- Keep omitted public VRAM defaults aligned and low-power: CLI, Python global controller, service, REST, JSON-RPC, and MCP should default to `1GiB` per GPU unless a user explicitly asks for a different reservation.
+- Keep omitted public VRAM defaults aligned and low-power: CLI, Python global controller, Python single-GPU controllers, service, REST, JSON-RPC, and MCP should default to `1GiB` per GPU unless a user explicitly asks for a different reservation.
 - `GlobalGPUController` must validate local constructor inputs (`gpu_ids`,
   `interval`, `busy_threshold`, `vram_to_keep`) before calling
   `get_platform()` or other hardware/backend probes. Visible-count checks for
