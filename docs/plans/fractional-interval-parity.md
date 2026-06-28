@@ -34,5 +34,5 @@ Todo:
 - [x] Rebuild packaged dashboard assets.
 - [x] Run targeted and full verification.
 - [x] Run local subagent review and resolve findings.
-- [x] Open PR, resolve hosted comments/checks, squash merge, and clean the
-      worktree.
+- [x] Open and squash-merge implementation PR #116, resolve hosted
+      comments/checks, and clean the fractional interval worktree.
