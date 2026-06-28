@@ -140,3 +140,14 @@ Follow-up tasks:
   passed with `58 passed, 10 skipped in 1.25s`.
 - Final full tests after OOM coverage:
   `PYTHONPATH=$PWD/src pytest tests -q` passed with `558 passed, 11 skipped`.
+- Hosted CodeRabbit follow-up test:
+  Added `test_macm_records_invalid_post_start_num_elements_as_failure` to keep
+  MPS invalid post-start `vram_to_keep` coverage aligned with CUDA.
+- Hosted CodeRabbit follow-up verification:
+  `PYTHONPATH=$PWD/src pytest tests/macm_controller/test_macm_backoff.py::test_macm_records_invalid_post_start_num_elements_as_failure tests/cuda_controller/test_throttle.py::test_cuda_records_invalid_post_start_num_elements_without_startup_errors -q`
+  passed with `2 passed in 1.29s`.
+- Hosted CodeRabbit follow-up broader tests:
+  `PYTHONPATH=$PWD/src pytest tests/cuda_controller tests/macm_controller tests/single_gpu_controller/test_release_contract.py tests/global_controller/global_keep_test.py -q`
+  passed with `59 passed, 10 skipped in 1.26s`.
+- Hosted CodeRabbit follow-up full tests:
+  `PYTHONPATH=$PWD/src pytest tests -q` passed with `559 passed, 11 skipped`.

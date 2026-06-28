@@ -215,6 +215,25 @@ def test_macm_records_post_start_allocation_runtime_error_as_failure(monkeypatch
     )
 
 
+def test_macm_records_invalid_post_start_num_elements_as_failure():
+    ctrl = MacMGPUController.__new__(MacMGPUController)
+    ctrl.rank = 0
+    ctrl.device = "mps"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.iterations = 1
+    ctrl.vram_to_keep = 0
+    ctrl._num_elements = 0
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopWaitForbidden()
+
+    ctrl._keep_loop()
+
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "rank 0: invalid vram_to_keep=0"
+
+
 def test_macm_retries_post_start_allocation_oom_without_failure(monkeypatch):
     import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
 
