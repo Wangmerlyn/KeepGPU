@@ -80,24 +80,77 @@ class NVMLMonitor:
             return self._nvml.nvmlDeviceGetHandleByIndex(index)
 
         tokens = [token.strip() for token in cuda_visible_devices.split(",")]
+        if cuda_visible_devices.strip() in {"", "-1"}:
+            tokens = []
+        elif any(not token or token == "-1" for token in tokens):
+            return None
+
         token_keys = [
             ("index", int(token)) if token.isdigit() else ("token", token.lower())
             for token in tokens
-            if token
         ]
         if len(set(token_keys)) != len(token_keys):
             return None
         if index < 0 or index >= len(tokens):
             return None
+        if not self._numeric_tokens_within_device_count(tokens):
+            return None
 
-        handle = None
-        for visible_index, token in enumerate(tokens[: index + 1]):
+        handles = self._get_handles_for_visible_tokens(tokens)
+        if handles is None:
+            return None
+        handle_keys = [self._handle_identity(handle) for handle in handles]
+        if len(set(handle_keys)) != len(handle_keys):
+            return None
+        return handles[index]
+
+    def _numeric_tokens_within_device_count(self, tokens: list[str]) -> bool:
+        numeric_tokens = [int(token) for token in tokens if token.isdigit()]
+        if not numeric_tokens:
+            return True
+
+        count_lookup = getattr(self._nvml, "nvmlDeviceGetCount", None)
+        if count_lookup is None:
+            return True
+        try:
+            count = int(count_lookup())
+        except (self._nvml.NVMLError, TypeError, ValueError) as exc:
+            logger.debug("NVML device count query failed: %s", exc)
+            return False
+        return all(token < count for token in numeric_tokens)
+
+    def _get_handles_for_visible_tokens(self, tokens: list[str]):
+        handles = [None for _token in tokens]
+
+        # UUID tokens can fail independently from numeric tokens. Resolve them
+        # first so an unresolved later UUID cannot permit partial numeric telemetry.
+        for visible_index, token in enumerate(tokens):
+            if token.isdigit():
+                continue
             handle = self._get_handle_for_visible_token(token)
             if handle is None:
                 return None
-            if visible_index == index:
-                return handle
-        return None
+            handles[visible_index] = handle
+
+        for visible_index, token in enumerate(tokens):
+            if not token.isdigit():
+                continue
+            handle = self._get_handle_for_visible_token(token)
+            if handle is None:
+                return None
+            handles[visible_index] = handle
+
+        return handles
+
+    def _handle_identity(self, handle):
+        index_lookup = getattr(self._nvml, "nvmlDeviceGetIndex", None)
+        if index_lookup is not None:
+            try:
+                return ("index", int(index_lookup(handle)))
+            except (self._nvml.NVMLError, TypeError, ValueError) as exc:
+                logger.debug("NVML handle index query failed: %s", exc)
+
+        return ("handle", id(handle))
 
     def _get_handle_for_visible_token(self, token: str):
         if not token:

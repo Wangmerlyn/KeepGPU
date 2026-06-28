@@ -23,7 +23,8 @@ Python runtime wait limit, and public VRAM byte-equivalent values must be no
 more than 1 PiB.
 
 CUDA telemetry resolves visible ordinals through `CUDA_VISIBLE_DEVICES` before
-querying NVML; duplicate or ambiguous masks report unavailable utilization.
+querying NVML; malformed, duplicate/equivalent, ambiguous, or out-of-range
+masks report unavailable utilization before partial handle lookup.
 ROCm telemetry resolves `ROCR_VISIBLE_DEVICES` as the base mask and one
 matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying
 ROCm SMI. Unresolved mappings report unavailable utilization instead of falling
