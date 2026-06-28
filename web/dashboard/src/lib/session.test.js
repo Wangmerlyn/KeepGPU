@@ -2,15 +2,19 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildSessionPayload,
+  formatUtilizationLabel,
+  formatUtilizationWidth,
   formatGpuIdentity,
   formatSessionState,
   formatSessionStateDetail,
   formatStopResultMessage,
+  getRenderableGpus,
   hasReleasableSessions,
   isSessionStopping,
   parseBusyThreshold,
   parseGpuIds,
-  parsePositiveInt
+  parsePositiveInt,
+  summarizeDashboardStats
 } from "./session"
 
 describe("parseGpuIds", () => {
@@ -82,6 +86,85 @@ describe("formatGpuIdentity", () => {
 
   it("falls back to the public id when no physical metadata is present", () => {
     expect(formatGpuIdentity({ id: 1 })).toBe("GPU 1")
+  })
+})
+
+describe("dashboard telemetry summary", () => {
+  it("uses empty defaults when telemetry inputs are omitted", () => {
+    expect(summarizeDashboardStats()).toEqual({
+      gpuCount: 0,
+      trackedCount: 0,
+      averageUtilization: null
+    })
+  })
+
+  it("does not turn fully unknown utilization into idle utilization", () => {
+    expect(
+      summarizeDashboardStats(
+        [
+          { id: 0, utilization: null },
+          { id: 1 },
+          { id: 2, utilization: Number.NaN }
+        ],
+        [{ job_id: "job-a" }]
+      )
+    ).toEqual({
+      gpuCount: 3,
+      trackedCount: 1,
+      averageUtilization: null
+    })
+  })
+
+  it("averages only known finite utilization readings", () => {
+    expect(
+      summarizeDashboardStats(
+        [
+          { id: 0, utilization: 10 },
+          { id: 1, utilization: null },
+          { id: 2, utilization: 30 }
+        ],
+        [{ job_id: "job-a" }, { job_id: "job-b" }]
+      )
+    ).toEqual({
+      gpuCount: 3,
+      trackedCount: 2,
+      averageUtilization: 20
+    })
+  })
+})
+
+describe("getRenderableGpus", () => {
+  it("filters nullish telemetry records before rendering", () => {
+    const gpu = { id: 0, utilization: 42 }
+
+    expect(getRenderableGpus([null, gpu, undefined])).toEqual([gpu])
+  })
+})
+
+describe("formatUtilizationLabel", () => {
+  it("labels unavailable utilization without appending a percent sign", () => {
+    expect(formatUtilizationLabel(null)).toBe("n/a")
+    expect(formatUtilizationLabel(undefined)).toBe("n/a")
+    expect(formatUtilizationLabel(Number.NaN)).toBe("n/a")
+  })
+
+  it("labels known numeric utilization as a percentage", () => {
+    expect(formatUtilizationLabel(0)).toBe("0%")
+    expect(formatUtilizationLabel(42)).toBe("42%")
+  })
+})
+
+describe("formatUtilizationWidth", () => {
+  it("does not render unavailable telemetry as an idle-width bar", () => {
+    expect(formatUtilizationWidth(null)).toBeNull()
+    expect(formatUtilizationWidth(undefined)).toBeNull()
+    expect(formatUtilizationWidth(Number.NaN)).toBeNull()
+  })
+
+  it("clamps known numeric utilization to a percentage width", () => {
+    expect(formatUtilizationWidth(-5)).toBe("0%")
+    expect(formatUtilizationWidth(42)).toBe("42%")
+    expect(formatUtilizationWidth(125)).toBe("100%")
   })
 })
 

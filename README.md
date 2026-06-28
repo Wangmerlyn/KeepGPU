@@ -198,6 +198,9 @@ to zero devices.
 - Dashboard cards mirror lifecycle state so a retained session shows
   `Releasing` or `Release failed` instead of being presented as a fully active
   keepalive.
+- Dashboard utilization summaries ignore unavailable readings and show `n/a`
+  when no finite readings exist; per-GPU cards also omit the utilization fill
+  for unavailable telemetry so unknown readings are not presented as idle.
 - Dashboard: `http://127.0.0.1:8765/`
 - **Mac M series limitations:**
   - GPU utilization monitoring is not available on macOS.

@@ -122,6 +122,10 @@ This file defines how coding agents should work in this repository.
 - Stop requests must not miss starting sessions; wait for startup to settle before returning `not found` or taking a stop-all snapshot.
 - Stop-all may release independent sessions concurrently, but must not duplicate release work for `stopping` sessions and must keep deterministic additive result fields.
 - Keep utilization backoff eco-safe: valid `busy_threshold` values are `-1` or `0..100`; public defaults must use the shared `DEFAULT_BUSY_THRESHOLD` (`25`), and when telemetry is unavailable with `busy_threshold >= 0`, controllers should sleep instead of allocating keep tensors or running keepalive compute. Only `busy_threshold=-1` is the explicit unconditional mode.
+- Dashboard telemetry must display unavailable utilization as unknown/`n/a`, not
+  as `0%` idle; aggregate utilization summaries must ignore unavailable readings
+  and show `n/a` when no finite readings exist, and per-GPU utilization bars
+  must not render an idle fill for unavailable telemetry.
 - Single-GPU keep workload iteration counts must be positive integers (`relu_iterations` for CUDA, `iterations` for ROCm/Mac M); reject invalid values before keep loops so no public path can create a silent no-op keeper or late background thread crash.
 - Direct CUDA/ROCm single-GPU `rank` values must be plain integer visible
   device ordinals validated against the current visible device count during
