@@ -88,6 +88,40 @@ def test_rocm_controller_rejects_non_positive_iterations(iterations):
         RocmGPUController(rank=0, vram_to_keep=4, iterations=iterations)
 
 
+@pytest.mark.parametrize(
+    ("max_allocation_retries", "error_type", "message"),
+    [
+        ("1", TypeError, "max_allocation_retries must be an integer"),
+        (True, TypeError, "max_allocation_retries must be an integer"),
+        (0, ValueError, "max_allocation_retries must be positive"),
+        (-1, ValueError, "max_allocation_retries must be positive"),
+    ],
+)
+def test_rocm_controller_rejects_invalid_max_allocation_retries(
+    monkeypatch, max_allocation_retries, error_type, message
+):
+    import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
+
+    monkeypatch.setattr(rocm_module.torch.cuda, "device_count", lambda: 1)
+
+    with pytest.raises(error_type, match=message):
+        RocmGPUController(
+            rank=0,
+            vram_to_keep=4,
+            max_allocation_retries=max_allocation_retries,
+        )
+
+
+def test_rocm_controller_accepts_positive_max_allocation_retries(monkeypatch):
+    import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
+
+    monkeypatch.setattr(rocm_module.torch.cuda, "device_count", lambda: 1)
+
+    ctrl = RocmGPUController(rank=0, vram_to_keep=4, max_allocation_retries=1)
+
+    assert ctrl.max_allocation_retries == 1
+
+
 class _StopAfterOneWait:
     def __init__(self):
         self.stopped = False

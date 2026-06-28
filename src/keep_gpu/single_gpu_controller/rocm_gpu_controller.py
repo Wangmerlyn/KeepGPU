@@ -36,10 +36,16 @@ class RocmGPUController(BaseGPUController):
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
         self.busy_threshold = validate_busy_threshold(busy_threshold)
         self.iterations = validate_positive_integer(iterations, "iterations")
+        self.max_allocation_retries = (
+            None
+            if max_allocation_retries is None
+            else validate_positive_integer(
+                max_allocation_retries, "max_allocation_retries"
+            )
+        )
         rank = validate_visible_rank(rank, torch.cuda.device_count())
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
-        self.max_allocation_retries = max_allocation_retries
         self._stop_evt: Optional[threading.Event] = None
         self._thread: Optional[threading.Thread] = None
         self._failure_exc: Optional[Exception] = None
