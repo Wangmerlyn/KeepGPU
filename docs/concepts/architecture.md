@@ -7,9 +7,10 @@ schedulers that the GPU is still busy, without burning a full training workload.
 ## Components
 
 1. **CLI (Typer/Rich)** – Parses options, validates visible GPU ordinals, and configures the logger.
-2. **`GlobalGPUController`** – Detects the current platform (CUDA, ROCm,
-   or Mac M series), validates selected visible ordinals against the current
-   device count, and instantiates one single-GPU controller per selected device.
+2. **`GlobalGPUController`** – Validates local constructor inputs before
+   platform probes, detects the current platform (CUDA, ROCm, or Mac M series),
+   validates selected visible ordinals against the current device count, and
+   instantiates one single-GPU controller per selected device.
 3. **`CudaGPUController`** / **`RocmGPUController`** / **`MacMGPUController`** –
    Platform-specific implementations for per-GPU keep-alive loops.
 4. **GPU monitor (NVML/ROCm/MPS)** – Wraps `nvidia-ml-py` (the `pynvml`
@@ -33,7 +34,8 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
 
 ## Lifecycle
 
-1. The CLI (or your Python code) instantiates `GlobalGPUController`.
+1. The CLI (or your Python code) instantiates `GlobalGPUController`; invalid
+   local inputs fail before backend discovery.
 2. During `keep()` / `__enter__`, `GlobalGPUController` starts each worker.
    If a later worker fails to start, already-started workers are released before
    the original start error is re-raised.

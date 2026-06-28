@@ -11,6 +11,11 @@ empty, duplicate, or out-of-range list is invalid, and startup raises
 metadata such as `physical_id`, but those fields are not accepted as selection
 IDs.
 
+`GlobalGPUController` validates local constructor inputs (`gpu_ids`, `interval`,
+`busy_threshold`, and `vram_to_keep`) before platform or hardware probing.
+Visible-count checks for explicit IDs still run after backend discovery because
+they depend on the current visible device count.
+
 CUDA telemetry resolves visible ordinals through `CUDA_VISIBLE_DEVICES` before
 querying NVML; duplicate or ambiguous masks report unavailable utilization.
 ROCm telemetry resolves `ROCR_VISIBLE_DEVICES` as the base mask and one

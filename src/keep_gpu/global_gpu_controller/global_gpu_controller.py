@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 
 import torch
 
-from keep_gpu.utilities.humanized_input import parse_size
+from keep_gpu.utilities.humanized_input import parse_size, parse_vram_to_elements
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
@@ -37,11 +37,12 @@ class GlobalGPUController:
         vram_to_keep: Union[int, str] = 10 * (2**30),
         busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
     ):
-        self.computing_platform = get_platform()
         self.interval = validate_interval(interval)
         self.busy_threshold = validate_busy_threshold(busy_threshold)
+        parse_vram_to_elements(vram_to_keep)
         self.vram_to_keep = vram_to_keep
         gpu_ids = validate_gpu_ids(gpu_ids)
+        self.computing_platform = get_platform()
         if self.computing_platform == ComputingPlatform.CUDA:
             from keep_gpu.single_gpu_controller.cuda_gpu_controller import (
                 CudaGPUController,

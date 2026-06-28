@@ -64,6 +64,9 @@ with GlobalGPUController(
   ordinals after CUDA or ROCm visibility filtering. Empty, duplicate, or
   out-of-range lists are invalid, and startup raises `ValueError` if the
   resolved selection contains zero devices.
+- Local constructor inputs (`gpu_ids`, `interval`, `busy_threshold`, and
+  `vram_to_keep`) are validated before platform/backend discovery. Visible-count
+  checks for explicit IDs still require device discovery.
 - `busy_threshold` defaults to `25` and accepts `-1` or a percentage in
   `0..100`. Non-negative thresholds throttle the keep-alive loop when
   utilization spikes. When utilization telemetry is unavailable, non-negative

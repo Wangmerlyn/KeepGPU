@@ -80,6 +80,10 @@ This file defines how coding agents should work in this repository.
   handler exceptions drop the HTTP connection.
 - Public `interval` values must be finite positive seconds; reject `NaN`/`Infinity` before creating or mutating session state so keep loops cannot spin, crash, or wedge.
 - Keep human VRAM parsing centralized in `src/keep_gpu/utilities/humanized_input.py`; public integer values and digit-only strings mean bytes, while controllers may convert to internal tensor element counts.
+- `GlobalGPUController` must validate local constructor inputs (`gpu_ids`,
+  `interval`, `busy_threshold`, `vram_to_keep`) before calling
+  `get_platform()` or other hardware/backend probes. Visible-count checks for
+  explicit IDs still happen after platform/device discovery.
 - Hardware probes must clean up vendor libraries after detection (for example, NVML shutdown and ROCm SMI shutdown after init).
 - Keep lifecycle state truthful: a reserved starting session must be visible in status as `state="starting"`; a session is removed only after release succeeds; timed-out or failed stops must stay visible with state and error details.
 - Keep service daemon ownership safe: no stop, force-stop, or fallback path may signal a PID unless the auto-start ownership record verifies the running process.
