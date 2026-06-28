@@ -196,6 +196,29 @@ def test_stop_requires_job_id_or_all():
     assert payload["error"] == "Provide --job-id or use --all."
 
 
+def test_stop_rejects_job_id_with_all_before_rpc(monkeypatch):
+    called = {"rpc": False, "stop_all": False}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        called["rpc"] = True
+        return {"stopped": ["job-1"], "timed_out": [], "failed": [], "errors": {}}
+
+    def fake_stop_all(host, port):
+        called["stop_all"] = True
+        return {"stopped": ["job-1"], "timed_out": [], "failed": [], "errors": {}}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_all_sessions_with_fallback", fake_stop_all)
+
+    result = runner.invoke(cli.app, ["stop", "--job-id", "job-1", "--all"])
+
+    assert result.exit_code == 1
+    payload = _single_decoded_json_object(result.output)
+    assert "Use either --job-id or --all" in payload["error"]
+    assert called["rpc"] is False
+    assert called["stop_all"] is False
+
+
 def test_status_forwards_explicit_empty_job_id_to_service(monkeypatch):
     called = {}
 

@@ -75,6 +75,8 @@ envelopes are reported as JSON error objects instead of empty success results.
 | `--all` | Stop all sessions. |
 | `--host`, `--port` | Service host/port. |
 
+`--job-id` and `--all` are mutually exclusive. Passing both returns a JSON
+error before any RPC or stop-all fallback runs.
 Stop waits for in-progress starts to settle before returning `not found` or
 taking the stop-all snapshot, so starting sessions are not silently skipped.
 For `--all`, starts that begin after that command's initial snapshot are not
