@@ -16,6 +16,7 @@ from keep_gpu.mcp.server import (
     KeepGPUServer,
     _handle_request,
 )
+from keep_gpu.utilities import platform_manager as pm
 
 
 class DummyController:
@@ -327,6 +328,37 @@ def test_jsonrpc_start_keep_runtime_value_error_remains_internal_error():
     assert resp["error"]["code"] == JSONRPC_INTERNAL_ERROR
     assert "controller startup failed" in resp["error"]["message"]
     assert server.status()["active_jobs"] == []
+
+
+def test_jsonrpc_cuda_worker_startup_failure_creates_no_active_session(monkeypatch):
+    import torch
+
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+    def fail_set_device(_rank):
+        raise RuntimeError("cuda worker startup failed")
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", fail_set_device)
+
+    server = KeepGPUServer()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"job_id": "startup-fails", "gpu_ids": [0]},
+    }
+
+    try:
+        resp = _handle_request(server, req)
+
+        assert "error" in resp
+        assert resp["error"]["code"] == JSONRPC_INTERNAL_ERROR
+        assert "cuda worker startup failed" in resp["error"]["message"]
+        assert server.status()["active_jobs"] == []
+    finally:
+        server.shutdown()
 
 
 def test_jsonrpc_start_keep_defaults_to_eco_safe_busy_threshold():

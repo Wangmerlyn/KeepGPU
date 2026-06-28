@@ -98,6 +98,10 @@ class CudaGPUController(BaseGPUController):
     def keep(self) -> None:
         """Launch the background thread that keeps the GPU busy."""
         if self._thread and self._thread.is_alive():
+            if self._stop_evt is not None and self._stop_evt.is_set():
+                raise RuntimeError(
+                    f"rank {self.rank}: previous keep thread startup did not complete"
+                )
             logger.warning("rank %s: keep thread already running", self.rank)
             return
 
@@ -106,12 +110,36 @@ class CudaGPUController(BaseGPUController):
             raise ValueError("vram_to_keep must be positive")
 
         self._stop_evt = threading.Event()
+        startup_evt = threading.Event()
+        startup_errors: list[Exception] = []
         self._thread = threading.Thread(
             target=self._keep_loop,
+            args=(startup_evt, startup_errors),
             name=f"gpu-keeper-{self.rank}",
             daemon=True,  # daemon so program can exit cleanly
         )
         self._thread.start()
+        startup_timeout = 5.0
+        if not startup_evt.wait(startup_timeout):
+            stop_evt = self._stop_evt
+            if stop_evt is not None:
+                stop_evt.set()
+            self._thread.join(timeout=1.0)
+            if self._thread.is_alive():
+                raise RuntimeError(
+                    f"rank {self.rank}: keep thread did not complete startup within "
+                    f"{startup_timeout:.1f}s"
+                )
+            self._thread = None
+            self._stop_evt = None
+            raise RuntimeError(
+                f"rank {self.rank}: keep thread exited before startup completed"
+            )
+        if startup_errors:
+            self._thread.join(timeout=1.0)
+            self._thread = None
+            self._stop_evt = None
+            raise startup_errors[0]
         logger.info("rank %s: keep thread started", self.rank)
 
     def release(self) -> None:
@@ -154,21 +182,45 @@ class CudaGPUController(BaseGPUController):
     # ------------------------------------------------------------------
     # Background loop
     # ------------------------------------------------------------------
-    def _keep_loop(self) -> None:
+    def _keep_loop(
+        self,
+        startup_evt: Optional[threading.Event] = None,
+        startup_errors: Optional[list[Exception]] = None,
+    ) -> None:
         """Internal: run workloads until stop event is set."""
         stop_evt = self._stop_evt
         if stop_evt is None:
-            logger.error("rank %s: stop event not initialized", self.rank)
+            exc = RuntimeError(f"rank {self.rank}: stop event not initialized")
+            logger.error("%s", exc)
+            if startup_errors is not None:
+                startup_errors.append(exc)
+            if startup_evt is not None:
+                startup_evt.set()
             return
         assert stop_evt is not None
 
-        torch.cuda.set_device(self.rank)
+        try:
+            torch.cuda.set_device(self.rank)
+        except Exception as exc:  # noqa: BLE001 - surface backend startup failure
+            logger.error("rank %s: CUDA startup failed: %s", self.rank, exc)
+            if startup_errors is not None:
+                startup_errors.append(exc)
+            if startup_evt is not None:
+                startup_evt.set()
+            return
         num_elements = self._num_elements if self._num_elements is not None else 0
         if num_elements <= 0:
-            logger.error(
-                "rank %s: invalid vram_to_keep=%s", self.rank, self.vram_to_keep
+            exc = RuntimeError(
+                f"rank {self.rank}: invalid vram_to_keep={self.vram_to_keep}"
             )
+            logger.error("%s", exc)
+            if startup_errors is not None:
+                startup_errors.append(exc)
+            if startup_evt is not None:
+                startup_evt.set()
             return
+        if startup_evt is not None:
+            startup_evt.set()
         matrix = None
         while not stop_evt.is_set():
             try:
