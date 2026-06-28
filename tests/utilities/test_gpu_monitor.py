@@ -20,9 +20,12 @@ class DummyNVML:
         uuid_always_type_error: bool = False,
         support_uuid_lookup: bool = False,
         invalid_indexes: set[int] | None = None,
+        uuid_index_by_value: dict[object, int] | None = None,
+        count: int = 8,
     ) -> None:
         self.should_fail = should_fail
         self.gpu_util = gpu_util
+        self.count = count
         self.init_calls = 0
         self.queried_indexes: list[int] = []
         self.queried_uuids: list[object] = []
@@ -32,6 +35,7 @@ class DummyNVML:
         self.uuid_requires_bytes = uuid_requires_bytes
         self.uuid_always_type_error = uuid_always_type_error
         self.invalid_indexes = invalid_indexes or set()
+        self.uuid_index_by_value = uuid_index_by_value or {}
         if support_uuid_lookup:
             self.nvmlDeviceGetHandleByUUID = self._nvmlDeviceGetHandleByUUID
 
@@ -42,6 +46,9 @@ class DummyNVML:
 
     def nvmlShutdown(self):
         pass
+
+    def nvmlDeviceGetCount(self):
+        return self.count
 
     def nvmlDeviceGetHandleByIndex(self, index: int):
         if self.should_fail:
@@ -60,6 +67,13 @@ class DummyNVML:
         if self.fail_uuid_lookup:
             raise self.NVMLError("uuid lookup failure")
         return types.SimpleNamespace(uuid=uuid)
+
+    def nvmlDeviceGetIndex(self, handle):
+        if hasattr(handle, "index"):
+            return handle.index
+        if hasattr(handle, "uuid") and handle.uuid in self.uuid_index_by_value:
+            return self.uuid_index_by_value[handle.uuid]
+        raise self.NVMLError("index lookup failure")
 
     def nvmlDeviceGetUtilizationRates(self, handle):
         if hasattr(handle, "uuid"):
@@ -158,13 +172,15 @@ def test_monitor_returns_none_for_case_insensitive_duplicate_uuid_mask(monkeypat
     assert dummy.queried_uuids == []
 
 
-def test_monitor_preserves_valid_rank_before_repeated_empty_tokens(monkeypatch):
+def test_monitor_returns_none_for_repeated_empty_tokens_without_handle_lookup(
+    monkeypatch,
+):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,,")
     dummy = DummyNVML(util_by_index={0: 41})
     monitor = NVMLMonitor(dummy)
 
-    assert monitor.get_gpu_utilization(0) == 41
-    assert dummy.queried_indexes == [0]
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == []
     assert dummy.queried_uuids == []
 
 
@@ -174,28 +190,57 @@ def test_monitor_returns_none_when_prior_token_is_invalid(monkeypatch):
     monitor = NVMLMonitor(dummy)
 
     assert monitor.get_gpu_utilization(2) is None
-    assert dummy.queried_indexes == [0]
+    assert dummy.queried_indexes == []
     assert dummy.queried_uuids == []
 
 
-def test_monitor_returns_none_when_prior_token_is_empty(monkeypatch):
+def test_monitor_returns_none_when_later_token_is_empty_without_handle_lookup(
+    monkeypatch,
+):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,,2")
     dummy = DummyNVML(util_by_index={2: 99})
     monitor = NVMLMonitor(dummy)
 
-    assert monitor.get_gpu_utilization(2) is None
-    assert dummy.queried_indexes == [0]
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == []
     assert dummy.queried_uuids == []
 
 
-def test_monitor_returns_none_when_prior_numeric_index_is_invalid(monkeypatch):
+def test_monitor_returns_none_when_later_numeric_index_is_invalid(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,99,2")
-    dummy = DummyNVML(util_by_index={2: 99}, invalid_indexes={99})
+    dummy = DummyNVML(util_by_index={0: 41, 2: 99}, count=8)
     monitor = NVMLMonitor(dummy)
 
-    assert monitor.get_gpu_utilization(2) is None
-    assert dummy.queried_indexes == [0]
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == []
     assert dummy.queried_uuids == []
+
+
+def test_monitor_returns_none_when_later_uuid_token_is_unresolved(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,GPU-typo")
+    dummy = DummyNVML(
+        util_by_index={0: 41},
+        support_uuid_lookup=True,
+        fail_uuid_lookup=True,
+    )
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == []
+    assert dummy.queried_uuids == ["GPU-typo"]
+
+
+def test_monitor_returns_none_for_numeric_uuid_alias_to_same_device(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,GPU-zero")
+    dummy = DummyNVML(
+        support_uuid_lookup=True,
+        uuid_index_by_value={"GPU-zero": 0},
+    )
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == [0]
+    assert dummy.queried_uuids == ["GPU-zero"]
 
 
 def test_monitor_returns_none_for_empty_cuda_visible_devices_token(monkeypatch):
@@ -204,7 +249,17 @@ def test_monitor_returns_none_for_empty_cuda_visible_devices_token(monkeypatch):
     monitor = NVMLMonitor(dummy)
 
     assert monitor.get_gpu_utilization(1) is None
-    assert dummy.queried_indexes == [3]
+    assert dummy.queried_indexes == []
+    assert dummy.queried_uuids == []
+
+
+def test_monitor_returns_none_for_negative_mask_mixed_with_index(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "-1,0")
+    dummy = DummyNVML(gpu_util=99)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == []
     assert dummy.queried_uuids == []
 
 

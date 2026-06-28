@@ -17,7 +17,8 @@ schedulers that the GPU is still busy, without burning a full training workload.
    module) for CUDA telemetry, optionally `rocm-smi` when installed by way of
    the `rocm` extra, and best-effort MPS memory counters on Mac M series.
    CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` before querying NVML and
-   treats duplicate or ambiguous masks as unavailable telemetry. ROCm
+   treats malformed, duplicate, or ambiguous masks as unavailable telemetry.
+   ROCm
    telemetry resolves `ROCR_VISIBLE_DEVICES` plus one matching
    `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm
    SMI. Utilization can be unavailable on some platforms and is reported as
@@ -49,9 +50,11 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
      work.
      The monitor receives the CUDA visible rank and resolves
      `CUDA_VISIBLE_DEVICES` numeric or UUID tokens before querying NVML, so
-     telemetry follows the same device the worker keeps. Duplicate masks are
-     treated as unavailable telemetry instead of aliasing two visible ranks to
-     one physical GPU.
+     telemetry follows the same device the worker keeps. Malformed masks, such
+     as empty tokens or `-1` mixed with other tokens, and duplicate/equivalent
+     masks are treated as unavailable telemetry before any partial NVML handle
+     lookup, so eco-safe backoff applies instead of aliasing or guessing a
+     physical GPU.
 4. Each ROCm worker follows the same visible-rank contract. The controller keeps
    the visible rank selected by the user, while ROCm SMI telemetry is queried by
    the resolved physical SMI index when the environment masks are numeric,

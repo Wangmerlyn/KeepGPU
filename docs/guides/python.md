@@ -20,8 +20,9 @@ train_model()                     # GPU memory is released automatically
 - `rank` matches the visible device index after environment filtering.
   CUDA utilization backoff resolves that visible rank through
   `CUDA_VISIBLE_DEVICES` before querying NVML; for example, with
-  `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads physical GPU `5`. Duplicate or
-  ambiguous CUDA masks are treated as unavailable telemetry. ROCm utilization
+  `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads physical GPU `5`. Malformed,
+  duplicate/equivalent, ambiguous, or out-of-range CUDA masks are treated as
+  unavailable telemetry before partial NVML handle lookup. ROCm utilization
   resolves `ROCR_VISIBLE_DEVICES` as the base mask and one matching
   `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm
   SMI. If a mapping cannot be resolved, utilization is treated as unavailable.
