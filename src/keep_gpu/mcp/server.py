@@ -684,7 +684,9 @@ def _mcp_call_tool(server: KeepGPUServer, params: Dict[str, Any]) -> Dict[str, A
         raise JSONRPCError(JSONRPC_INVALID_PARAMS, f"Unknown tool: {name}")
     try:
         return _mcp_tool_result(_call_keepgpu_method(server, name, arguments))
-    except Exception as exc:
+    except JSONRPCError as exc:
+        if exc.code not in (JSONRPC_INVALID_PARAMS, JSONRPC_STARTUP_UNAVAILABLE):
+            raise
         return _mcp_tool_result(str(exc), True)
 
 

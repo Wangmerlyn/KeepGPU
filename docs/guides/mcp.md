@@ -91,9 +91,13 @@ conditions, such as an unsupported controller platform or no usable visible
 GPUs, return `-32000` with the startup message. Unexpected server failures use
 `-32603 Internal error`.
 
-MCP `tools/call` responses keep protocol envelopes successful. If a tool cannot
-start because hardware or the platform is unavailable, the response contains
-`result.isError=true` and the startup-unavailable text in the tool content.
+MCP `tools/call` responses keep protocol envelopes successful for normal tool
+results, public tool-input validation failures, and expected hardware/platform
+startup-unavailable failures. Those tool-level failures return
+`result.isError=true` with the message in tool content. Protocol shape errors,
+such as unknown tools, still return JSON-RPC errors such as `-32602`, and
+unexpected internal controller/runtime failures return JSON-RPC
+`-32603 Internal error`.
 
 For supported REST route/method calls, service errors stay parseable. Public
 validation failures return JSON `400` responses, unknown API routes return JSON
