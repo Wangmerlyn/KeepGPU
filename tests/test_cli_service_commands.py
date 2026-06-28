@@ -242,43 +242,36 @@ def test_stop_rejects_job_id_with_all_before_rpc(monkeypatch):
     assert called["stop_all"] is False
 
 
-def test_status_forwards_explicit_empty_job_id_to_service(monkeypatch):
-    called = {}
-
-    def fake_rpc(method, params, host, port):
-        called["rpc"] = (method, params, host, port)
-        raise RuntimeError("job_id must be a URL-path-safe non-empty string")
+@pytest.mark.parametrize("job_id", ["", "   ", "bad/id"])
+def test_status_rejects_invalid_job_id_before_rpc(monkeypatch, job_id):
+    def fake_rpc(*args, **kwargs):
+        raise AssertionError("RPC should not be called")
 
     monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
 
-    result = runner.invoke(cli.app, ["status", "--job-id", ""])
+    result = runner.invoke(cli.app, ["status", "--job-id", job_id])
 
     assert result.exit_code == 1
     payload = _single_decoded_json_object(result.output)
     assert payload["error"] == "job_id must be a URL-path-safe non-empty string"
-    method, params, _host, _port = called["rpc"]
-    assert method == "status"
-    assert params == {"job_id": ""}
 
 
-def test_stop_forwards_explicit_empty_job_id_to_service(monkeypatch):
-    called = {}
+@pytest.mark.parametrize("job_id", ["", "   ", "bad/id"])
+def test_stop_rejects_invalid_job_id_before_rpc_or_fallback(monkeypatch, job_id):
+    def fake_rpc(*args, **kwargs):
+        raise AssertionError("RPC should not be called")
 
-    def fake_rpc(method, params, host, port, timeout=8.0):
-        called["rpc"] = (method, params, host, port, timeout)
-        raise RuntimeError("job_id must be a URL-path-safe non-empty string")
+    def fake_stop_all(*args, **kwargs):
+        raise AssertionError("stop-all fallback should not be called")
 
     monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_all_sessions_with_fallback", fake_stop_all)
 
-    result = runner.invoke(cli.app, ["stop", "--job-id", ""])
+    result = runner.invoke(cli.app, ["stop", "--job-id", job_id])
 
     assert result.exit_code == 1
     payload = _single_decoded_json_object(result.output)
     assert payload["error"] == "job_id must be a URL-path-safe non-empty string"
-    method, params, _host, _port, timeout = called["rpc"]
-    assert method == "stop_keep"
-    assert params == {"job_id": ""}
-    assert timeout == 45.0
 
 
 def test_status_outputs_single_decoded_json_object(monkeypatch):
@@ -295,6 +288,21 @@ def test_status_outputs_single_decoded_json_object(monkeypatch):
     payload = _single_decoded_json_object(result.output)
     assert payload["active"] is True
     assert payload["active_jobs"][0]["job_id"] == "job-1"
+
+
+def test_status_job_outputs_single_decoded_json_object(monkeypatch):
+    def fake_rpc(method, params, host, port):
+        assert method == "status"
+        assert params == {"job_id": "job-1"}
+        return {"active": True, "job": {"job_id": "job-1"}}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status", "--job-id", "job-1"])
+
+    assert result.exit_code == 0
+    payload = _single_decoded_json_object(result.output)
+    assert payload["job"]["job_id"] == "job-1"
 
 
 def test_stop_job_outputs_single_decoded_json_object(monkeypatch):
