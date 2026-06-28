@@ -431,10 +431,37 @@ def _rpc_call(
     response = _http_json_request(
         "POST", f"{_service_base_url(host, port)}/rpc", payload, timeout=timeout
     )
+    if not isinstance(response, dict):
+        raise ServiceResponseError(
+            "Malformed JSON-RPC response: response must be an object"
+        )
+    if response.get("jsonrpc") != "2.0":
+        raise ServiceResponseError("Malformed JSON-RPC response: jsonrpc must be 2.0")
+    if "error" in response and "result" in response:
+        raise ServiceResponseError(
+            "Malformed JSON-RPC response: both error and result members are present"
+        )
     if "error" in response:
         error = response["error"]
+        if not isinstance(error, dict):
+            raise ServiceResponseError(
+                "Malformed JSON-RPC response: error must be an object"
+            )
+        if "id" not in response:
+            raise ServiceResponseError("Malformed JSON-RPC response: missing id")
+        if response.get("id") not in (payload["id"], None):
+            raise ServiceResponseError("Malformed JSON-RPC response: mismatched id")
         raise ServiceRPCError(error.get("message", str(error)))
-    return response.get("result", {})
+    if response.get("id") != payload["id"]:
+        raise ServiceResponseError("Malformed JSON-RPC response: mismatched id")
+    if "result" not in response:
+        raise ServiceResponseError("Malformed JSON-RPC response: missing result")
+    result = response["result"]
+    if not isinstance(result, dict):
+        raise ServiceResponseError(
+            "Malformed JSON-RPC response: result must be an object"
+        )
+    return result
 
 
 def _is_service_unreachable_error(exc: RuntimeError) -> bool:

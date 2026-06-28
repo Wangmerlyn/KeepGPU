@@ -86,7 +86,9 @@ Flags that matter:
     `physical_id`/`uuid` fields are metadata only.
   - `status`, `stop`, and `list-gpus` print structured JSON objects, including
     `{"error": "..."}` for service/runtime errors after CLI parsing succeeds,
-    that tools such as `jq` can parse directly.
+    that tools such as `jq` can parse directly. Malformed JSON-RPC service
+    envelopes are reported as those JSON error objects instead of empty success
+    results.
 
 ## Embed in Python
 
@@ -149,6 +151,9 @@ to zero devices.
 - HTTP mode is KeepGPU's local JSON-RPC/REST/dashboard service. It accepts the
   same JSON-RPC messages at `/rpc`, but it is not a Streamable HTTP MCP
   endpoint.
+- Successful legacy direct JSON-RPC responses use a KeepGPU direct-method
+  envelope with `jsonrpc: "2.0"`, the matching request `id`, and an object
+  `result`.
 - REST examples:
   ```bash
   curl http://127.0.0.1:8765/health

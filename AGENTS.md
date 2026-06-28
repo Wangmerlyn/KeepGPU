@@ -73,6 +73,7 @@ This file defines how coding agents should work in this repository.
 - Keep public session input validation centralized in `src/keep_gpu/utilities/session_config.py`; CLI, Python, REST, and JSON-RPC entry points must share the same contract.
 - JSON-RPC user parameter validation errors and unknown direct-method params must return `-32602 Invalid params`; reserve `-32603 Internal error` for unexpected server failures.
 - CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
+- CLI service RPC clients must reject malformed JSON-RPC service envelopes (wrong `jsonrpc`, mismatched `id`, missing `result`, non-object direct-method `result`, or non-object `error`) instead of treating them as successful empty responses or leaking tracebacks.
 - `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, and `--gpu-ids` before auto-starting the service daemon or making RPC calls.
 - REST session creation bodies must be JSON objects; reject arrays/scalars before field validation or session state changes.
 - REST session creation must validate cheap local fields (`vram`, `interval`,
