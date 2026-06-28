@@ -116,6 +116,58 @@ def test_monitor_returns_none_for_out_of_range_visible_ordinal(monkeypatch):
     assert dummy.queried_uuids == []
 
 
+def test_monitor_returns_none_for_duplicate_cuda_visible_devices(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,0")
+    dummy = DummyNVML(gpu_util=99)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(1) is None
+    assert dummy.queried_indexes == []
+    assert dummy.queried_uuids == []
+
+
+def test_monitor_returns_none_for_equivalent_numeric_cuda_visible_devices(
+    monkeypatch,
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,00")
+    dummy = DummyNVML(gpu_util=99)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(1) is None
+    assert dummy.queried_indexes == []
+    assert dummy.queried_uuids == []
+
+
+def test_monitor_returns_none_for_duplicate_uuid_cuda_visible_devices(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-abc123,GPU-abc123")
+    dummy = DummyNVML(gpu_util=99, support_uuid_lookup=True)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(1) is None
+    assert dummy.queried_indexes == []
+    assert dummy.queried_uuids == []
+
+
+def test_monitor_returns_none_for_case_insensitive_duplicate_uuid_mask(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-abc123,gpu-abc123")
+    dummy = DummyNVML(gpu_util=99, support_uuid_lookup=True)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(1) is None
+    assert dummy.queried_indexes == []
+    assert dummy.queried_uuids == []
+
+
+def test_monitor_preserves_valid_rank_before_repeated_empty_tokens(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,,")
+    dummy = DummyNVML(util_by_index={0: 41})
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) == 41
+    assert dummy.queried_indexes == [0]
+    assert dummy.queried_uuids == []
+
+
 def test_monitor_returns_none_when_prior_token_is_invalid(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,-1,2")
     dummy = DummyNVML(util_by_index={2: 99})

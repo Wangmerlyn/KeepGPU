@@ -80,6 +80,13 @@ class NVMLMonitor:
             return self._nvml.nvmlDeviceGetHandleByIndex(index)
 
         tokens = [token.strip() for token in cuda_visible_devices.split(",")]
+        token_keys = [
+            ("index", int(token)) if token.isdigit() else ("token", token.lower())
+            for token in tokens
+            if token
+        ]
+        if len(set(token_keys)) != len(token_keys):
+            return None
         if index < 0 or index >= len(tokens):
             return None
 

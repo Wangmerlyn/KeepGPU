@@ -86,6 +86,9 @@ device ordinals in that same process environment. Empty, duplicate, or
 out-of-range lists are invalid, and startup returns an error if the resolved
 selection contains zero devices. `interval` must be a finite positive number of
 seconds; `NaN` and infinities are rejected before session creation.
+CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` for the service process and
+treats duplicate or ambiguous masks as unavailable utilization rather than
+guessing a physical GPU.
 
 Custom `job_id` values are unique across active and starting sessions. If a
 duplicate arrives while the original start is still creating controller work,
