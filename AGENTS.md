@@ -127,6 +127,9 @@ This file defines how coding agents should work in this repository.
   and show `n/a` when no finite readings exist, and per-GPU utilization bars
   must not render an idle fill for unavailable telemetry.
 - Single-GPU keep workload iteration counts must be positive integers (`relu_iterations` for CUDA, `iterations` for ROCm/Mac M); reject invalid values before keep loops so no public path can create a silent no-op keeper or late background thread crash.
+- ROCm optional allocation retry counts must be `None` or positive plain
+  integers; reject invalid values before worker startup so background retry
+  loops cannot crash with type errors after `keep()` returns.
 - Direct CUDA/ROCm single-GPU `rank` values must be plain integer visible
   device ordinals validated against the current visible device count during
   construction, before `torch.device`, backend `set_device`, telemetry, or keep
