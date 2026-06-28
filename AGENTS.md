@@ -69,6 +69,9 @@ This file defines how coding agents should work in this repository.
 - HTTP JSON-RPC endpoints (`/` and `/rpc`) must return JSON-RPC envelopes for
   protocol parse errors, including `jsonrpc`, `id`, and numeric `error.code`;
   REST routes keep REST-shaped structured JSON errors.
+- HTTP body readers must validate `Content-Length` as a non-negative integer
+  before reading; invalid values must fail quickly with REST JSON 400 errors or
+  JSON-RPC `-32700` parse-error envelopes.
 - For stdio MCP, stdout must contain only JSON protocol messages; diagnostics
   and human logs belong on stderr.
 
