@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import shlex
@@ -9,6 +10,7 @@ import signal
 import subprocess
 import sys
 import time
+from http.client import InvalidURL
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
@@ -29,6 +31,8 @@ from keep_gpu.utilities.session_config import (
 
 DEFAULT_SERVICE_HOST = "127.0.0.1"
 DEFAULT_SERVICE_PORT = 8765
+SERVICE_HOST_ERROR = "host must be a DNS hostname or IPv4 address"
+SERVICE_PORT_ERROR = "port must be an integer between 1 and 65535"
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -271,6 +275,47 @@ def _validate_cli_job_id(job_id: Optional[str]) -> Optional[str]:
         raise typer.BadParameter(str(exc)) from exc
 
 
+def _validate_cli_service_host(host: str) -> str:
+    def _is_dns_hostname(value: str) -> bool:
+        if len(value) > 253 or value.endswith("."):
+            return False
+        labels = value.split(".")
+        if labels[-1].isdigit():
+            return False
+        for label in labels:
+            if not 1 <= len(label) <= 63:
+                return False
+            if label.startswith("-") or label.endswith("-"):
+                return False
+            if not all(
+                char.isascii() and (char.isalnum() or char == "-") for char in label
+            ):
+                return False
+        return True
+
+    if not isinstance(host, str) or host.strip() != host or not host:
+        raise typer.BadParameter(SERVICE_HOST_ERROR)
+    try:
+        parsed_ip = ipaddress.ip_address(host)
+    except ValueError:
+        if not _is_dns_hostname(host):
+            raise typer.BadParameter(SERVICE_HOST_ERROR) from None
+    else:
+        if parsed_ip.version != 4:
+            raise typer.BadParameter(SERVICE_HOST_ERROR)
+    return host
+
+
+def _validate_cli_service_port(port: int) -> int:
+    if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+        raise typer.BadParameter(SERVICE_PORT_ERROR)
+    return port
+
+
+def _validate_cli_service_endpoint(host: str, port: int) -> Tuple[str, int]:
+    return _validate_cli_service_host(host), _validate_cli_service_port(port)
+
+
 def _service_base_url(host: str, port: int) -> str:
     return f"http://{host}:{port}"
 
@@ -285,8 +330,8 @@ def _http_json_request(
     headers = {"content-type": "application/json"}
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
-    request = Request(url=url, data=data, headers=headers, method=method)
     try:
+        request = Request(url=url, data=data, headers=headers, method=method)
         with urlopen(request, timeout=timeout) as response:  # nosec B310
             body = response.read().decode("utf-8")
             if not body:
@@ -302,6 +347,14 @@ def _http_json_request(
         detail = body or str(exc)
         raise ServiceResponseError(f"Service HTTP error: {detail}") from exc
     except (URLError, TimeoutError, OSError) as exc:
+        raise ServiceUnreachableError(
+            f"Cannot reach KeepGPU service at {url}: {exc}"
+        ) from exc
+    except UnicodeDecodeError as exc:
+        raise ServiceResponseError(
+            f"Invalid UTF-8 response from service endpoint: {url}"
+        ) from exc
+    except (InvalidURL, ValueError) as exc:
         raise ServiceUnreachableError(
             f"Cannot reach KeepGPU service at {url}: {exc}"
         ) from exc
@@ -634,6 +687,12 @@ def serve(
     """Run KeepGPU local service (HTTP + JSON-RPC + dashboard)."""
     from keep_gpu.mcp.server import KeepGPUServer, run_http
 
+    try:
+        host, port = _validate_cli_service_endpoint(host, port)
+    except typer.BadParameter as exc:
+        console.print(f"[bold red]Error: {exc}[/bold red]")
+        raise typer.Exit(code=1) from exc
+
     console.print(f"[bold cyan]Service URL:[/bold cyan] http://{host}:{port}/")
     console.print(
         "[dim]Press Ctrl+C to stop the foreground service, or use `keep-gpu service-stop` for auto-started daemons.[/dim]"
@@ -684,6 +743,7 @@ def start(
     `keep-gpu service-stop` to stop the local service daemon.
     """
     try:
+        host, port = _validate_cli_service_endpoint(host, port)
         interval = _validate_cli_interval(interval)
         busy_threshold = _validate_cli_busy_threshold(busy_threshold)
         parsed_gpu_ids = _parse_gpu_ids(gpu_ids)
@@ -729,6 +789,7 @@ def status(
 ):
     """Show session status from KeepGPU local service."""
     try:
+        host, port = _validate_cli_service_endpoint(host, port)
         job_id = _validate_cli_job_id(job_id)
         result = _rpc_call(
             "status",
@@ -762,6 +823,7 @@ def stop(
             raise RuntimeError("Use either --job-id or --all, not both.")
         if job_id is None and not all_sessions:
             raise RuntimeError("Provide --job-id or use --all.")
+        host, port = _validate_cli_service_endpoint(host, port)
         job_id = _validate_cli_job_id(job_id)
         if all_sessions:
             result = _stop_all_sessions_with_fallback(host, port)
@@ -786,9 +848,10 @@ def list_gpus(
 ):
     """List GPU telemetry from local service."""
     try:
+        host, port = _validate_cli_service_endpoint(host, port)
         result = _rpc_call("list_gpus", {}, host, port)
         console.print_json(data=result)
-    except RuntimeError as exc:
+    except (RuntimeError, typer.BadParameter) as exc:
         console.print_json(data={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
@@ -805,6 +868,7 @@ def service_stop(
 ):
     """Stop local KeepGPU service daemon started by auto-start logic."""
     try:
+        host, port = _validate_cli_service_endpoint(host, port)
         if force:
             stopped = _stop_service_process(host, port)
             if not stopped:
@@ -834,7 +898,7 @@ def service_stop(
         console.print(
             f"[bold green]Stopped KeepGPU service daemon[/bold green] at http://{host}:{port}/"
         )
-    except RuntimeError as exc:
+    except (RuntimeError, typer.BadParameter) as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
         raise typer.Exit(code=1) from exc
 
