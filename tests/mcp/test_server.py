@@ -902,6 +902,31 @@ def test_mcp_tools_call_startup_unavailable_returns_tool_error():
     assert server.status()["active_jobs"] == []
 
 
+def test_mcp_tools_call_unexpected_failure_returns_jsonrpc_internal_error():
+    def failing_factory(**kwargs):
+        raise RuntimeError("controller exploded")
+
+    server = KeepGPUServer(controller_factory=cast(Any, failing_factory))
+    req = {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "tools/call",
+        "params": {
+            "name": "start_keep",
+            "arguments": {"job_id": "tool-internal-error", "gpu_ids": [0]},
+        },
+    }
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 5
+    assert "result" not in resp
+    assert resp["error"]["code"] == JSONRPC_INTERNAL_ERROR
+    assert "controller exploded" in resp["error"]["message"]
+    assert server.status()["active_jobs"] == []
+
+
 def test_mcp_tools_call_unknown_tool_returns_protocol_error():
     server = make_server()
     req = {
