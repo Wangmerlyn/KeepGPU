@@ -34,6 +34,48 @@ def _cuda_visible_tokens() -> Optional[List[str]]:
     return tokens
 
 
+def _torch_cuda_visible_count() -> Optional[int]:
+    cuda = getattr(torch, "cuda", None)
+    if cuda is None:
+        return None
+    try:
+        if not cuda.is_available():
+            return 0
+        count = int(cuda.device_count())
+    except Exception as exc:
+        logger.debug("Torch CUDA visible count failed: %s", exc)
+        return None
+    if count < 0:
+        return None
+    return count
+
+
+def _torch_cuda_visible_ordinals_startable(count: int) -> bool:
+    cuda = getattr(torch, "cuda", None)
+    if cuda is None:
+        return False
+
+    current_device = None
+    try:
+        try:
+            current_device = int(cuda.current_device())
+        except Exception as exc:
+            logger.debug("Torch CUDA current device query failed: %s", exc)
+
+        for idx in range(count):
+            cuda.set_device(idx)
+        return True
+    except Exception as exc:
+        logger.debug("Torch CUDA visible ordinal probe failed: %s", exc)
+        return False
+    finally:
+        if current_device is not None:
+            try:
+                cuda.set_device(current_device)
+            except Exception as exc:
+                logger.debug("Torch CUDA device restore failed: %s", exc)
+
+
 def _lookup_nvml_uuid_handle(pynvml, token: str):
     uuid_lookup = getattr(pynvml, "nvmlDeviceGetHandleByUUID", None)
     if uuid_lookup is None:
@@ -106,6 +148,14 @@ def _query_nvml() -> List[Dict[str, Any]]:
         visible_tokens = _cuda_visible_tokens()
         if visible_tokens is None:
             visible_tokens = [str(idx) for idx in range(count)]
+
+        torch_visible_count = _torch_cuda_visible_count()
+        if torch_visible_count is None or torch_visible_count <= 0:
+            return []
+        if len(visible_tokens) != torch_visible_count:
+            return []
+        if not _torch_cuda_visible_ordinals_startable(torch_visible_count):
+            return []
 
         for token in visible_tokens:
             if token.isdigit() and int(token) >= count:
@@ -307,7 +357,7 @@ def get_gpu_info() -> List[Dict[str, Any]]:
     when the underlying vendor identity is known.
 
     Tries ROCm first for HIP torch builds, otherwise NVML first (CUDA), then
-    ROCm SMI, then torch.cuda, then MPS data.
+    torch.cuda, then MPS data.
     """
     if getattr(getattr(torch, "version", None), "hip", None):
         try:
@@ -330,13 +380,6 @@ def get_gpu_info() -> List[Dict[str, Any]]:
             return infos
     except Exception as exc:
         logger.debug("NVML info failed: %s", exc)
-
-    try:
-        infos = _query_rocm()
-        if infos:
-            return infos
-    except Exception as exc:
-        logger.debug("ROCm info failed: %s", exc)
 
     try:
         infos = _query_torch()

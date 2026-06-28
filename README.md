@@ -93,7 +93,9 @@ Flags that matter:
   - `keep-gpu service-stop`: stop the ownership-verified auto-started local daemon.
   - `keep-gpu list-gpus`: fetch telemetry from local service. Each listed
     `id` is the visible ordinal accepted by `--gpu-ids`; optional
-    `physical_id`/`uuid` fields are metadata only.
+    `physical_id`/`uuid` fields are metadata only. CUDA devices are listed only
+    when Torch CUDA can start the same visible ordinal set; NVML-only inventory
+    is hidden instead of producing unusable `gpu_ids`.
   - `status`, `stop`, and `list-gpus` print structured JSON objects, including
     `{"error": "..."}` for service/runtime errors after CLI parsing succeeds,
     that tools such as `jq` can parse directly. Malformed JSON-RPC service
@@ -174,7 +176,7 @@ to zero devices.
   curl http://127.0.0.1:8765/health
   curl http://127.0.0.1:8765/api/sessions
   ```
-- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). REST session creation accepts a JSON object body, not arrays or scalar values. Omitting `gpu_ids` uses all visible GPUs, and omitting `busy_threshold` uses the eco-safe default `25`; explicit values must be unique visible ordinals in the service process environment. `list_gpus` returns those same start-compatible ordinals as `id`/`visible_id`; `physical_id` and `uuid` are informational metadata, not valid substitutes for `gpu_ids`. Empty, duplicate, or out-of-range lists are invalid and startup fails if no GPUs resolve. Public numeric session inputs must stay finite and bounded: interval values are positive seconds, including fractional seconds, capped by the runtime wait limit, and VRAM byte-equivalent values are capped at 1 PiB. Custom `job_id` values must be unique across active and starting sessions, and only `null`/omitted means generated or all-sessions; custom IDs must be non-empty strings containing only letters, digits, `.`, `_`, `-`, or `~`. Status responses include reserved jobs as `state="starting"` while controller startup is still in progress.
+- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). REST session creation accepts a JSON object body, not arrays or scalar values. Omitting `gpu_ids` uses all visible GPUs, and omitting `busy_threshold` uses the eco-safe default `25`; explicit values must be unique visible ordinals in the service process environment. `list_gpus` returns those same start-compatible ordinals as `id`/`visible_id`; `physical_id` and `uuid` are informational metadata, not valid substitutes for `gpu_ids`. On CUDA, NVML records are returned only when Torch CUDA can address the same visible ordinal set, so NVML-only devices are not advertised as startable. Empty, duplicate, or out-of-range lists are invalid and startup fails if no GPUs resolve. Public numeric session inputs must stay finite and bounded: interval values are positive seconds, including fractional seconds, capped by the runtime wait limit, and VRAM byte-equivalent values are capped at 1 PiB. Custom `job_id` values must be unique across active and starting sessions, and only `null`/omitted means generated or all-sessions; custom IDs must be non-empty strings containing only letters, digits, `.`, `_`, `-`, or `~`. Status responses include reserved jobs as `state="starting"` while controller startup is still in progress.
 - Supported REST route/method failures remain machine-readable: validation
   errors use JSON `400` responses, unknown API routes use JSON `404`, and
   unexpected service/runtime failures use JSON `500` instead of closing the

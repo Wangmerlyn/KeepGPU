@@ -3,6 +3,10 @@
 Embed KeepGPU directly inside orchestration scripts so GPUs stay warm only for
 the stages you choose.
 
+For global sessions and telemetry helpers, public CUDA IDs are Torch-startable
+visible ordinals. NVML may add utilization and vendor metadata, but NVML-only
+devices are not exposed as `gpu_ids` targets when Torch CUDA cannot start them.
+
 ## Keep a single GPU while you do CPU work
 
 ```python

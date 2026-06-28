@@ -167,6 +167,9 @@ curl http://127.0.0.1:8765/api/sessions
 `/api/gpus` returns start-compatible visible ordinals as `id`/`visible_id`.
 Optional `physical_id` or `uuid` fields describe the underlying vendor device
 only; clients should not send those metadata values as `gpu_ids`.
+On CUDA, NVML records are exposed only when Torch CUDA can start the same
+visible ordinal set, so NVML-only devices are omitted instead of advertised as
+usable session targets.
 On ROCm, `physical_id` is included only when KeepGPU can safely resolve
 `ROCR_VISIBLE_DEVICES` and one matching HIP/CUDA overlay to a ROCm SMI index;
 otherwise utilization is reported as unavailable rather than guessed.
