@@ -581,6 +581,59 @@ def _rpc_call(
     return result
 
 
+def _malformed_method_result(method: str, detail: str) -> ServiceResponseError:
+    return ServiceResponseError(f"Malformed {method} response: {detail}")
+
+
+def _require_list_field(result: Dict[str, Any], field: str, method: str) -> List[Any]:
+    value = result.get(field)
+    if not isinstance(value, list):
+        raise _malformed_method_result(method, f"{field} must be a list")
+    return value
+
+
+def _require_dict_field(
+    result: Dict[str, Any], field: str, method: str
+) -> Dict[str, Any]:
+    value = result.get(field)
+    if not isinstance(value, dict):
+        raise _malformed_method_result(method, f"{field} must be an object")
+    return value
+
+
+def _validate_status_result(
+    result: Dict[str, Any], *, single_job: bool
+) -> Dict[str, Any]:
+    if single_job:
+        if not isinstance(result.get("active"), bool):
+            raise _malformed_method_result("status", "active must be a bool")
+        if not isinstance(result.get("job_id"), str):
+            raise _malformed_method_result("status", "job_id must be a string")
+    else:
+        _require_list_field(result, "active_jobs", "status")
+    return result
+
+
+def _validate_stop_keep_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    for field in ("stopped", "timed_out", "failed"):
+        _require_list_field(result, field, "stop_keep")
+    _require_dict_field(result, "errors", "stop_keep")
+    message = result.get("message")
+    if message is not None and not isinstance(message, str):
+        raise _malformed_method_result("stop_keep", "message must be a string")
+    return result
+
+
+def _validate_list_gpus_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    gpus = _require_list_field(result, "gpus", "list_gpus")
+    for index, gpu in enumerate(gpus):
+        if not isinstance(gpu, dict):
+            raise _malformed_method_result(
+                "list_gpus", f"gpus[{index}] must be an object"
+            )
+    return result
+
+
 def _is_service_unreachable_error(exc: RuntimeError) -> bool:
     if isinstance(exc, ServiceUnreachableError):
         return True
@@ -592,14 +645,15 @@ def _is_service_unreachable_error(exc: RuntimeError) -> bool:
 
 def _stop_all_sessions_with_fallback(host: str, port: int) -> Dict[str, Any]:
     try:
-        return _rpc_call("stop_keep", {}, host, port, timeout=45.0)
+        result = _rpc_call("stop_keep", {}, host, port, timeout=45.0)
+        return _validate_stop_keep_result(result)
     except RuntimeError as exc:
         if not _is_service_unreachable_error(exc):
             raise
         managed_pid = _read_service_pid(host, port)
         if managed_pid and _pid_alive(managed_pid):
             if _stop_service_process(host, port):
-                return {
+                result = {
                     "stopped": [],
                     "timed_out": [],
                     "failed": [],
@@ -609,6 +663,7 @@ def _stop_all_sessions_with_fallback(host: str, port: int) -> Dict[str, Any]:
                         f"pid={managed_pid}. Reserved VRAM should be released by process exit."
                     ),
                 }
+                return _validate_stop_keep_result(result)
             raise RuntimeError(
                 f"{exc}. No ownership-verified daemon could be force-stopped."
             ) from exc
@@ -858,6 +913,7 @@ def status(
             host,
             port,
         )
+        result = _validate_status_result(result, single_job=job_id is not None)
         console.print_json(data=result)
     except (RuntimeError, typer.BadParameter) as exc:
         console.print_json(data={"error": str(exc)})
@@ -896,6 +952,7 @@ def stop(
                 port,
                 timeout=45.0,
             )
+            result = _validate_stop_keep_result(result)
         console.print_json(data=result)
     except (RuntimeError, typer.BadParameter) as exc:
         console.print_json(data={"error": str(exc)})
@@ -911,6 +968,7 @@ def list_gpus(
     try:
         host, port = _validate_cli_service_endpoint(host, port)
         result = _rpc_call("list_gpus", {}, host, port)
+        result = _validate_list_gpus_result(result)
         console.print_json(data=result)
     except (RuntimeError, typer.BadParameter) as exc:
         console.print_json(data={"error": str(exc)})
@@ -943,6 +1001,7 @@ def service_stop(
 
         try:
             status = _rpc_call("status", {}, host, port)
+            status = _validate_status_result(status, single_job=False)
         except ServiceUnreachableError as exc:
             raise RuntimeError(
                 f"KeepGPU service is unavailable at {host}:{port}. Non-force service-stop must verify no tracked keep sessions before stopping the daemon. "
@@ -954,7 +1013,8 @@ def service_stop(
             raise RuntimeError(
                 "Tracked keep sessions detected. Stop sessions first (`keep-gpu stop --all`) or re-run with --force."
             )
-        _rpc_call("stop_keep", {}, host, port, timeout=45.0)
+        stop_result = _rpc_call("stop_keep", {}, host, port, timeout=45.0)
+        _validate_stop_keep_result(stop_result)
 
         stopped = _stop_service_process(host, port)
         if not stopped:
