@@ -209,11 +209,50 @@ def test_http_rpc_rejects_unsupported_options_with_json_405():
 
     assert status == 405
     assert headers.get("content-type") == "application/json"
-    assert _allow_methods(headers) == {"GET", "POST"}
+    assert _allow_methods(headers) == {"POST"}
     assert b"<html" not in body.lower()
     assert json.loads(body.decode("utf-8")) == {
         "error": {"message": "Method not allowed"}
     }
+
+
+def test_http_rpc_get_rejects_with_json_405_instead_of_static_fallback():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("GET", f"{base}/rpc")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 405
+    assert headers.get("content-type") == "application/json"
+    assert _allow_methods(headers) == {"POST"}
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Method not allowed"}
+    }
+
+
+def test_http_rpc_head_rejects_with_json_405_and_empty_body():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("HEAD", f"{base}/rpc")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 405
+    assert headers.get("content-type") == "application/json"
+    assert _allow_methods(headers) == {"POST"}
+    assert body == b""
 
 
 @pytest.mark.parametrize("method", ["PUT", "OPTIONS"])

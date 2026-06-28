@@ -819,7 +819,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         if path == "/":
             return ("GET", "POST")
         if path == "/rpc":
-            return ("GET", "POST")
+            return ("POST",)
         return None
 
     def _send_api_rpc_unsupported_method_response(self) -> bool:
@@ -933,6 +933,10 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if path == "/rpc":
+                self._send_api_rpc_unsupported_method_response()
+                return
+
             server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
             if path == "/health":
                 self._json_response(200, {"ok": True})
