@@ -23,7 +23,7 @@ class MacMGPUController(BaseGPUController):
         *,
         rank: int = 0,
         interval: float = 1.0,
-        vram_to_keep: str | int = "1000 MB",
+        vram_to_keep: str | int = "1GiB",
         busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
         iterations: int = 5000,
     ):

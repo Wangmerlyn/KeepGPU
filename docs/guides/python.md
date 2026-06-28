@@ -29,6 +29,9 @@ train_model()                     # GPU memory is released automatically
   background thread, capped by the Python runtime wait limit.
 - `vram_to_keep` accepts integer bytes or human-readable strings (`parse_size`
   handles it). Byte-equivalent values above 1 PiB are rejected.
+- When omitted, direct `CudaGPUController`, `RocmGPUController`, and
+  `MacMGPUController` constructors default `vram_to_keep` to the shared
+  low-power public default, `1GiB`.
 - Platform-specific keep workload iteration counts must be positive integers.
   CUDA uses `relu_iterations`; ROCm and Mac M use `iterations`. Rejecting
   non-integer and non-positive values prevents a keep session from starting

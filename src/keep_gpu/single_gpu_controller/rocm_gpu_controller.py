@@ -27,7 +27,7 @@ class RocmGPUController(BaseGPUController):
         *,
         rank: int,
         interval: float = 1.0,
-        vram_to_keep: str | int = "1000 MB",
+        vram_to_keep: str | int = "1GiB",
         busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
         iterations: int = 5000,
         max_allocation_retries: Optional[int] = None,
