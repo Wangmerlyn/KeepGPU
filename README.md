@@ -72,7 +72,10 @@ Flags that matter:
 
 - Blocking mode knobs:
   - `--vram` (`1GiB`, `750MB`, or bare bytes like `1073741824`): how much memory to pin.
+    Public VRAM byte-equivalent values are capped at 1 PiB so absurd requests
+    fail as validation errors instead of overflow failures.
   - `--interval` (finite positive seconds): sleep between keep-alive bursts.
+    Values above the Python runtime wait limit are rejected.
   - `--busy-threshold`: defaults to `25`; `0..100` skips work when telemetry reports higher utilization or cannot report utilization; `-1` disables utilization backoff.
   - `--gpu-ids`: target unique non-negative visible device ordinals after user-supplied visibility filtering (`CUDA_VISIBLE_DEVICES` on CUDA, `ROCR_VISIBLE_DEVICES`/`HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` on ROCm); otherwise all visible GPUs are guarded. Empty, duplicate, or out-of-range selections are invalid, and startup fails if no GPUs resolve.
 - Service mode commands:
@@ -159,7 +162,7 @@ to zero devices.
   curl http://127.0.0.1:8765/health
   curl http://127.0.0.1:8765/api/sessions
   ```
-- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). REST session creation accepts a JSON object body, not arrays or scalar values. Omitting `gpu_ids` uses all visible GPUs, and omitting `busy_threshold` uses the eco-safe default `25`; explicit values must be unique visible ordinals in the service process environment. `list_gpus` returns those same start-compatible ordinals as `id`/`visible_id`; `physical_id` and `uuid` are informational metadata, not valid substitutes for `gpu_ids`. Empty, duplicate, or out-of-range lists are invalid and startup fails if no GPUs resolve. Custom `job_id` values must be unique across active and starting sessions, and only `null`/omitted means generated or all-sessions; custom IDs must be non-empty strings containing only letters, digits, `.`, `_`, `-`, or `~`. Status responses include reserved jobs as `state="starting"` while controller startup is still in progress.
+- Methods: `start_keep`, `stop_keep` (optional `job_id`, default stops all), `status` (optional `job_id`), `list_gpus` (basic info). REST session creation accepts a JSON object body, not arrays or scalar values. Omitting `gpu_ids` uses all visible GPUs, and omitting `busy_threshold` uses the eco-safe default `25`; explicit values must be unique visible ordinals in the service process environment. `list_gpus` returns those same start-compatible ordinals as `id`/`visible_id`; `physical_id` and `uuid` are informational metadata, not valid substitutes for `gpu_ids`. Empty, duplicate, or out-of-range lists are invalid and startup fails if no GPUs resolve. Public numeric session inputs must stay finite and bounded: interval values are positive seconds capped by the runtime wait limit, and VRAM byte-equivalent values are capped at 1 PiB. Custom `job_id` values must be unique across active and starting sessions, and only `null`/omitted means generated or all-sessions; custom IDs must be non-empty strings containing only letters, digits, `.`, `_`, `-`, or `~`. Status responses include reserved jobs as `state="starting"` while controller startup is still in progress.
 - Supported REST route/method failures remain machine-readable: validation
   errors use JSON `400` responses, unknown API routes use JSON `404`, and
   unexpected service/runtime failures use JSON `500` instead of closing the

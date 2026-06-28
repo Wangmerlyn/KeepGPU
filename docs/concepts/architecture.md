@@ -60,9 +60,11 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
 5. If utilization exceeds `busy_threshold`, or if utilization is unavailable
    while `busy_threshold` is non-negative, the worker just sleeps for one more
    `interval` before allocating or running ops. Otherwise it allocates the keep
-   tensor when needed and runs a batch. Public defaults use `busy_threshold=25`.
-   Valid thresholds are `-1` or `0..100`; `busy_threshold=-1` is the explicit
-   unconditional mode.
+   tensor when needed and runs a batch. Public intervals must be finite positive
+   seconds within the Python runtime wait limit, and public VRAM
+   byte-equivalent inputs are capped at 1 PiB before conversion to tensor
+   elements. Public defaults use `busy_threshold=25`. Valid thresholds are `-1`
+   or `0..100`; `busy_threshold=-1` is the explicit unconditional mode.
 6. When you call `release()` (or exit the context), every worker sets a stop
    event, joins the thread, and clears the device cache. Release attempts every
    worker and then raises a summary if any worker failed to stop.

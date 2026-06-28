@@ -245,6 +245,14 @@ def _validate_cli_interval(interval: int) -> int:
         raise typer.BadParameter(str(exc)) from exc
 
 
+def _validate_cli_vram(vram: str) -> str:
+    try:
+        parse_vram_to_elements(vram)
+    except (TypeError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    return vram
+
+
 def _validate_cli_busy_threshold(busy_threshold: int) -> int:
     try:
         return validate_busy_threshold(busy_threshold)
@@ -507,14 +515,11 @@ def _run_blocking(
     legacy_threshold: Optional[str],
     busy_threshold: int,
 ) -> None:
-    import torch
-
-    from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
-
     vram, busy_threshold, legacy_mode = _apply_legacy_threshold(
         vram, legacy_threshold, busy_threshold
     )
     interval = _validate_cli_interval(interval)
+    vram = _validate_cli_vram(vram)
     if legacy_mode == "vram":
         console.print(
             "[yellow]`--threshold` for VRAM is deprecated; use `--vram`.[/yellow]"
@@ -526,6 +531,11 @@ def _run_blocking(
     busy_threshold = _validate_cli_busy_threshold(busy_threshold)
 
     gpu_id_list = _parse_gpu_ids(gpu_ids)
+
+    import torch
+
+    from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
+
     if gpu_id_list is not None:
         logger.info("Using specified visible GPU ordinals: %s", gpu_id_list)
         gpu_count = len(gpu_id_list)
@@ -665,10 +675,7 @@ def start(
         interval = _validate_cli_interval(interval)
         busy_threshold = _validate_cli_busy_threshold(busy_threshold)
         parsed_gpu_ids = _parse_gpu_ids(gpu_ids)
-        try:
-            parse_vram_to_elements(vram)
-        except (TypeError, ValueError) as exc:
-            raise typer.BadParameter(str(exc)) from exc
+        _validate_cli_vram(vram)
         try:
             validate_job_id(job_id)
         except ValueError as exc:

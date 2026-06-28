@@ -16,6 +16,7 @@ from keep_gpu.mcp.server import (
     KeepGPUServer,
     _handle_request,
 )
+from keep_gpu.utilities.humanized_input import PUBLIC_VRAM_MAX_BYTES
 from keep_gpu.utilities import platform_manager as pm
 
 
@@ -261,6 +262,31 @@ def test_jsonrpc_rejects_nan_interval_without_creating_session():
     assert server.status()["active_jobs"] == []
 
 
+@pytest.mark.parametrize(
+    ("params", "message"),
+    [
+        ({"gpu_ids": [0], "interval": 10**1000}, "interval must be no more than"),
+        ({"gpu_ids": [0], "vram": 10**1000}, "vram must be no more than"),
+        (
+            {"gpu_ids": [0], "vram": ("9" * 500) + "GiB"},
+            "vram must be no more than",
+        ),
+    ],
+)
+def test_jsonrpc_rejects_oversized_numeric_session_inputs_without_internal_error(
+    params, message
+):
+    server = make_server()
+    req = {"id": 1, "method": "start_keep", "params": params}
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
+    assert message in resp["error"]["message"]
+    assert server.status()["active_jobs"] == []
+
+
 def test_jsonrpc_rejects_busy_threshold_above_percent_range():
     server = make_server()
     req = {
@@ -499,6 +525,9 @@ def test_mcp_tools_list_exposes_keepgpu_actions():
     start_schema = tools["start_keep"]["inputSchema"]
     assert start_schema["type"] == "object"
     assert start_schema["properties"]["gpu_ids"]["items"]["type"] == "integer"
+    assert start_schema["properties"]["vram"]["type"] == ["string", "integer"]
+    assert start_schema["properties"]["vram"]["maximum"] == PUBLIC_VRAM_MAX_BYTES
+    assert "1 PiB" in start_schema["properties"]["vram"]["description"]
     assert start_schema["properties"]["busy_threshold"]["default"] == 25
     assert tools["status"]["inputSchema"]["properties"]["job_id"]["type"] == [
         "string",
@@ -527,6 +556,29 @@ def test_mcp_tools_call_routes_to_existing_status_method():
     assert payload["active"] is True
     assert payload["job_id"] == "mcp-job"
     assert payload["params"]["gpu_ids"] == [0]
+
+
+def test_mcp_tools_call_rejects_oversized_integer_vram_as_tool_error():
+    server = make_server()
+    req = {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+            "name": "start_keep",
+            "arguments": {"gpu_ids": [0], "vram": 10**1000},
+        },
+    }
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 4
+    assert "result" in resp
+    result = resp["result"]
+    assert result["isError"] is True
+    assert "vram must be no more than" in result["content"][0]["text"]
+    assert server.status()["active_jobs"] == []
 
 
 def test_mcp_tools_call_unknown_tool_returns_protocol_error():

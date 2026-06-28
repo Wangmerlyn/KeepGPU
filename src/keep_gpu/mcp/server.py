@@ -43,11 +43,15 @@ from urllib.parse import unquote, urlparse
 
 from keep_gpu import __version__
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
-from keep_gpu.utilities.humanized_input import parse_vram_to_elements
+from keep_gpu.utilities.humanized_input import (
+    PUBLIC_VRAM_MAX_BYTES,
+    parse_vram_to_elements,
+)
 from keep_gpu.utilities.gpu_info import get_gpu_info
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
+    PUBLIC_INTERVAL_MAX_SECONDS,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
@@ -80,13 +84,16 @@ MCP_TOOLS: List[Dict[str, Any]] = [
                     "description": "Visible GPU ordinals; null or omitted uses all.",
                 },
                 "vram": {
-                    "type": "string",
+                    "type": ["string", "integer"],
+                    "minimum": 4,
+                    "maximum": PUBLIC_VRAM_MAX_BYTES,
                     "default": "1GiB",
-                    "description": "Human-readable VRAM amount to keep.",
+                    "description": "Human-readable VRAM amount or integer bytes to keep; byte-equivalent values must be no more than 1 PiB.",
                 },
                 "interval": {
                     "type": "integer",
                     "minimum": 1,
+                    "maximum": PUBLIC_INTERVAL_MAX_SECONDS,
                     "default": 300,
                     "description": "Seconds between keep-alive checks.",
                 },
@@ -170,7 +177,7 @@ class SessionInputError(ValueError):
 def _validate_public_session_input(validator: Callable[..., Any], *args: Any) -> Any:
     try:
         return validator(*args)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise SessionInputError(str(exc)) from exc
 
 

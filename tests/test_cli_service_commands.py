@@ -161,6 +161,8 @@ def test_start_command_rejects_busy_threshold_above_percent_range(monkeypatch):
     [
         (["--job-id", "bad/id"], "job_id must be a URL-path-safe non-empty string"),
         (["--vram", "not-a-size"], "invalid format"),
+        (["--vram", ("9" * 500) + "GiB"], "vram must be no more than"),
+        (["--interval", str(10**1000)], "interval must be no more than"),
     ],
 )
 def test_start_command_rejects_local_inputs_before_auto_start(
@@ -531,6 +533,22 @@ def test_blocking_mode_rejects_non_positive_interval(monkeypatch):
 
     assert result.exit_code == 1
     assert "interval must be positive" in result.output
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (["--vram", ("9" * 500) + "GiB"], "vram must be no more than"),
+        (["--vram", "not-a-size"], "invalid format"),
+        (["--threshold", ("9" * 500) + "GiB"], "vram must be no more than"),
+    ],
+)
+def test_blocking_mode_rejects_invalid_vram_without_raw_exception(args, message):
+    result = runner.invoke(cli.app, args)
+
+    assert result.exit_code == 1
+    assert result.exception is not None
+    assert message in result.output
 
 
 def test_blocking_mode_rejects_duplicate_gpu_ids():

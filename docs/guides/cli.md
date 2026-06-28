@@ -31,6 +31,9 @@ keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
 Local `start` inputs are validated before auto-starting the service. Invalid
 `--vram`, `--job-id`, `--interval`, `--busy-threshold`, or `--gpu-ids` values
 fail without creating daemon runtime files or issuing RPC.
+`--interval` must be finite, positive, and within the Python runtime wait
+limit. `--vram` keeps integer and digit-only values as bytes, accepts human
+units, and rejects byte-equivalent requests above 1 PiB.
 
 ### Check status
 
@@ -98,8 +101,8 @@ The dashboard provides:
 | Option | Meaning | Default |
 | --- | --- | --- |
 | `--gpu-ids` | Comma-separated unique non-negative visible device ordinals. Omit to use all visible devices; startup fails if that resolves to none or if an explicit ordinal is out of range. | all |
-| `--vram` | Per-GPU memory target (`512MB`, `1GiB`, or bare bytes). | `1GiB` |
-| `--interval` | Finite positive seconds between keep-alive cycles. | `300` |
+| `--vram` | Per-GPU memory target (`512MB`, `1GiB`, or bare bytes), capped at 1 PiB byte-equivalent. | `1GiB` |
+| `--interval` | Finite positive seconds between keep-alive cycles, capped by the Python runtime wait limit. | `300` |
 | `--busy-threshold` / `--util-threshold` | `0..100` backs off when utilization exceeds this value or telemetry is unavailable; `-1` disables utilization backoff. | `25` |
 | `--job-id` | Optional URL-path-safe session id. Invalid IDs are rejected before service auto-start. | auto |
 
