@@ -38,7 +38,7 @@ cannot start CUDA devices, list no CUDA devices.
 - [x] Run focused GPU info tests.
 - [x] Run targeted GPU/MCP and global-controller-adjacent tests.
 - [x] Run full tests, docs build, hooks, and whitespace checks.
-- [ ] Request local subagent code review and resolve findings before PR.
+- [x] Request local subagent code review and resolve findings before PR.
 
 ## Verification Log
 
