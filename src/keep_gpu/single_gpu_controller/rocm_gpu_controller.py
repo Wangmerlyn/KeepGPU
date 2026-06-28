@@ -110,7 +110,7 @@ class RocmGPUController(BaseGPUController):
         if self._rocm_smi:
             try:
                 self._rocm_smi.rsmi_shut_down()
-            except Exception as exc:  # pragma: no cover - best effort
+            except Exception as exc:  # noqa: BLE001  # pragma: no cover - best effort
                 logger.debug("rsmi_shut_down failed: %s", exc)
 
     def release(self) -> None:
@@ -178,7 +178,7 @@ class RocmGPUController(BaseGPUController):
 
         try:
             torch.cuda.set_device(self.rank)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - surface backend startup failure
             logger.error("rank %s: ROCm startup failed: %s", self.rank, exc)
             if startup_errors is not None:
                 startup_errors.append(exc)

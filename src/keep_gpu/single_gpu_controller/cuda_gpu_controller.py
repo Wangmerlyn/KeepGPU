@@ -201,7 +201,7 @@ class CudaGPUController(BaseGPUController):
 
         try:
             torch.cuda.set_device(self.rank)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - surface backend startup failure
             logger.error("rank %s: CUDA startup failed: %s", self.rank, exc)
             if startup_errors is not None:
                 startup_errors.append(exc)
