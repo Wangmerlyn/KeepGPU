@@ -16,25 +16,28 @@ ambiguous mappings return unavailable utilization so non-negative
 ## Goal
 
 Make duplicate CUDA visibility masks resolve to unavailable utilization in
-`NVMLMonitor`, including equivalent numeric spellings such as `0,00`, without
-changing normal numeric/UUID mask handling or existing invalid-token behavior.
+`NVMLMonitor`, including equivalent numeric spellings such as `0,00` and
+case-insensitive UUID aliases, without changing normal numeric/UUID mask
+handling or existing invalid-token behavior.
 
 ## Solution
 
 - Add a no-GPU regression test with fake NVML showing
   `CUDA_VISIBLE_DEVICES=0,0` returns `None` for visible rank `1`.
-- Add follow-up regressions for equivalent numeric aliases such as `0,00` and
-  exact duplicate UUID tokens.
+- Add follow-up regressions for equivalent numeric aliases such as `0,00`,
+  exact duplicate UUID tokens, case-insensitive UUID aliases, and repeated empty
+  tokens.
 - Reject duplicate `CUDA_VISIBLE_DEVICES` tokens before NVML handle lookup in
-  `gpu_monitor.py`, normalizing numeric tokens before comparison.
+  `gpu_monitor.py`, normalizing numeric and UUID-like tokens before comparison
+  while leaving empty-token handling on the existing lookup path.
 - Update user docs and `AGENTS.md` to state that duplicate CUDA masks are
   ambiguous and report unavailable telemetry.
 
 ## Tasks
 
 - [x] Add RED duplicate-mask telemetry test.
-- [x] Add review-driven regressions for numeric aliases and duplicate UUID
-      tokens.
+- [x] Add review-driven regressions for numeric aliases, duplicate UUID tokens,
+      case-insensitive UUID aliases, and repeated empty tokens.
 - [x] Implement normalized duplicate-token rejection in `NVMLMonitor`.
 - [x] Update `AGENTS.md`, README, architecture/API/CLI/MCP/Python docs, and
       this plan.
@@ -62,9 +65,16 @@ Completed:
   `PYTHONPATH=$PWD/src pytest tests/utilities/test_gpu_monitor.py::test_monitor_returns_none_for_equivalent_numeric_cuda_visible_devices tests/utilities/test_gpu_monitor.py::test_monitor_returns_none_for_duplicate_uuid_cuda_visible_devices -q`
   failed before numeric token normalization because `0,00` returned `99`
   instead of `None`.
+- External review focused regression:
+  `PYTHONPATH=$PWD/src pytest tests/utilities/test_gpu_monitor.py::test_monitor_returns_none_for_case_insensitive_duplicate_uuid_mask tests/utilities/test_gpu_monitor.py::test_monitor_preserves_valid_rank_before_repeated_empty_tokens -q`
+  failed before lowercasing duplicate UUID keys and ignoring empty tokens in
+  duplicate detection.
+- GREEN monitor shard after external review:
+  `PYTHONPATH=$PWD/src pytest tests/utilities/test_gpu_monitor.py -q`:
+  `20 passed`.
 - `PYTHONPATH=$PWD/src pytest tests/utilities/test_gpu_monitor.py tests/utilities/test_gpu_info.py tests/utilities/test_platform_manager.py -q`:
-  `42 passed, 1 skipped`.
-- `PYTHONPATH=$PWD/src pytest tests -q`: `266 passed, 11 skipped`.
+  `44 passed, 1 skipped`.
+- `PYTHONPATH=$PWD/src pytest tests -q`: `268 passed, 11 skipped`.
 - `PYTHONPATH=$PWD/src mkdocs build`: passed. Existing Material for MkDocs
   version warning and docs-nav notices were emitted.
 - `pre-commit run --all-files`: passed.
