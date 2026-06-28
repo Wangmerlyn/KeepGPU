@@ -16,7 +16,9 @@ IDs.
 Visible-count checks for explicit IDs still run after backend discovery because
 they depend on the current visible device count. Its omitted `vram_to_keep`
 default is the shared low-power public default, `1GiB`, matching the CLI and
-service APIs.
+service APIs. Public interval values must be finite positive seconds capped by
+the Python runtime wait limit, and public VRAM byte-equivalent values must be no
+more than 1 PiB.
 
 CUDA telemetry resolves visible ordinals through `CUDA_VISIBLE_DEVICES` before
 querying NVML; duplicate or ambiguous masks report unavailable utilization.

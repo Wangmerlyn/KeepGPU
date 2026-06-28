@@ -25,8 +25,10 @@ train_model()                     # GPU memory is released automatically
   resolves `ROCR_VISIBLE_DEVICES` as the base mask and one matching
   `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm
   SMI. If a mapping cannot be resolved, utilization is treated as unavailable.
-- `interval` is the finite positive pause between keep-alive bursts inside the background thread.
-- `vram_to_keep` accepts integer bytes or human-readable strings (`parse_size` handles it).
+- `interval` is the finite positive pause between keep-alive bursts inside the
+  background thread, capped by the Python runtime wait limit.
+- `vram_to_keep` accepts integer bytes or human-readable strings (`parse_size`
+  handles it). Byte-equivalent values above 1 PiB are rejected.
 - Platform-specific keep workload iteration counts must be positive integers.
   CUDA uses `relu_iterations`; ROCm and Mac M use `iterations`. Rejecting
   non-integer and non-positive values prevents a keep session from starting

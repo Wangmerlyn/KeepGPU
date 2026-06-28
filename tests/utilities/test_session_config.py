@@ -5,6 +5,7 @@ import pytest
 
 from keep_gpu.utilities import session_config
 from keep_gpu.utilities.session_config import (
+    PUBLIC_INTERVAL_MAX_SECONDS,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
@@ -26,6 +27,20 @@ def test_validate_interval_rejects_non_positive_values():
 def test_validate_interval_rejects_non_finite_values(value):
     with pytest.raises(ValueError, match="interval must be finite and positive"):
         validate_interval(value)
+
+
+def test_validate_interval_accepts_public_maximum_seconds():
+    assert validate_interval(PUBLIC_INTERVAL_MAX_SECONDS) == PUBLIC_INTERVAL_MAX_SECONDS
+
+
+def test_validate_interval_rejects_above_public_maximum_seconds():
+    with pytest.raises(ValueError, match="interval must be no more than"):
+        validate_interval(PUBLIC_INTERVAL_MAX_SECONDS + 1)
+
+
+def test_validate_interval_rejects_oversized_integer_without_overflow():
+    with pytest.raises(ValueError, match="interval must be no more than"):
+        validate_interval(10**1000)
 
 
 def test_validate_gpu_ids_rejects_empty_list():

@@ -20,9 +20,9 @@ These options apply when you run `keep-gpu` without subcommands.
 
 | Option | Type | Description |
 | --- | --- | --- |
-| `--interval INTEGER` | seconds | Finite positive sleep duration between utilization checks and keep-alive batches. |
+| `--interval INTEGER` | seconds | Finite positive sleep duration between utilization checks and keep-alive batches; values above the Python runtime wait limit are rejected. |
 | `--gpu-ids TEXT` | comma-separated unique non-negative ints | Subset of visible device ordinals to guard (for example, `0,2`). Omit to use all visible GPUs; startup fails if that resolves to none or if an explicit ordinal is out of range. |
-| `--vram TEXT` | human size or bare bytes | Amount of memory each GPU controller allocates (`512MB`, `1GiB`, `1073741824`). |
+| `--vram TEXT` | human size or bare bytes | Amount of memory each GPU controller allocates (`512MB`, `1GiB`, `1073741824`); byte-equivalent values above 1 PiB are rejected. |
 | `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | `0..100` backs off before allocation/compute when utilization is above this value or unavailable; `-1` disables utilization backoff. |
 | `--threshold TEXT` | deprecated | Legacy alias: numeric values map to busy-threshold, size strings map to vram. |
 
@@ -48,8 +48,8 @@ daemon startup or RPC.
 | Option | Default | Description |
 | --- | --- | --- |
 | `--gpu-ids` | all | Comma-separated unique visible device ordinals in the service process environment. |
-| `--vram` | `1GiB` | Per-GPU keep memory target. |
-| `--interval` | `300` | Finite positive keep cycle interval in seconds. |
+| `--vram` | `1GiB` | Per-GPU keep memory target; byte-equivalent values above 1 PiB are rejected. |
+| `--interval` | `300` | Finite positive keep cycle interval in seconds, capped by the Python runtime wait limit. |
 | `--busy-threshold` / `--util-threshold` | `25` | `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
 | `--job-id` | auto | Optional URL-path-safe custom id. Invalid IDs are rejected locally before service auto-start; valid IDs must be unique across active and starting sessions. |
 | `--host` | `127.0.0.1` | Service host to contact. |
@@ -118,7 +118,7 @@ return `500` instead of dropping the connection.
 | `/api/gpus` | GET | GPU telemetry (`id`/`visible_id` are start-compatible visible ordinals; optional `physical_id`/`uuid` are metadata; unsupported fields are `null`). |
 | `/api/sessions` | GET | Tracked keep sessions, including `state="starting"` during startup and `state`/`last_error` for in-progress or failed stops. |
 | `/api/sessions/{job_id}` | GET | One session status, including `state` and `last_error` when active or starting. |
-| `/api/sessions` | POST | Start session with a JSON object body (`gpu_ids`, `vram`, finite positive `interval`, `busy_threshold`, `job_id`); omitted `gpu_ids` means all GPUs visible to the service process, omitted `busy_threshold` uses `25`, and empty, duplicate, or out-of-range selections are invalid. |
+| `/api/sessions` | POST | Start session with a JSON object body (`gpu_ids`, `vram`, finite positive bounded `interval`, `busy_threshold`, `job_id`); `vram` accepts human sizes or bytes up to 1 PiB byte-equivalent, omitted `gpu_ids` means all GPUs visible to the service process, omitted `busy_threshold` uses `25`, and empty, duplicate, or out-of-range selections are invalid. |
 | `/api/sessions` | DELETE | Stop all sessions; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/api/sessions/{job_id}` | DELETE | Stop one session; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/rpc` | POST | JSON-RPC compatibility endpoint. |

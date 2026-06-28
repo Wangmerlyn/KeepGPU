@@ -80,6 +80,7 @@ def test_global_controller_rejects_empty_gpu_ids(monkeypatch):
         ({"gpu_ids": [-1]}, "gpu_ids must contain non-negative integers"),
         ({"interval": 0}, "interval must be positive"),
         ({"interval": math.nan}, "interval must be finite and positive"),
+        ({"interval": 10**1000}, "interval must be no more than"),
         (
             {"busy_threshold": -2},
             "busy_threshold must be -1 or an integer between 0 and 100",
@@ -91,6 +92,7 @@ def test_global_controller_rejects_empty_gpu_ids(monkeypatch):
         ({"vram_to_keep": []}, "vram_to_keep must be str or int bytes"),
         ({"vram_to_keep": "not-a-size"}, "invalid format"),
         ({"vram_to_keep": 1}, "memory size must be at least 4 bytes"),
+        ({"vram_to_keep": 10**1000}, "vram must be no more than"),
     ],
 )
 def test_global_controller_validates_local_inputs_before_platform_probe(

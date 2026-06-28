@@ -96,14 +96,15 @@ drivers/toolkit can allocate VRAM outside KeepGPU.
 keep-gpu --interval 120 --gpu-ids 0 --vram 1GiB
 ```
 
-- `--interval` controls the finite positive sleep between utilization checks (seconds).
+- `--interval` controls the finite positive sleep between utilization checks
+  (seconds). Values above the Python runtime wait limit are rejected.
 - `--gpu-ids` limits the job to a subset of visible device ordinals. Set
   `CUDA_VISIBLE_DEVICES` before starting KeepGPU if you need physical-device
   filtering. In service mode, `keep-gpu list-gpus` and the dashboard show these
   same start-compatible visible ordinals as GPU IDs; physical metadata is only
   informational.
 - `--vram` accepts human-readable sizes or bare bytes; KeepGPU allocates one
-  tensor of that size.
+  tensor of that size. Byte-equivalent values above 1 PiB are rejected.
 
 Leave the command running while you prepare data or review notebooks. When you are
 ready to hand the GPU back, hit `Ctrl+C`—controllers will release VRAM and exit.

@@ -1,9 +1,11 @@
 import math
 import re
+import threading
 from typing import Any, List, Optional, Union
 
 _JOB_ID_PATTERN = re.compile(r"^[A-Za-z0-9._~-]+$")
 DEFAULT_BUSY_THRESHOLD = 25
+PUBLIC_INTERVAL_MAX_SECONDS = int(threading.TIMEOUT_MAX)
 
 
 def _is_plain_int(value: Any) -> bool:
@@ -33,10 +35,16 @@ def validate_gpu_ids(gpu_ids: Any) -> Optional[List[int]]:
 
 def validate_interval(interval: Any) -> Union[int, float]:
     """Validate public interval input in seconds."""
-    if not _is_plain_number(interval) or not math.isfinite(interval):
+    if not _is_plain_number(interval):
+        raise ValueError("interval must be finite and positive")
+    if isinstance(interval, float) and not math.isfinite(interval):
         raise ValueError("interval must be finite and positive")
     if interval <= 0:
         raise ValueError("interval must be positive")
+    if interval > PUBLIC_INTERVAL_MAX_SECONDS:
+        raise ValueError(
+            f"interval must be no more than {PUBLIC_INTERVAL_MAX_SECONDS} seconds"
+        )
     return interval
 
 

@@ -390,6 +390,78 @@ def test_http_start_rejects_invalid_fields_before_listing_gpus(
     assert controllers == []
 
 
+@pytest.mark.parametrize(
+    ("request_payload", "message"),
+    [
+        (
+            {
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 10**1000,
+                "busy_threshold": 5,
+            },
+            "interval must be no more than",
+        ),
+        (
+            {
+                "gpu_ids": [0],
+                "vram": 10**1000,
+                "interval": 20,
+                "busy_threshold": 5,
+            },
+            "vram must be no more than",
+        ),
+        (
+            {
+                "gpu_ids": [0],
+                "vram": ("9" * 500) + "GiB",
+                "interval": 20,
+                "busy_threshold": 5,
+            },
+            "vram must be no more than",
+        ),
+    ],
+)
+def test_http_start_rejects_oversized_numeric_inputs_before_listing_gpus(
+    request_payload, message
+):
+    controllers = []
+
+    class TrackingController(DummyController):
+        def __init__(self, **kwargs):
+            controllers.append(self)
+            super().__init__(**kwargs)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: TrackingController(**kwargs))
+    )
+    list_calls = []
+
+    def fail_list_gpus():
+        list_calls.append(True)
+        raise AssertionError("list_gpus should not run for invalid input")
+
+    server.list_gpus = fail_list_gpus  # type: ignore[method-assign]
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            request_payload,
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 400
+    assert message in payload["error"]["message"]
+    assert list_calls == []
+    assert controllers == []
+
+
 def test_http_start_rejects_duplicate_job_id_before_listing_gpus():
     controllers = []
 
