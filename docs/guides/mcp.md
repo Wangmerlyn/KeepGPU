@@ -56,6 +56,9 @@ HTTP mode is KeepGPU's local JSON-RPC/REST/dashboard service. It accepts the
 same JSON-RPC message shapes at `/rpc`, but it is not a Streamable HTTP MCP
 endpoint.
 
+Malformed HTTP JSON-RPC bodies return a JSON-RPC `-32700 Parse error` envelope
+with `id: null`; REST routes keep REST-shaped JSON errors.
+
 ```bash
 curl -X POST http://127.0.0.1:8765/rpc \
   -H "content-type: application/json" \

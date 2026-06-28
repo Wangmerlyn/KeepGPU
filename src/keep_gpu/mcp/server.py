@@ -888,10 +888,10 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802
         """
-        Handle an HTTP JSON-RPC request and write a JSON response.
+        Handle HTTP JSON-RPC and REST session POST requests.
 
-        Expects application/json bodies containing {"method", "params", "id"}.
-        Returns 400 with an error object if parsing fails.
+        JSON-RPC parse failures return JSON-RPC parse-error envelopes. REST
+        session parse failures return HTTP 400 with a structured error object.
         """
         parsed = urlparse(self.path)
         path = parsed.path
@@ -914,6 +914,11 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                 UnicodeDecodeError,
                 TypeError,
             ) as exc:
+                if path in ("/", "/rpc"):
+                    self._json_response(
+                        200, _jsonrpc_error(None, JSONRPC_PARSE_ERROR, str(exc))
+                    )
+                    return
                 self._json_response(400, {"error": {"message": f"Bad request: {exc}"}})
                 return
 
