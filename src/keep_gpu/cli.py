@@ -812,16 +812,14 @@ def start(
             port,
         )
         result_job_id = result.get("job_id")
-        try:
-            result_job_id = validate_job_id(result_job_id)
-        except ValueError as exc:
-            raise ServiceResponseError(
-                "Malformed JSON-RPC response: start_keep result must include job_id"
-            ) from exc
         if result_job_id is None:
             raise ServiceResponseError(
                 "Malformed JSON-RPC response: start_keep result must include job_id"
             )
+        try:
+            result_job_id = validate_job_id(result_job_id)
+        except ValueError as exc:
+            raise ServiceResponseError(f"Malformed JSON-RPC response: {exc}") from exc
         if auto_started:
             console.print(
                 f"[bold cyan]Auto-started KeepGPU service[/bold cyan] at http://{host}:{port}/"
