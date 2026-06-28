@@ -308,6 +308,133 @@ def test_http_start_rejects_explicit_gpu_ids_when_no_visible_ids(monkeypatch):
     assert controllers == []
 
 
+@pytest.mark.parametrize(
+    ("request_payload", "message"),
+    [
+        (
+            {
+                "gpu_ids": [0],
+                "vram": [],
+                "interval": 20,
+                "busy_threshold": 5,
+            },
+            "vram_to_keep must be str or int bytes",
+        ),
+        (
+            {
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 0,
+                "busy_threshold": 5,
+            },
+            "interval must be positive",
+        ),
+        (
+            {
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 20,
+                "busy_threshold": 101,
+            },
+            "busy_threshold must be -1 or an integer between 0 and 100",
+        ),
+        (
+            {
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 20,
+                "busy_threshold": 5,
+                "job_id": "",
+            },
+            "job_id must be a URL-path-safe non-empty string",
+        ),
+    ],
+)
+def test_http_start_rejects_invalid_fields_before_listing_gpus(
+    request_payload, message
+):
+    controllers = []
+
+    class TrackingController(DummyController):
+        def __init__(self, **kwargs):
+            controllers.append(self)
+            super().__init__(**kwargs)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: TrackingController(**kwargs))
+    )
+    list_calls = []
+
+    def fail_list_gpus():
+        list_calls.append(True)
+        raise AssertionError("list_gpus should not run for invalid input")
+
+    server.list_gpus = fail_list_gpus  # type: ignore[method-assign]
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            request_payload,
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 400
+    assert message in payload["error"]["message"]
+    assert list_calls == []
+    assert controllers == []
+
+
+def test_http_start_rejects_duplicate_job_id_before_listing_gpus():
+    controllers = []
+
+    class TrackingController(DummyController):
+        def __init__(self, **kwargs):
+            controllers.append(self)
+            super().__init__(**kwargs)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: TrackingController(**kwargs))
+    )
+    server.start_keep(job_id="existing-job", gpu_ids=[0])
+    list_calls = []
+
+    def fail_list_gpus():
+        list_calls.append(True)
+        raise AssertionError("list_gpus should not run for duplicate job_id")
+
+    server.list_gpus = fail_list_gpus  # type: ignore[method-assign]
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 20,
+                "busy_threshold": 5,
+                "job_id": "existing-job",
+            },
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 400
+    assert "job_id existing-job already exists" in payload["error"]["message"]
+    assert list_calls == []
+    assert len(controllers) == 1
+
+
 def test_http_status_reports_starting_session_during_controller_keep():
     keep_started = threading.Event()
     keep_release = threading.Event()

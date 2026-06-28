@@ -91,6 +91,9 @@ device ordinals in that same process environment. Empty, duplicate, or
 out-of-range lists are invalid, and startup returns an error if the resolved
 selection contains zero devices. `interval` must be a finite positive number of
 seconds; `NaN` and infinities are rejected before session creation.
+Cheap local fields (`vram`, `interval`, `busy_threshold`, `job_id`, duplicate
+custom `job_id`, and `gpu_ids` shape) are rejected before `/api/sessions` asks
+the service to list visible GPUs, so bad requests do not spend telemetry work.
 CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` for the service process and
 treats duplicate or ambiguous masks as unavailable utilization rather than
 guessing a physical GPU.
