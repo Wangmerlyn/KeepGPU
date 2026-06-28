@@ -44,6 +44,10 @@ keep-gpu status
 keep-gpu status --job-id <job_id>
 ```
 
+Explicit `--job-id` values use the shared session-id rules: non-empty strings
+containing only letters, digits, `.`, `_`, `-`, or `~`. Invalid IDs return a
+JSON error before contacting the service.
+
 ### Stop sessions
 
 ```bash
@@ -54,6 +58,8 @@ keep-gpu stop --all
 Use exactly one stop target. `--job-id` and `--all` are mutually exclusive, and
 passing both returns a JSON error before contacting the service or running the
 stop-all fallback.
+Explicit `--job-id` values use the same non-empty URL-path-safe validation as
+`status`; invalid IDs return a JSON error before any RPC or stop-all fallback.
 
 ### Stop local daemon
 

@@ -85,6 +85,9 @@ Flags that matter:
   - `keep-gpu stop --job-id <id>` or `keep-gpu stop --all`: release sessions.
     The two stop targets are mutually exclusive; passing both returns a JSON
     error before contacting the service.
+    Explicit `--job-id` values for `status` and `stop` must be non-empty
+    URL-path-safe IDs; invalid values return JSON errors before any RPC or
+    stop-all fallback.
   - `keep-gpu service-stop`: stop the ownership-verified auto-started local daemon.
   - `keep-gpu list-gpus`: fetch telemetry from local service. Each listed
     `id` is the visible ordinal accepted by `--gpu-ids`; optional

@@ -75,6 +75,10 @@ This file defines how coding agents should work in this repository.
 - CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
 - CLI service RPC clients must reject malformed JSON-RPC service envelopes (wrong `jsonrpc`, mismatched `id`, missing `result`, non-object direct-method `result`, or non-object `error`) instead of treating them as successful empty responses or leaking tracebacks.
 - `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, and `--gpu-ids` before auto-starting the service daemon or making RPC calls.
+- `keep-gpu status --job-id` and `keep-gpu stop --job-id` must validate
+  explicit custom IDs locally before service RPC, stop-all fallback, or daemon
+  side effects. Only omitting the option means all-session status or no stop
+  target was chosen.
 - For CLI `--gpu-ids`, only omission means all visible GPUs; explicit empty or
   whitespace-only values are invalid and must not silently expand to all GPUs.
 - Destructive or broad stop surfaces must reject ambiguous inputs such as `--job-id` with `--all` before any RPC, stop-all fallback, or daemon stop side effect.

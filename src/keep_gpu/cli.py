@@ -264,6 +264,13 @@ def _validate_cli_busy_threshold(busy_threshold: int) -> int:
         raise typer.BadParameter(str(exc)) from exc
 
 
+def _validate_cli_job_id(job_id: Optional[str]) -> Optional[str]:
+    try:
+        return validate_job_id(job_id)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
 def _service_base_url(host: str, port: int) -> str:
     return f"http://{host}:{port}"
 
@@ -681,10 +688,7 @@ def start(
         busy_threshold = _validate_cli_busy_threshold(busy_threshold)
         parsed_gpu_ids = _parse_gpu_ids(gpu_ids)
         _validate_cli_vram(vram)
-        try:
-            validate_job_id(job_id)
-        except ValueError as exc:
-            raise typer.BadParameter(str(exc)) from exc
+        job_id = _validate_cli_job_id(job_id)
         auto_started = _ensure_service_running(host, port, auto_start=auto_start)
         result = _rpc_call(
             "start_keep",
@@ -725,6 +729,7 @@ def status(
 ):
     """Show session status from KeepGPU local service."""
     try:
+        job_id = _validate_cli_job_id(job_id)
         result = _rpc_call(
             "status",
             {} if job_id is None else {"job_id": job_id},
@@ -732,7 +737,7 @@ def status(
             port,
         )
         console.print_json(data=result)
-    except RuntimeError as exc:
+    except (RuntimeError, typer.BadParameter) as exc:
         console.print_json(data={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
@@ -757,6 +762,7 @@ def stop(
             raise RuntimeError("Use either --job-id or --all, not both.")
         if job_id is None and not all_sessions:
             raise RuntimeError("Provide --job-id or use --all.")
+        job_id = _validate_cli_job_id(job_id)
         if all_sessions:
             result = _stop_all_sessions_with_fallback(host, port)
         else:
@@ -768,7 +774,7 @@ def stop(
                 timeout=45.0,
             )
         console.print_json(data=result)
-    except RuntimeError as exc:
+    except (RuntimeError, typer.BadParameter) as exc:
         console.print_json(data={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 

@@ -61,7 +61,7 @@ or whitespace-only values are invalid.
 
 | Option | Description |
 | --- | --- |
-| `--job-id` | Optional session id; omit to list all tracked sessions, including in-progress starts, in-progress releases, or failed releases. |
+| `--job-id` | Optional non-empty URL-path-safe session id; omit to list all tracked sessions, including in-progress starts, in-progress releases, or failed releases. Invalid explicit IDs are rejected locally before RPC. |
 | `--host`, `--port` | Service host/port. |
 
 Prints a directly parseable JSON object, including `{"error": "..."}` for
@@ -76,7 +76,7 @@ runtime failure.
 
 | Option | Description |
 | --- | --- |
-| `--job-id` | Stop one session. |
+| `--job-id` | Stop one non-empty URL-path-safe session id. Invalid explicit IDs are rejected locally before RPC or stop-all fallback. |
 | `--all` | Stop all sessions. |
 | `--host`, `--port` | Service host/port. |
 
