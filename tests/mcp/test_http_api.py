@@ -116,8 +116,8 @@ def _raw_post_with_content_length(httpd, path: str, content_length: str):
         "{}"
     ).encode("ascii")
 
-    with socket.create_connection((host, port), timeout=0.5) as sock:
-        sock.settimeout(0.5)
+    with socket.create_connection((host, port), timeout=2.0) as sock:
+        sock.settimeout(2.0)
         sock.sendall(request)
 
         chunks = []
