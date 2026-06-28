@@ -1,6 +1,79 @@
+import threading
+
 import pytest
 
 from keep_gpu.single_gpu_controller.rocm_gpu_controller import RocmGPUController
+
+
+def test_rocm_keep_raises_when_worker_startup_fails(monkeypatch):
+    import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
+
+    ctrl = RocmGPUController(
+        rank=0,
+        interval=0.01,
+        vram_to_keep=4,
+        busy_threshold=-1,
+    )
+
+    def fail_set_device(_rank):
+        raise RuntimeError("rocm startup failed")
+
+    monkeypatch.setattr(rocm_module.torch.cuda, "set_device", fail_set_device)
+
+    with pytest.raises(RuntimeError, match="rocm startup failed"):
+        ctrl.keep()
+
+    assert not (ctrl._thread and ctrl._thread.is_alive())
+
+
+def test_rocm_keep_shuts_down_smi_when_worker_startup_fails(monkeypatch):
+    import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
+
+    calls = []
+
+    class DummyRocmSmi:
+        def rsmi_init(self):
+            calls.append("init")
+
+        def rsmi_shut_down(self):
+            calls.append("shutdown")
+
+    ctrl = RocmGPUController(
+        rank=0,
+        interval=0.01,
+        vram_to_keep=4,
+        busy_threshold=-1,
+    )
+    ctrl._rocm_smi = DummyRocmSmi()
+
+    def fail_set_device(_rank):
+        raise RuntimeError("rocm startup failed")
+
+    monkeypatch.setattr(rocm_module.torch.cuda, "set_device", fail_set_device)
+
+    with pytest.raises(RuntimeError, match="rocm startup failed"):
+        ctrl.keep()
+
+    assert calls == ["init", "shutdown"]
+
+
+def test_rocm_keep_rejects_retry_while_startup_thread_is_stopping():
+    class AliveThread:
+        def is_alive(self):
+            return True
+
+    ctrl = RocmGPUController(
+        rank=0,
+        interval=0.01,
+        vram_to_keep=4,
+        busy_threshold=-1,
+    )
+    ctrl._thread = AliveThread()
+    ctrl._stop_evt = threading.Event()
+    ctrl._stop_evt.set()
+
+    with pytest.raises(RuntimeError, match="startup did not complete"):
+        ctrl.keep()
 
 
 @pytest.mark.parametrize("iterations", [0, -1])

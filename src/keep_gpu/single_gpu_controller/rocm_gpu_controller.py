@@ -54,6 +54,10 @@ class RocmGPUController(BaseGPUController):
 
     def keep(self) -> None:
         if self._thread and self._thread.is_alive():
+            if self._stop_evt is not None and self._stop_evt.is_set():
+                raise RuntimeError(
+                    f"rank {self.rank}: previous keep thread startup did not complete"
+                )
             logger.warning("rank %s: keep thread already running", self.rank)
             return
         self._failure_exc = None
@@ -67,13 +71,47 @@ class RocmGPUController(BaseGPUController):
                 logger.debug("rsmi_init failed: %s", exc)
 
         self._stop_evt = threading.Event()
+        startup_evt = threading.Event()
+        startup_errors: list[Exception] = []
         self._thread = threading.Thread(
             target=self._keep_loop,
+            args=(startup_evt, startup_errors),
             name=f"gpu-keeper-rocm-{self.rank}",
             daemon=True,
         )
         self._thread.start()
+        startup_timeout = 5.0
+        if not startup_evt.wait(startup_timeout):
+            stop_evt = self._stop_evt
+            if stop_evt is not None:
+                stop_evt.set()
+            self._thread.join(timeout=1.0)
+            if self._thread.is_alive():
+                self._shutdown_rocm_smi()
+                raise RuntimeError(
+                    f"rank {self.rank}: ROCm keep thread did not complete startup "
+                    f"within {startup_timeout:.1f}s"
+                )
+            self._thread = None
+            self._stop_evt = None
+            self._shutdown_rocm_smi()
+            raise RuntimeError(
+                f"rank {self.rank}: ROCm keep thread exited before startup completed"
+            )
+        if startup_errors:
+            self._thread.join(timeout=1.0)
+            self._thread = None
+            self._stop_evt = None
+            self._shutdown_rocm_smi()
+            raise startup_errors[0]
         logger.info("rank %s: ROCm keep thread started", self.rank)
+
+    def _shutdown_rocm_smi(self) -> None:
+        if self._rocm_smi:
+            try:
+                self._rocm_smi.rsmi_shut_down()
+            except Exception as exc:  # pragma: no cover - best effort
+                logger.debug("rsmi_shut_down failed: %s", exc)
 
     def release(self) -> None:
         try:
@@ -99,11 +137,7 @@ class RocmGPUController(BaseGPUController):
                 logger.warning("rank %s: keep thread not running", self.rank)
                 return
         finally:
-            if self._rocm_smi:
-                try:
-                    self._rocm_smi.rsmi_shut_down()
-                except Exception as exc:  # pragma: no cover - best effort
-                    logger.debug("rsmi_shut_down failed: %s", exc)
+            self._shutdown_rocm_smi()
         logger.info("rank %s: keep thread stopped & cache cleared", self.rank)
 
     def __enter__(self):
@@ -126,22 +160,46 @@ class RocmGPUController(BaseGPUController):
             logger.debug("ROCm utilization query failed: %s", exc)
             return None
 
-    def _keep_loop(self) -> None:
+    def _keep_loop(
+        self,
+        startup_evt: Optional[threading.Event] = None,
+        startup_errors: Optional[list[Exception]] = None,
+    ) -> None:
         stop_evt = self._stop_evt
         if stop_evt is None:
-            logger.error("rank %s: stop event not initialized", self.rank)
+            exc = RuntimeError(f"rank {self.rank}: stop event not initialized")
+            logger.error("%s", exc)
+            if startup_errors is not None:
+                startup_errors.append(exc)
+            if startup_evt is not None:
+                startup_evt.set()
             return
         assert stop_evt is not None
 
-        torch.cuda.set_device(self.rank)
+        try:
+            torch.cuda.set_device(self.rank)
+        except Exception as exc:
+            logger.error("rank %s: ROCm startup failed: %s", self.rank, exc)
+            if startup_errors is not None:
+                startup_errors.append(exc)
+            if startup_evt is not None:
+                startup_evt.set()
+            return
         tensor = None
         attempts = 0
         num_elements = self._num_elements if self._num_elements is not None else 0
         if num_elements <= 0:
-            logger.error(
-                "rank %s: invalid vram_to_keep=%s", self.rank, self.vram_to_keep
+            exc = RuntimeError(
+                f"rank {self.rank}: invalid vram_to_keep={self.vram_to_keep}"
             )
+            logger.error("%s", exc)
+            if startup_errors is not None:
+                startup_errors.append(exc)
+            if startup_evt is not None:
+                startup_evt.set()
             return
+        if startup_evt is not None:
+            startup_evt.set()
         while not stop_evt.is_set():
             try:
                 util = self._query_utilization()

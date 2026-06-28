@@ -1,9 +1,50 @@
 import pytest
+import threading
 import time
 import torch
 
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 from tests.polling import wait_until
+
+
+def test_cuda_keep_raises_when_worker_startup_fails(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    ctrl = CudaGPUController(
+        rank=0,
+        interval=0.01,
+        vram_to_keep=4,
+        busy_threshold=-1,
+    )
+
+    def fail_set_device(_rank):
+        raise RuntimeError("cuda startup failed")
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", fail_set_device)
+
+    with pytest.raises(RuntimeError, match="cuda startup failed"):
+        ctrl.keep()
+
+    assert not (ctrl._thread and ctrl._thread.is_alive())
+
+
+def test_cuda_keep_rejects_retry_while_startup_thread_is_stopping():
+    class AliveThread:
+        def is_alive(self):
+            return True
+
+    ctrl = CudaGPUController(
+        rank=0,
+        interval=0.01,
+        vram_to_keep=4,
+        busy_threshold=-1,
+    )
+    ctrl._thread = AliveThread()
+    ctrl._stop_evt = threading.Event()
+    ctrl._stop_evt.set()
+
+    with pytest.raises(RuntimeError, match="startup did not complete"):
+        ctrl.keep()
 
 
 @pytest.mark.skipif(

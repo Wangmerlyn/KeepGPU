@@ -31,6 +31,11 @@ and busy or unavailable telemetry sleeps before allocating keep tensors or
 running compute. Pass `busy_threshold=-1` only when you intentionally want
 unconditional keepalive compute without utilization backoff.
 
+CUDA and ROCm `keep()` calls wait for fatal backend startup setup to succeed
+before reporting success. Startup failures such as device-selection errors are
+raised synchronously, while normal low-power allocation can still be deferred by
+utilization backoff after startup succeeds.
+
 Single-GPU workload iteration controls must be positive integers. CUDA exposes
 `relu_iterations`; ROCm and Mac M expose `iterations`. Non-integer values raise
 `TypeError`, and non-positive values raise `ValueError` before a worker can

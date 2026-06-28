@@ -45,7 +45,9 @@ ctrl.release()
 ```
 
 The controller spins up a daemon thread. Repeated `keep()` calls are idempotent
-and simply warn if the worker is already running.
+and simply warn if the worker is already running. CUDA and ROCm `keep()` calls
+return only after fatal backend startup setup succeeds, so startup failures such
+as device-selection errors are raised before your guarded work begins.
 
 ## Guard multiple GPUs with a single context
 

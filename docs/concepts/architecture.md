@@ -40,7 +40,9 @@ CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
    If a later worker fails to start, already-started workers are released before
    the original start error is re-raised.
 3. Each CUDA worker:
-   - Starts a daemon thread that performs intervalled lightweight elementwise batches.
+   - Starts a daemon thread and confirms fatal backend startup setup before
+     `keep()` reports success.
+   - Performs intervalled lightweight elementwise batches after startup.
    - Calls `_monitor_utilization` (by way of NVML) to detect real activity
      before allocating the keep tensor.
    - Allocates a tensor sized by way of `vram_to_keep` only when backoff allows
@@ -88,8 +90,9 @@ Elementwise keep-alive batches:
   `stop_keep` removes a session only after release succeeds. Timed-out sessions
   stay visible as `state="stopping"` until the background release finishes;
   failed releases stay visible as `state="stop_failed"` with `last_error`.
-- Errors inside a worker are logged but do not bring the whole process down;
-  the loop retries after clearing the CUDA cache.
+- Fatal backend startup errors are reported before `keep()` returns. Later
+  runtime errors inside an already-started worker are logged; recoverable
+  allocation failures retry after clearing the device cache.
 
 ## Platform detection
 
