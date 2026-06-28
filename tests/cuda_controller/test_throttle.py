@@ -36,6 +36,14 @@ class _StopAfterWaits:
         return self.stopped
 
 
+class _StopWaitForbidden:
+    def is_set(self):
+        return False
+
+    def wait(self, _timeout):
+        raise AssertionError("fatal worker failures should stop immediately")
+
+
 def test_negative_busy_threshold_disables_backoff_without_gpu():
     assert CudaGPUController._should_run_batch(0, -1) is True
     assert CudaGPUController._should_run_batch(100, -1) is True
@@ -150,6 +158,216 @@ def test_cuda_negative_busy_threshold_allocates_even_when_busy(monkeypatch):
 
     assert len(allocations) == 1
     assert ctrl._stop_evt.wait_calls == 1
+
+
+def test_cuda_records_unexpected_post_start_worker_failure(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    ctrl = CudaGPUController.__new__(CudaGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.relu_iterations = 1
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopWaitForbidden()
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", lambda _rank: None)
+    monkeypatch.setattr(cuda_module.torch, "rand", lambda *args, **kwargs: object())
+    monkeypatch.setattr(ctrl, "_monitor_utilization", lambda _rank: 0)
+
+    def fail_batch(_matrix):
+        raise ValueError("fatal compute exploded")
+
+    monkeypatch.setattr(ctrl, "_run_relu_batch", fail_batch)
+
+    ctrl._keep_loop()
+
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert (
+        str(error)
+        == "rank 0: unexpected CUDA keep worker failure: fatal compute exploded"
+    )
+
+
+def test_cuda_records_post_start_runtime_error_as_failure(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    ctrl = CudaGPUController.__new__(CudaGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.relu_iterations = 1
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopWaitForbidden()
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", lambda _rank: None)
+    monkeypatch.setattr(cuda_module.torch, "rand", lambda *args, **kwargs: object())
+    monkeypatch.setattr(ctrl, "_monitor_utilization", lambda _rank: 0)
+
+    def fail_batch(_matrix):
+        raise RuntimeError("device-side assert")
+
+    monkeypatch.setattr(ctrl, "_run_relu_batch", fail_batch)
+
+    ctrl._keep_loop()
+
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert (
+        str(error) == "rank 0: unexpected CUDA keep worker failure: device-side assert"
+    )
+
+
+def test_cuda_records_unexpected_post_start_allocation_failure(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    ctrl = CudaGPUController.__new__(CudaGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.relu_iterations = 1
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopWaitForbidden()
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", lambda _rank: None)
+    monkeypatch.setattr(ctrl, "_monitor_utilization", lambda _rank: 0)
+
+    def fail_allocation(*args, **kwargs):
+        raise ValueError("allocator corrupted")
+
+    monkeypatch.setattr(cuda_module.torch, "rand", fail_allocation)
+
+    ctrl._keep_loop()
+
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert (
+        str(error) == "rank 0: unexpected CUDA keep worker failure: allocator corrupted"
+    )
+
+
+def test_cuda_records_post_start_allocation_runtime_error_as_failure(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    ctrl = CudaGPUController.__new__(CudaGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.relu_iterations = 1
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopWaitForbidden()
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", lambda _rank: None)
+    monkeypatch.setattr(ctrl, "_monitor_utilization", lambda _rank: 0)
+
+    def fail_allocation(*args, **kwargs):
+        raise RuntimeError("illegal memory access")
+
+    monkeypatch.setattr(cuda_module.torch, "rand", fail_allocation)
+
+    ctrl._keep_loop()
+
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert (
+        str(error)
+        == "rank 0: unexpected CUDA keep worker failure: illegal memory access"
+    )
+
+
+def test_cuda_retries_post_start_allocation_oom_without_failure(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    ctrl = CudaGPUController.__new__(CudaGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.relu_iterations = 1
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopAfterOneWait()
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", lambda _rank: None)
+    monkeypatch.setattr(ctrl, "_monitor_utilization", lambda _rank: 0)
+
+    def fail_allocation(*args, **kwargs):
+        raise RuntimeError("CUDA out of memory")
+
+    monkeypatch.setattr(cuda_module.torch, "rand", fail_allocation)
+
+    ctrl._keep_loop()
+
+    assert ctrl.allocation_status() is None
+    assert ctrl._stop_evt.wait_calls == 1
+
+
+def test_cuda_retries_steady_state_oom_without_failure(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    ctrl = CudaGPUController.__new__(CudaGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.relu_iterations = 1
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopAfterOneWait()
+
+    cache_calls = []
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", lambda _rank: None)
+    monkeypatch.setattr(
+        cuda_module.torch.cuda, "empty_cache", lambda: cache_calls.append("empty_cache")
+    )
+    monkeypatch.setattr(cuda_module.torch, "rand", lambda *args, **kwargs: object())
+    monkeypatch.setattr(ctrl, "_monitor_utilization", lambda _rank: 0)
+
+    def fail_batch(_matrix):
+        raise RuntimeError("CUDA out of memory")
+
+    monkeypatch.setattr(ctrl, "_run_relu_batch", fail_batch)
+
+    ctrl._keep_loop()
+
+    assert ctrl.allocation_status() is None
+    assert ctrl._stop_evt.wait_calls == 1
+    assert cache_calls == ["empty_cache"]
+
+
+def test_cuda_records_invalid_post_start_num_elements_without_startup_errors(
+    monkeypatch,
+):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    ctrl = CudaGPUController.__new__(CudaGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.relu_iterations = 1
+    ctrl.vram_to_keep = 0
+    ctrl._num_elements = 0
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopWaitForbidden()
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", lambda _rank: None)
+
+    ctrl._keep_loop()
+
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "rank 0: invalid vram_to_keep=0"
 
 
 @pytest.mark.skipif(

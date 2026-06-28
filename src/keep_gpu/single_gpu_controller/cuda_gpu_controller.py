@@ -87,6 +87,7 @@ class CudaGPUController(BaseGPUController):
 
         self._stop_evt: Optional[threading.Event] = None
         self._thread: Optional[threading.Thread] = None
+        self._failure_exc: Optional[Exception] = None
         self._num_elements: Optional[int] = None
 
     @staticmethod
@@ -107,6 +108,7 @@ class CudaGPUController(BaseGPUController):
             logger.warning("rank %s: keep thread already running", self.rank)
             return
 
+        self._failure_exc = None
         self._num_elements = int(self.vram_to_keep)
         if self._num_elements <= 0:
             raise ValueError("vram_to_keep must be positive")
@@ -152,7 +154,9 @@ class CudaGPUController(BaseGPUController):
         thread = self._thread
         if thread is not None and not thread.is_alive():
             stop_evt = self._stop_evt
-            if stop_evt is not None and stop_evt.is_set():
+            if (stop_evt is not None and stop_evt.is_set()) or getattr(
+                self, "_failure_exc", None
+            ) is not None:
                 torch.cuda.empty_cache()
                 self._thread = None
                 self._stop_evt = None
@@ -211,6 +215,8 @@ class CudaGPUController(BaseGPUController):
             logger.error("%s", exc)
             if startup_errors is not None:
                 startup_errors.append(exc)
+            else:
+                self._failure_exc = exc
             if startup_evt is not None:
                 startup_evt.set()
             return
@@ -222,6 +228,8 @@ class CudaGPUController(BaseGPUController):
             logger.error("rank %s: CUDA startup failed: %s", self.rank, exc)
             if startup_errors is not None:
                 startup_errors.append(exc)
+            else:
+                self._failure_exc = exc
             if startup_evt is not None:
                 startup_evt.set()
             return
@@ -233,6 +241,8 @@ class CudaGPUController(BaseGPUController):
             logger.error("%s", exc)
             if startup_errors is not None:
                 startup_errors.append(exc)
+            else:
+                self._failure_exc = exc
             if startup_evt is not None:
                 startup_evt.set()
             return
@@ -260,8 +270,21 @@ class CudaGPUController(BaseGPUController):
                 break
             except RuntimeError as e:
                 logger.error("rank %s: failed to allocate matrix: %s", self.rank, e)
-                if stop_evt.wait(self.interval):
-                    return
+                if "out of memory" in str(e).lower():
+                    if stop_evt.wait(self.interval):
+                        return
+                    continue
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected CUDA keep worker failure: {e}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
+            except Exception as exc:
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected CUDA keep worker failure: {exc}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
         if matrix is None:
             logger.error("rank %s: failed to allocate matrix, exiting loop", self.rank)
             return
@@ -282,13 +305,28 @@ class CudaGPUController(BaseGPUController):
                 # Handle OOM by clearing cache; then sleep and continue
                 if "out of memory" in str(e).lower():
                     torch.cuda.empty_cache()
-                if stop_evt.wait(self.interval):
-                    break
-            except Exception:
-                # Log unexpected exceptions but keep running
-                logger.exception("rank %s: unexpected error", self.rank)
-                if stop_evt.wait(self.interval):
-                    break
+                    if stop_evt.wait(self.interval):
+                        break
+                    continue
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected CUDA keep worker failure: {e}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
+            except Exception as exc:
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected CUDA keep worker failure: {exc}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
+
+    def allocation_status(self) -> Optional[Exception]:
+        """
+        Return fatal worker failure captured after startup, if any.
+
+        The reference assignment/read is thread-safe for CPython's GIL model.
+        """
+        return self._failure_exc
 
     # ------------------------------------------------------------------
     # Workload implementation

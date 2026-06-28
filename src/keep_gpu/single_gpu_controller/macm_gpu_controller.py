@@ -42,6 +42,7 @@ class MacMGPUController(BaseGPUController):
 
         self._stop_evt: Optional[threading.Event] = None
         self._thread: Optional[threading.Thread] = None
+        self._failure_exc: Optional[Exception] = None
         self._num_elements: Optional[int] = None
 
     def keep(self) -> None:
@@ -49,6 +50,7 @@ class MacMGPUController(BaseGPUController):
             logger.warning("rank %s: keep thread already running", self.rank)
             return
 
+        self._failure_exc = None
         self._num_elements = int(self.vram_to_keep)
         if self._num_elements <= 0:
             raise ValueError("vram_to_keep must be positive")
@@ -66,7 +68,9 @@ class MacMGPUController(BaseGPUController):
         thread = self._thread
         if thread is not None and not thread.is_alive():
             stop_evt = self._stop_evt
-            if stop_evt is not None and stop_evt.is_set():
+            if (stop_evt is not None and stop_evt.is_set()) or getattr(
+                self, "_failure_exc", None
+            ) is not None:
                 torch.mps.empty_cache()
                 gc.collect()
                 self._thread = None
@@ -114,14 +118,18 @@ class MacMGPUController(BaseGPUController):
     def _keep_loop(self) -> None:
         stop_evt = self._stop_evt
         if stop_evt is None:
-            logger.error("rank %s: stop event not initialized", self.rank)
+            self._failure_exc = RuntimeError(
+                f"rank {self.rank}: stop event not initialized"
+            )
+            logger.error("%s", self._failure_exc)
             return
 
         num_elements = self._num_elements if self._num_elements is not None else 0
         if num_elements <= 0:
-            logger.error(
-                "rank %s: invalid vram_to_keep=%s", self.rank, self.vram_to_keep
+            self._failure_exc = RuntimeError(
+                f"rank {self.rank}: invalid vram_to_keep={self.vram_to_keep}"
             )
+            logger.error("%s", self._failure_exc)
             return
 
         tensor = None
@@ -145,10 +153,23 @@ class MacMGPUController(BaseGPUController):
                 break
             except RuntimeError as exc:
                 logger.error("rank %s: failed to allocate tensor: %s", self.rank, exc)
-                torch.mps.empty_cache()
-                gc.collect()
-                if stop_evt.wait(self.interval):
-                    return
+                if "out of memory" in str(exc).lower():
+                    torch.mps.empty_cache()
+                    gc.collect()
+                    if stop_evt.wait(self.interval):
+                        return
+                    continue
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected MPS keep worker failure: {exc}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
+            except Exception as exc:
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected MPS keep worker failure: {exc}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
 
         if tensor is None:
             logger.error("rank %s: failed to allocate tensor, exiting loop", self.rank)
@@ -170,12 +191,28 @@ class MacMGPUController(BaseGPUController):
                 if "out of memory" in str(exc).lower():
                     torch.mps.empty_cache()
                     gc.collect()
-                if stop_evt.wait(self.interval):
-                    break
-            except Exception:
-                logger.exception("rank %s: unexpected error", self.rank)
-                if stop_evt.wait(self.interval):
-                    break
+                    if stop_evt.wait(self.interval):
+                        break
+                    continue
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected MPS keep worker failure: {exc}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
+            except Exception as exc:
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected MPS keep worker failure: {exc}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
+
+    def allocation_status(self) -> Optional[Exception]:
+        """
+        Return fatal worker failure captured after startup, if any.
+
+        The reference assignment/read is thread-safe for CPython's GIL model.
+        """
+        return self._failure_exc
 
     @torch.no_grad()
     def _run_batch(self, tensor: torch.Tensor) -> None:

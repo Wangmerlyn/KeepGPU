@@ -151,6 +151,12 @@ This file defines how coding agents should work in this repository.
   deferred allocation behavior, not a runtime failure.
 - Controller runtime-health hooks used by service status must stay non-blocking
   and read-only because status refresh runs under the session lock.
+- CUDA and MPS controllers must retain fatal post-start worker failures by way of
+  `allocation_status()` so `GlobalGPUController.runtime_error()` can move
+  service status to `runtime_failed`; normal busy/unknown telemetry backoff and
+  out-of-memory allocation `RuntimeError` retries are not runtime failures.
+  Non-OOM allocation or steady-state `RuntimeError` failures after startup must
+  be retained as runtime failures.
 - Single-GPU `keep()` must not report success until fatal backend startup setup
   has succeeded. CUDA/ROCm worker startup failures such as `set_device` errors
   must propagate synchronously so services cannot register false active sessions.
