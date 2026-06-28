@@ -31,8 +31,13 @@ def dummy_factory(**kwargs):
     return DummyController(**kwargs)
 
 
+class DummyKeepGPUServer(KeepGPUServer):
+    def list_gpus(self):
+        return {"gpus": [{"id": 0, "name": "GPU 0"}]}
+
+
 def make_server() -> KeepGPUServer:
-    return KeepGPUServer(controller_factory=cast(Any, dummy_factory))
+    return DummyKeepGPUServer(controller_factory=cast(Any, dummy_factory))
 
 
 def _start_http_server(server: KeepGPUServer):
@@ -41,6 +46,17 @@ def _start_http_server(server: KeepGPUServer):
 
     httpd = _Server(("127.0.0.1", 0), _JSONRPCHandler)
     httpd.keepgpu_server = server  # type: ignore[attr-defined]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{httpd.server_address[1]}"
+    return httpd, thread, base
+
+
+def _start_bare_http_server():
+    class _Server(TCPServer):
+        allow_reuse_address = True
+
+    httpd = _Server(("127.0.0.1", 0), _JSONRPCHandler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     base = f"http://127.0.0.1:{httpd.server_address[1]}"
@@ -64,6 +80,18 @@ def _request_json(method, url, payload=None):
     data = None
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
+    request = Request(url=url, data=data, method=method)
+    request.add_header("content-type", "application/json")
+    try:
+        with urlopen(request, timeout=2.0) as response:  # nosec B310
+            body = response.read().decode("utf-8")
+            return response.status, json.loads(body) if body else {}
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8")
+        return exc.code, json.loads(body) if body else {}
+
+
+def _request_raw(method, url, data=None):
     request = Request(url=url, data=data, method=method)
     request.add_header("content-type", "application/json")
     try:
@@ -244,6 +272,42 @@ def test_http_start_validates_gpu_ids_against_listed_visible_ids(monkeypatch):
     assert controllers == []
 
 
+def test_http_start_rejects_explicit_gpu_ids_when_no_visible_ids(monkeypatch):
+    controllers = []
+
+    class TrackingController(DummyController):
+        def __init__(self, **kwargs):
+            controllers.append(self)
+            super().__init__(**kwargs)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: TrackingController(**kwargs))
+    )
+    monkeypatch.setattr(server, "list_gpus", lambda: {"gpus": []})
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 20,
+                "busy_threshold": 5,
+            },
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 400
+    assert "listed visible GPU IDs (none)" in payload["error"]["message"]
+    assert controllers == []
+
+
 def test_http_status_reports_starting_session_during_controller_keep():
     keep_started = threading.Event()
     keep_release = threading.Event()
@@ -255,7 +319,7 @@ def test_http_status_reports_starting_session_during_controller_keep():
             keep_started.set()
             keep_release.wait(timeout=1.0)
 
-    server = KeepGPUServer(
+    server = DummyKeepGPUServer(
         controller_factory=cast(Any, lambda **kwargs: BlockingStartController(**kwargs))
     )
     httpd, thread, base = _start_threaded_http_server(server)
@@ -418,6 +482,153 @@ def test_http_unknown_api_route_returns_json_404():
         httpd.server_close()
         server.shutdown()
         thread.join(timeout=2)
+
+
+@pytest.mark.parametrize("data", [None, b"{bad json"])
+def test_http_post_unknown_api_route_returns_json_404_before_body_parse(data):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_raw("POST", f"{base}/api/unknown", data)
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status_code == 404
+    assert payload["error"]["message"] == "Unknown endpoint"
+
+
+def test_http_get_api_gpus_runtime_error_returns_json_500(monkeypatch):
+    server = make_server()
+    monkeypatch.setattr(
+        server,
+        "list_gpus",
+        lambda: (_ for _ in ()).throw(RuntimeError("telemetry exploded")),
+    )
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("GET", f"{base}/api/gpus")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status_code == 500
+    assert payload["error"]["message"] == "telemetry exploded"
+    assert payload["error"]["type"] == "RuntimeError"
+
+
+def test_http_delete_sessions_runtime_error_returns_json_500(monkeypatch):
+    server = make_server()
+    monkeypatch.setattr(
+        server,
+        "stop_keep",
+        lambda **_: (_ for _ in ()).throw(RuntimeError("release exploded")),
+    )
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("DELETE", f"{base}/api/sessions")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status_code == 500
+    assert payload["error"]["message"] == "release exploded"
+    assert payload["error"]["type"] == "RuntimeError"
+
+
+def test_http_post_sessions_runtime_type_error_returns_json_500(monkeypatch):
+    server = make_server()
+    monkeypatch.setattr(
+        server,
+        "start_keep",
+        lambda **_: (_ for _ in ()).throw(TypeError("internal type exploded")),
+    )
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("POST", f"{base}/api/sessions", {})
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status_code == 500
+    assert payload["error"]["message"] == "internal type exploded"
+    assert payload["error"]["type"] == "TypeError"
+
+
+def test_http_post_sessions_runtime_value_error_returns_json_500(monkeypatch):
+    server = make_server()
+    monkeypatch.setattr(
+        server,
+        "start_keep",
+        lambda **_: (_ for _ in ()).throw(ValueError("startup invariant broke")),
+    )
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("POST", f"{base}/api/sessions", {})
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status_code == 500
+    assert payload["error"]["message"] == "startup invariant broke"
+    assert payload["error"]["type"] == "ValueError"
+
+
+def test_http_get_setup_runtime_error_returns_json_500():
+    httpd, thread, base = _start_bare_http_server()
+
+    try:
+        status_code, payload = _request_json("GET", f"{base}/api/gpus")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=2)
+
+    assert status_code == 500
+    assert payload["error"]["type"] == "AttributeError"
+
+
+def test_http_delete_setup_runtime_error_returns_json_500():
+    httpd, thread, base = _start_bare_http_server()
+
+    try:
+        status_code, payload = _request_json("DELETE", f"{base}/api/sessions")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=2)
+
+    assert status_code == 500
+    assert payload["error"]["type"] == "AttributeError"
+
+
+def test_http_post_setup_runtime_error_returns_json_500():
+    httpd, thread, base = _start_bare_http_server()
+
+    try:
+        status_code, payload = _request_json("POST", f"{base}/api/sessions", {})
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=2)
+
+    assert status_code == 500
+    assert payload["error"]["type"] == "AttributeError"
 
 
 def test_http_post_rejects_unknown_fields():

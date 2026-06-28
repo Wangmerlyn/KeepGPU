@@ -79,6 +79,11 @@ For direct JSON-RPC calls, public validation failures and unknown parameters
 return JSON-RPC `-32602 Invalid params`. Unexpected server failures use
 `-32603 Internal error`.
 
+For supported REST route/method calls, service errors stay parseable. Public
+validation failures return JSON `400` responses, unknown API routes return JSON
+`404`, and unexpected runtime failures return JSON `500` responses with an
+`error` object.
+
 REST session creation accepts a JSON object body, not arrays or scalar values.
 Omitting `gpu_ids` means all GPUs visible to the service process. Omitting
 `busy_threshold` uses the eco-safe default `25`. Explicit GPU values are visible
