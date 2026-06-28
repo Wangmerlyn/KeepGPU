@@ -28,6 +28,7 @@ HTTP endpoints:
 from __future__ import annotations
 
 import atexit
+import ipaddress
 import json
 import sys
 import uuid
@@ -67,6 +68,8 @@ JSONRPC_INVALID_REQUEST = -32600
 JSONRPC_METHOD_NOT_FOUND = -32601
 JSONRPC_INVALID_PARAMS = -32602
 JSONRPC_INTERNAL_ERROR = -32603
+MCP_ENDPOINT_HOST_ERROR = "host must be a DNS hostname or IPv4 address"
+MCP_ENDPOINT_PORT_ERROR = "port must be an integer between 1 and 65535"
 
 MCP_TOOLS: List[Dict[str, Any]] = [
     {
@@ -1051,6 +1054,47 @@ def run_http(server: KeepGPUServer, host: str = "127.0.0.1", port: int = 8765) -
         server.shutdown()
 
 
+def _validate_mcp_http_host(host: str) -> str:
+    def _is_dns_hostname(value: str) -> bool:
+        if len(value) > 253 or value.endswith("."):
+            return False
+        labels = value.split(".")
+        if labels[-1].isdigit():
+            return False
+        for label in labels:
+            if not 1 <= len(label) <= 63:
+                return False
+            if label.startswith("-") or label.endswith("-"):
+                return False
+            if not all(
+                char.isascii() and (char.isalnum() or char == "-") for char in label
+            ):
+                return False
+        return True
+
+    if not isinstance(host, str) or host.strip() != host or not host:
+        raise ValueError(MCP_ENDPOINT_HOST_ERROR)
+    try:
+        parsed_ip = ipaddress.ip_address(host)
+    except ValueError:
+        if not _is_dns_hostname(host):
+            raise ValueError(MCP_ENDPOINT_HOST_ERROR) from None
+    else:
+        if parsed_ip.version != 4:
+            raise ValueError(MCP_ENDPOINT_HOST_ERROR)
+    return host
+
+
+def _validate_mcp_http_port(port: int) -> int:
+    if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+        raise ValueError(MCP_ENDPOINT_PORT_ERROR)
+    return port
+
+
+def _validate_mcp_http_endpoint(host: str, port: int) -> tuple[str, int]:
+    return _validate_mcp_http_host(host), _validate_mcp_http_port(port)
+
+
 def main() -> None:
     """CLI entry point for the KeepGPU MCP server."""
     parser = argparse.ArgumentParser(description="KeepGPU MCP server")
@@ -1063,6 +1107,12 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1", help="HTTP host (http mode)")
     parser.add_argument("--port", type=int, default=8765, help="HTTP port (http mode)")
     args = parser.parse_args()
+
+    if args.mode == "http":
+        try:
+            args.host, args.port = _validate_mcp_http_endpoint(args.host, args.port)
+        except ValueError as exc:
+            parser.error(str(exc))
 
     server = KeepGPUServer()
     if args.mode == "stdio":
