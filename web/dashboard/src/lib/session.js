@@ -122,7 +122,21 @@ export function formatUtilizationWidth(utilization) {
 }
 
 export function formatBusyThresholdLabel(threshold) {
-  return threshold === -1 ? "unconditional" : `${threshold}%`
+  if (
+    threshold === null ||
+    threshold === undefined ||
+    threshold === "" ||
+    typeof threshold === "boolean"
+  ) {
+    return "n/a"
+  }
+
+  const numericThreshold = Number(threshold)
+  if (!Number.isFinite(numericThreshold)) {
+    return "n/a"
+  }
+
+  return numericThreshold === -1 ? "unconditional" : `${numericThreshold}%`
 }
 
 export function isSessionStopping(sessionOrJobId, stoppingIds, stoppingAll) {

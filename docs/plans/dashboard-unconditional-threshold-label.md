@@ -10,14 +10,18 @@ though `-1` means unconditional keepalive mode with utilization backoff disabled
 
 Render threshold labels semantically in the dashboard. Add a small formatter in
 `web/dashboard/src/lib/session.js` that returns `unconditional` for `-1` and
-normal percentage labels for thresholds from `0` through `100`, then use that
-formatter in `web/dashboard/src/App.jsx` session cards.
+normal percentage labels for thresholds from `0` through `100`. The formatter
+also returns `n/a` for unavailable or malformed values so a bad session payload
+does not leak raw JavaScript values into the UI. Use that formatter in
+`web/dashboard/src/App.jsx` session cards.
 
 ## Tasks
 
 - [x] Add RED Vitest coverage for `formatBusyThresholdLabel(-1)`,
       `formatBusyThresholdLabel(0)`, `formatBusyThresholdLabel(25)`, and
       `formatBusyThresholdLabel(100)`.
+- [x] Add review-follow-up coverage for `null`, `undefined`, and `NaN`
+      thresholds rendering as `n/a`.
 - [x] Implement the formatter and wire session-card threshold rendering through
       it.
 - [x] Update `AGENTS.md` with the dashboard sentinel-label guideline.
@@ -32,8 +36,16 @@ formatter in `web/dashboard/src/App.jsx` session cards.
 - GREEN focused dashboard test:
   `npm --prefix web/dashboard test -- src/lib/session.test.js` passed after the
   formatter and App usage were added.
+- Review follow-up RED focused dashboard test:
+  `npm --prefix web/dashboard test -- src/lib/session.test.js` failed because
+  `formatBusyThresholdLabel(null)` rendered `null%` before the defensive guard.
+- Review follow-up GREEN focused dashboard test:
+  `npm --prefix web/dashboard test -- src/lib/session.test.js` passed with 34
+  tests after the defensive guard was added.
 - Full dashboard suite:
-  `npm --prefix web/dashboard test` passed with 3 files and 42 tests.
+  `npm --prefix web/dashboard test` passed with 3 files and 42 tests before the
+  hosted review follow-up, then passed with 3 files and 43 tests after the
+  follow-up.
 - Dashboard static build:
   `npm --prefix web/dashboard run build` passed and emitted
   `src/keep_gpu/mcp/static/index.html`,

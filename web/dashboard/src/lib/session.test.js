@@ -201,6 +201,12 @@ describe("formatBusyThresholdLabel", () => {
     expect(formatBusyThresholdLabel(25)).toBe("25%")
     expect(formatBusyThresholdLabel(100)).toBe("100%")
   })
+
+  it("labels unavailable thresholds as n/a", () => {
+    expect(formatBusyThresholdLabel(null)).toBe("n/a")
+    expect(formatBusyThresholdLabel(undefined)).toBe("n/a")
+    expect(formatBusyThresholdLabel(NaN)).toBe("n/a")
+  })
 })
 
 describe("isSessionStopping", () => {
