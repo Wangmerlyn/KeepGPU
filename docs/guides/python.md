@@ -91,7 +91,9 @@ with GlobalGPUController(
   utilization spikes. When utilization telemetry is unavailable, non-negative
   thresholds sleep before allocating the keep tensor or running compute; use
   `busy_threshold=-1` only for explicit unconditional keepalive work.
-- `release()` uses threads too, so all GPUs free up quickly.
+- `release()` uses threads too, so all GPUs free up quickly. If a stop times out
+  but the worker exits before a later release attempt, KeepGPU still clears the
+  backend cache before forgetting the stale worker state.
 
 ## Combine with schedulers or callbacks
 

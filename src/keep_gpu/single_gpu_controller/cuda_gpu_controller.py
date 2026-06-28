@@ -149,7 +149,20 @@ class CudaGPUController(BaseGPUController):
         Stop the background thread and clear CUDA cache so the memory
         becomes immediately available to other code.
         """
-        if not (self._thread and self._thread.is_alive()):
+        thread = self._thread
+        if thread is not None and not thread.is_alive():
+            stop_evt = self._stop_evt
+            if stop_evt is not None and stop_evt.is_set():
+                torch.cuda.empty_cache()
+                self._thread = None
+                self._stop_evt = None
+                logger.info(
+                    "rank %s: previously stopping keep thread exited; cache cleared",
+                    self.rank,
+                )
+                return
+
+        if not (thread and thread.is_alive()):
             logger.warning("rank %s: keep thread not running", self.rank)
             return
 
@@ -160,8 +173,8 @@ class CudaGPUController(BaseGPUController):
 
         stop_evt.set()
         join_timeout = max(2.0, min(float(self.interval) + 2.0, 30.0))
-        self._thread.join(timeout=join_timeout)
-        if self._thread.is_alive():
+        thread.join(timeout=join_timeout)
+        if thread.is_alive():
             logger.warning(
                 "rank %s: keep thread did not stop within %.1fs",
                 self.rank,
@@ -171,6 +184,8 @@ class CudaGPUController(BaseGPUController):
                 f"rank {self.rank}: keep thread did not stop within {join_timeout:.1f}s"
             )
         torch.cuda.empty_cache()
+        self._thread = None
+        self._stop_evt = None
         logger.info("rank %s: keep thread stopped & cache cleared", self.rank)
 
     # Context-manager helpers -------------------------------------------------
