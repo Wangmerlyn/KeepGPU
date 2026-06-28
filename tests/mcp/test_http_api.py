@@ -1,5 +1,6 @@
 import json
 import math
+import socket
 import threading
 from typing import Any, cast
 from urllib.error import HTTPError
@@ -103,6 +104,42 @@ def _request_raw(method, url, data=None):
         return exc.code, json.loads(body) if body else {}
 
 
+def _raw_post_with_content_length(httpd, path: str, content_length: str):
+    host, port = httpd.server_address
+    request = (
+        f"POST {path} HTTP/1.1\r\n"
+        f"Host: {host}:{port}\r\n"
+        "Content-Type: application/json\r\n"
+        f"Content-Length: {content_length}\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "{}"
+    ).encode("ascii")
+
+    with socket.create_connection((host, port), timeout=2.0) as sock:
+        sock.settimeout(2.0)
+        sock.sendall(request)
+
+        chunks = []
+        while True:
+            try:
+                chunk = sock.recv(4096)
+            except socket.timeout as exc:
+                raise AssertionError(
+                    "HTTP response timed out before the client closed the socket"
+                ) from exc
+            if not chunk:
+                break
+            chunks.append(chunk)
+
+    response = b"".join(chunks)
+    assert response
+    header_bytes, body = response.split(b"\r\n\r\n", 1)
+    status_line = header_bytes.splitlines()[0].decode("iso-8859-1")
+    status_code = int(status_line.split()[1])
+    return status_code, json.loads(body.decode("utf-8")) if body else {}
+
+
 @pytest.mark.parametrize("rpc_path", ["/", "/rpc"])
 def test_http_jsonrpc_parse_error_returns_jsonrpc_envelope(rpc_path):
     server = make_server()
@@ -120,6 +157,76 @@ def test_http_jsonrpc_parse_error_returns_jsonrpc_envelope(rpc_path):
     assert payload["jsonrpc"] == "2.0"
     assert payload["id"] is None
     assert payload["error"]["code"] == -32700
+
+
+def test_http_post_sessions_rejects_negative_content_length_without_client_close():
+    server = make_server()
+    httpd, thread, _ = _start_threaded_http_server(server)
+
+    try:
+        status, payload = _raw_post_with_content_length(httpd, "/api/sessions", "-1")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 400
+    assert (
+        "Content-Length must be a non-negative integer" in payload["error"]["message"]
+    )
+    assert server.status()["active_jobs"] == []
+
+
+@pytest.mark.parametrize("rpc_path", ["/", "/rpc"])
+def test_http_jsonrpc_rejects_negative_content_length_with_parse_error(rpc_path):
+    server = make_server()
+    httpd, thread, _ = _start_threaded_http_server(server)
+
+    try:
+        status, payload = _raw_post_with_content_length(httpd, rpc_path, "-1")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 200
+    assert payload["jsonrpc"] == "2.0"
+    assert payload["id"] is None
+    assert payload["error"]["code"] == -32700
+    assert (
+        "Content-Length must be a non-negative integer" in payload["error"]["message"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_status"),
+    [
+        ("/api/sessions", 400),
+        ("/rpc", 200),
+    ],
+)
+def test_http_post_rejects_non_integer_content_length(path, expected_status):
+    server = make_server()
+    httpd, thread, _ = _start_threaded_http_server(server)
+
+    try:
+        status, payload = _raw_post_with_content_length(httpd, path, "abc")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == expected_status
+    assert "Content-Length must be a non-negative integer" in (
+        payload["error"]["message"]
+    )
+    if path == "/rpc":
+        assert payload["jsonrpc"] == "2.0"
+        assert payload["id"] is None
+        assert payload["error"]["code"] == -32700
 
 
 def test_http_health_and_static_index():
