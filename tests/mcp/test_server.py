@@ -12,6 +12,7 @@ import pytest
 
 from keep_gpu.mcp.server import (
     JSONRPC_INTERNAL_ERROR,
+    JSONRPC_INVALID_REQUEST,
     JSONRPC_INVALID_PARAMS,
     KeepGPUServer,
     _handle_request,
@@ -695,6 +696,15 @@ def test_mcp_initialized_notification_has_no_response():
     assert resp is None
 
 
+def test_mcp_initialized_notification_with_bad_version_has_no_response():
+    server = make_server()
+    req = {"jsonrpc": "1.0", "method": "notifications/initialized"}
+
+    resp = _handle_request(server, req)
+
+    assert resp is None
+
+
 def test_mcp_tools_list_exposes_keepgpu_actions():
     server = make_server()
     req = {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
@@ -718,6 +728,39 @@ def test_mcp_tools_list_exposes_keepgpu_actions():
         "string",
         "null",
     ]
+
+
+def test_jsonrpc_rejects_explicit_invalid_request_version():
+    server = make_server()
+    req = {"jsonrpc": "1.0", "id": 12, "method": "tools/list"}
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 12
+    assert resp["error"]["code"] == JSONRPC_INVALID_REQUEST
+
+
+def test_jsonrpc_accepts_explicit_valid_request_version():
+    server = make_server()
+    req = {"jsonrpc": "2.0", "id": 13, "method": "tools/list"}
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 13
+    assert "tools" in resp["result"]
+
+
+def test_jsonrpc_omitted_version_legacy_direct_call_still_works():
+    server = make_server()
+    req = {"id": 14, "method": "tools/list"}
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 14
+    assert "tools" in resp["result"]
 
 
 def test_mcp_tools_call_routes_to_existing_status_method():
