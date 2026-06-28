@@ -962,13 +962,37 @@ def test_start_prints_dashboard_and_stop_hints(monkeypatch):
 
 
 def test_service_stop_requires_managed_pid(monkeypatch):
-    monkeypatch.setattr(cli, "_service_available", lambda host, port: False)
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        if method == "status":
+            return {"active_jobs": []}
+        return {"stopped": []}
+
+    monkeypatch.setattr(cli, "_service_available", lambda host, port: True)
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
     monkeypatch.setattr(cli, "_stop_service_process", lambda host, port: False)
 
     result = runner.invoke(cli.app, ["service-stop"])
 
     assert result.exit_code == 1
     assert "No managed daemon PID found" in result.output
+
+
+def test_service_stop_requires_live_status_without_force(monkeypatch):
+    called = {"stop_process": False}
+
+    def fail_stop_process(host, port):
+        called["stop_process"] = True
+        raise AssertionError("_stop_service_process must not be called")
+
+    monkeypatch.setattr(cli, "_service_available", lambda host, port: False)
+    monkeypatch.setattr(cli, "_stop_service_process", fail_stop_process)
+
+    result = runner.invoke(cli.app, ["service-stop"])
+
+    assert result.exit_code == 1
+    assert "service-stop --force" in result.output
+    assert called["stop_process"] is False
+    assert "Traceback" not in result.output
 
 
 def test_service_stop_refuses_active_sessions_without_force(monkeypatch):
