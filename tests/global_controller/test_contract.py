@@ -23,6 +23,11 @@ def test_python_controller_defaults_use_eco_safe_busy_threshold():
         assert inspect.signature(controller).parameters["busy_threshold"].default == 25
 
 
+def test_global_controller_default_vram_matches_public_low_power_default():
+    default = inspect.signature(GlobalGPUController).parameters["vram_to_keep"].default
+    assert default == "1GiB"
+
+
 @pytest.mark.parametrize("iterations", [1.5, True, "5000"])
 @pytest.mark.parametrize(
     ("controller", "parameter", "message"),

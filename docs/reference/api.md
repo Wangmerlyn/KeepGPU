@@ -14,7 +14,9 @@ IDs.
 `GlobalGPUController` validates local constructor inputs (`gpu_ids`, `interval`,
 `busy_threshold`, and `vram_to_keep`) before platform or hardware probing.
 Visible-count checks for explicit IDs still run after backend discovery because
-they depend on the current visible device count.
+they depend on the current visible device count. Its omitted `vram_to_keep`
+default is the shared low-power public default, `1GiB`, matching the CLI and
+service APIs.
 
 CUDA telemetry resolves visible ordinals through `CUDA_VISIBLE_DEVICES` before
 querying NVML; duplicate or ambiguous masks report unavailable utilization.
@@ -23,10 +25,11 @@ matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying
 ROCm SMI. Unresolved mappings report unavailable utilization instead of falling
 back to a possibly wrong physical device.
 
-Public controller, CLI, REST, JSON-RPC, and MCP defaults use
-`busy_threshold=25`, so busy or unavailable telemetry sleeps before allocating
-keep tensors or running compute. Pass `busy_threshold=-1` only when you
-intentionally want unconditional keepalive compute without utilization backoff.
+Public controller, CLI, REST, JSON-RPC, and MCP defaults use `vram_to_keep`/`vram`
+`1GiB` and `busy_threshold=25`, so omitted settings reserve a modest VRAM signal
+and busy or unavailable telemetry sleeps before allocating keep tensors or
+running compute. Pass `busy_threshold=-1` only when you intentionally want
+unconditional keepalive compute without utilization backoff.
 
 Single-GPU workload iteration controls must be positive integers. CUDA exposes
 `relu_iterations`; ROCm and Mac M expose `iterations`. Non-integer values raise
