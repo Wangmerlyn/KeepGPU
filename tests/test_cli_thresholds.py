@@ -1,3 +1,4 @@
+import logging
 import os
 
 import pytest
@@ -140,3 +141,58 @@ def test_run_blocking_preserves_cuda_visible_devices_for_gpu_ids(monkeypatch):
         "entered": True,
         "exited": True,
     }
+
+
+@pytest.mark.parametrize(
+    ("busy_threshold", "expected_message", "forbidden_message"),
+    [
+        (
+            -1,
+            "Busy threshold: unconditional (utilization backoff disabled)",
+            "Busy threshold: -1%",
+        ),
+        (25, "Busy threshold: 25%", "unconditional"),
+    ],
+)
+def test_run_blocking_logs_busy_threshold_semantically(
+    monkeypatch, caplog, busy_threshold, expected_message, forbidden_message
+):
+    class DummyGlobalController:
+        def __init__(self, *, gpu_ids, interval, vram_to_keep, busy_threshold):
+            self.gpu_ids = gpu_ids
+            self.interval = interval
+            self.vram_to_keep = vram_to_keep
+            self.busy_threshold = busy_threshold
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return None
+
+    import keep_gpu.global_gpu_controller.global_gpu_controller as global_module
+
+    monkeypatch.setattr(global_module, "GlobalGPUController", DummyGlobalController)
+
+    def interrupt_sleep(_seconds):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli.time, "sleep", interrupt_sleep)
+    monkeypatch.setattr(cli.logger, "propagate", True)
+    caplog.set_level(logging.INFO, logger=cli.logger.name)
+
+    cli._run_blocking(
+        interval=1,
+        gpu_ids="0",
+        vram="1MiB",
+        legacy_threshold=None,
+        busy_threshold=busy_threshold,
+    )
+
+    messages = [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == cli.logger.name
+    ]
+    assert expected_message in messages
+    assert forbidden_message not in messages

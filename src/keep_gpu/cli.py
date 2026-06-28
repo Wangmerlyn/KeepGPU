@@ -655,7 +655,10 @@ def _run_blocking(
     logger.info("GPU count: %s", gpu_count)
     logger.info("VRAM to keep occupied: %s", vram)
     logger.info("Check interval: %s seconds", interval)
-    logger.info("Busy threshold: %s%%", busy_threshold)
+    if busy_threshold == -1:
+        logger.info("Busy threshold: unconditional (utilization backoff disabled)")
+    else:
+        logger.info("Busy threshold: %s%%", busy_threshold)
 
     global_controller = GlobalGPUController(
         gpu_ids=gpu_id_list,
