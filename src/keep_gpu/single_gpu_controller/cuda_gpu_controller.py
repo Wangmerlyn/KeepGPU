@@ -13,6 +13,7 @@ from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
     validate_positive_integer,
+    validate_visible_rank,
 )
 
 logger = setup_logger(__name__)
@@ -72,15 +73,16 @@ class CudaGPUController(BaseGPUController):
 
         """
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
-        self.rank = rank
-        self.device = torch.device(f"cuda:{rank}")
-        self.interval = interval
         if matmul_iterations is not None:
             relu_iterations = matmul_iterations
         self.relu_iterations = validate_positive_integer(
             relu_iterations, "relu_iterations"
         )
         self.busy_threshold = validate_busy_threshold(busy_threshold)
+        rank = validate_visible_rank(rank, torch.cuda.device_count())
+        self.rank = rank
+        self.device = torch.device(f"cuda:{rank}")
+        self.interval = interval
         self.platform = ComputingPlatform.CUDA
 
         self._stop_evt: Optional[threading.Event] = None

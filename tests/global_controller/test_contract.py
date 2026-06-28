@@ -2,6 +2,7 @@ import inspect
 import math
 
 import pytest
+import torch
 
 from keep_gpu.global_gpu_controller import global_gpu_controller as global_module
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
@@ -51,6 +52,40 @@ def test_single_gpu_controllers_reject_non_integer_workload_iterations(
 ):
     with pytest.raises(TypeError, match=message):
         controller(rank=0, vram_to_keep=4, **{parameter: iterations})
+
+
+@pytest.mark.parametrize("rank", [1.5, True, "0"])
+@pytest.mark.parametrize(
+    "controller",
+    [
+        CudaGPUController,
+        RocmGPUController,
+    ],
+)
+def test_direct_cuda_rocm_controllers_reject_non_integer_ranks(
+    monkeypatch, controller, rank
+):
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+    with pytest.raises(TypeError, match="rank must be an integer"):
+        controller(rank=rank, vram_to_keep=4)
+
+
+@pytest.mark.parametrize("rank", [-1, 1])
+@pytest.mark.parametrize(
+    "controller",
+    [
+        CudaGPUController,
+        RocmGPUController,
+    ],
+)
+def test_direct_cuda_rocm_controllers_reject_invalid_visible_ranks(
+    monkeypatch, controller, rank
+):
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+    with pytest.raises(ValueError, match="rank must be a visible device ordinal"):
+        controller(rank=rank, vram_to_keep=4)
 
 
 @pytest.mark.parametrize("matmul_iterations", [1.5, True, "5000"])

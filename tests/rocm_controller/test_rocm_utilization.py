@@ -1,5 +1,6 @@
 import sys
 
+from keep_gpu.single_gpu_controller import rocm_gpu_controller as rocm_module
 from keep_gpu.single_gpu_controller.rocm_gpu_controller import RocmGPUController
 
 
@@ -19,6 +20,11 @@ class DummyRocmSMI:
 
 def _controller_with_dummy_smi(monkeypatch, rank: int, dummy: DummyRocmSMI):
     monkeypatch.setitem(sys.modules, "rocm_smi", dummy)
+    monkeypatch.setattr(
+        rocm_module.torch.cuda,
+        "device_count",
+        lambda: max(rank + 1, 1),
+    )
     return RocmGPUController(rank=rank, vram_to_keep=4)
 
 

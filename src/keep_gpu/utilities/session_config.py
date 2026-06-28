@@ -66,6 +66,22 @@ def validate_positive_integer(value: Any, name: str) -> int:
     return value
 
 
+def validate_visible_rank(rank: Any, visible_count: Any) -> int:
+    """Validate a public single-GPU visible device ordinal."""
+    if not _is_plain_int(rank):
+        raise TypeError("rank must be an integer")
+    if not _is_plain_int(visible_count) or visible_count < 0:
+        raise ValueError("visible device count must be a non-negative integer")
+    if visible_count == 0:
+        raise ValueError("no visible GPUs are available; rank cannot be selected")
+    if rank < 0 or rank >= visible_count:
+        raise ValueError(
+            "rank must be a visible device ordinal less than "
+            f"{visible_count}; got {rank}"
+        )
+    return rank
+
+
 def validate_job_id(job_id: Any) -> Optional[str]:
     """Validate public session job_id input."""
     if job_id is None:

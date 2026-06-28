@@ -10,6 +10,8 @@ from tests.polling import wait_until
 def test_cuda_keep_raises_when_worker_startup_fails(monkeypatch):
     import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
 
+    monkeypatch.setattr(cuda_module.torch.cuda, "device_count", lambda: 1)
+
     ctrl = CudaGPUController(
         rank=0,
         interval=0.01,
@@ -28,10 +30,14 @@ def test_cuda_keep_raises_when_worker_startup_fails(monkeypatch):
     assert not (ctrl._thread and ctrl._thread.is_alive())
 
 
-def test_cuda_keep_rejects_retry_while_startup_thread_is_stopping():
+def test_cuda_keep_rejects_retry_while_startup_thread_is_stopping(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
     class AliveThread:
         def is_alive(self):
             return True
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "device_count", lambda: 1)
 
     ctrl = CudaGPUController(
         rank=0,

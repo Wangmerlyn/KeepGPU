@@ -109,6 +109,11 @@ with CudaGPUController(rank=0, interval=0.5, vram_to_keep="1GiB", busy_threshold
 train_model()              # GPU freed after exiting the context
 ```
 
+Direct CUDA/ROCm controller `rank` values are visible ordinals in the current
+process environment and are validated during construction. Non-integer,
+negative, or out-of-range ranks fail before KeepGPU creates a device handle or
+starts a keep worker.
+
 Need multiple devices?
 
 ```python
