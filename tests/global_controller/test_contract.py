@@ -23,6 +23,34 @@ def test_python_controller_defaults_use_eco_safe_busy_threshold():
         assert inspect.signature(controller).parameters["busy_threshold"].default == 25
 
 
+@pytest.mark.parametrize("iterations", [1.5, True, "5000"])
+@pytest.mark.parametrize(
+    ("controller", "parameter", "message"),
+    [
+        (CudaGPUController, "relu_iterations", "relu_iterations must be an integer"),
+        (RocmGPUController, "iterations", "iterations must be an integer"),
+        (MacMGPUController, "iterations", "iterations must be an integer"),
+    ],
+)
+def test_single_gpu_controllers_reject_non_integer_workload_iterations(
+    controller, parameter, message, iterations
+):
+    with pytest.raises(TypeError, match=message):
+        controller(rank=0, vram_to_keep=4, **{parameter: iterations})
+
+
+@pytest.mark.parametrize("matmul_iterations", [1.5, True, "5000"])
+def test_cuda_controller_rejects_non_integer_matmul_iteration_alias(
+    matmul_iterations,
+):
+    with pytest.raises(TypeError, match="relu_iterations must be an integer"):
+        CudaGPUController(
+            rank=0,
+            vram_to_keep=4,
+            matmul_iterations=matmul_iterations,
+        )
+
+
 def test_global_controller_rejects_busy_threshold_below_minus_one(monkeypatch):
     monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CPU)
 

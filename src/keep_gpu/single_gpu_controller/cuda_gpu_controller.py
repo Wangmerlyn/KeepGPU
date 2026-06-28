@@ -12,6 +12,7 @@ from keep_gpu.utilities.platform_manager import ComputingPlatform
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
+    validate_positive_integer,
 )
 
 logger = setup_logger(__name__)
@@ -76,9 +77,9 @@ class CudaGPUController(BaseGPUController):
         self.interval = interval
         if matmul_iterations is not None:
             relu_iterations = matmul_iterations
-        if relu_iterations <= 0:
-            raise ValueError("relu_iterations must be positive")
-        self.relu_iterations = relu_iterations
+        self.relu_iterations = validate_positive_integer(
+            relu_iterations, "relu_iterations"
+        )
         self.busy_threshold = validate_busy_threshold(busy_threshold)
         self.platform = ComputingPlatform.CUDA
 
