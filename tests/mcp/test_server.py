@@ -16,6 +16,7 @@ from keep_gpu.mcp.server import (
     KeepGPUServer,
     _handle_request,
 )
+from keep_gpu.mcp import server as server_module
 from keep_gpu.utilities.humanized_input import PUBLIC_VRAM_MAX_BYTES
 from keep_gpu.utilities import platform_manager as pm
 
@@ -51,6 +52,66 @@ def _wait_until(condition, timeout_s=1.0):
             return True
         time.sleep(0.01)
     return condition()
+
+
+@pytest.mark.parametrize(
+    "endpoint_args",
+    [
+        ["--port", "0"],
+        ["--port", "70000"],
+        ["--port", "true"],
+        ["--host", "bad host"],
+    ],
+)
+def test_http_main_rejects_invalid_endpoint_before_binding(monkeypatch, endpoint_args):
+    run_http_calls = []
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["keep-gpu-mcp-server", "--mode", "http", *endpoint_args],
+    )
+    monkeypatch.setattr(server_module, "KeepGPUServer", lambda: object())
+    monkeypatch.setattr(
+        server_module,
+        "run_http",
+        lambda *args, **kwargs: run_http_calls.append((args, kwargs)),
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        server_module.main()
+
+    assert exc_info.value.code != 0
+    assert run_http_calls == []
+
+
+def test_http_main_passes_valid_endpoint_to_run_http(monkeypatch):
+    run_http_calls = []
+    server_instance = object()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "keep-gpu-mcp-server",
+            "--mode",
+            "http",
+            "--host",
+            "localhost",
+            "--port",
+            "9876",
+        ],
+    )
+    monkeypatch.setattr(server_module, "KeepGPUServer", lambda: server_instance)
+    monkeypatch.setattr(
+        server_module,
+        "run_http",
+        lambda *args, **kwargs: run_http_calls.append((args, kwargs)),
+    )
+
+    server_module.main()
+
+    assert run_http_calls == [((server_instance,), {"host": "localhost", "port": 9876})]
 
 
 def test_start_status_stop_cycle():

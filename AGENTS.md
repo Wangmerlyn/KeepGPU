@@ -78,6 +78,8 @@ This file defines how coding agents should work in this repository.
   before service RPC, daemon auto-start, stop-all fallback, or daemon ownership
   operations. JSON-output commands must return structured `{"error": "..."}`
   objects for invalid endpoints, not tracebacks.
+- MCP executable HTTP endpoint inputs (`--host`, `--port`) must be validated
+  before socket bind, matching the CLI service endpoint contract.
 - `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, and `--port` before auto-starting the service daemon or making RPC calls.
 - `keep-gpu status --job-id` and `keep-gpu stop --job-id` must validate
   explicit custom IDs locally before service RPC, stop-all fallback, or daemon
