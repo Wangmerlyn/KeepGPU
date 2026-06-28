@@ -126,7 +126,9 @@ class RocmGPUController(BaseGPUController):
             thread = self._thread
             if thread is not None and not thread.is_alive():
                 stop_evt = self._stop_evt
-                if stop_evt is not None and stop_evt.is_set():
+                if (stop_evt is not None and stop_evt.is_set()) or getattr(
+                    self, "_failure_exc", None
+                ) is not None:
                     torch.cuda.empty_cache()
                     self._thread = None
                     self._stop_evt = None
@@ -255,6 +257,12 @@ class RocmGPUController(BaseGPUController):
                     ),
                     exc,
                 )
+                if "out of memory" not in str(exc).lower():
+                    self._failure_exc = RuntimeError(
+                        f"rank {self.rank}: unexpected ROCm keep worker failure: {exc}"
+                    )
+                    logger.exception("%s", self._failure_exc)
+                    return
                 if (
                     self.max_allocation_retries is not None
                     and attempts >= self.max_allocation_retries
@@ -266,6 +274,12 @@ class RocmGPUController(BaseGPUController):
                     return
                 if stop_evt.wait(self.interval):
                     return
+            except Exception as exc:
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected ROCm keep worker failure: {exc}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
 
         if tensor is None:
             logger.error("rank %s: failed to allocate tensor, exiting loop", self.rank)
@@ -288,12 +302,20 @@ class RocmGPUController(BaseGPUController):
             except RuntimeError as exc:
                 if "out of memory" in str(exc).lower():
                     torch.cuda.empty_cache()
-                if stop_evt.wait(self.interval):
-                    break
-            except Exception:
-                logger.exception("rank %s: unexpected error", self.rank)
-                if stop_evt.wait(self.interval):
-                    break
+                    if stop_evt.wait(self.interval):
+                        break
+                    continue
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected ROCm keep worker failure: {exc}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
+            except Exception as exc:
+                self._failure_exc = RuntimeError(
+                    f"rank {self.rank}: unexpected ROCm keep worker failure: {exc}"
+                )
+                logger.exception("%s", self._failure_exc)
+                return
 
     def allocation_status(self) -> Optional[Exception]:
         """
