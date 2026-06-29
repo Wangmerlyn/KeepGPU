@@ -38,6 +38,9 @@ expectations so you can get productive quickly and avoid surprises in CI.
   ```bash
   pre-commit run --all-files
   ```
+- Use the documented `pyproject.toml`, CI, MkDocs, and dashboard package
+  commands as the source of truth; the old `setup.py`/Sphinx command scaffold is
+  intentionally not part of the repository.
 
 ## Docs
 

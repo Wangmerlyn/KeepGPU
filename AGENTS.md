@@ -299,6 +299,11 @@ This file defines how coding agents should work in this repository.
 
 - Update docs when changing CLI flags, controller behavior, platform support, or MCP methods.
 - Keep README and `docs/` guidance aligned for install and usage flows.
+- Treat `pyproject.toml`, `.github/workflows/`, `docs/requirements.txt`, and
+  `web/dashboard/package.json` as the canonical build/test command surfaces;
+  do not reintroduce legacy root `Makefile` or `requirements_dev.txt`
+  scaffolding for removed `setup.py`/Sphinx flows. Keep `MANIFEST.in` limited
+  to source-distribution inclusions that `pyproject.toml` cannot express.
 - Validate docs with:
   - `mkdocs build` for static build verification
   - `mkdocs serve` for local preview when editing rendered content
