@@ -639,9 +639,9 @@ class KeepGPUServer:
                 if not session:
                     params = self._starting_params.get(job_id)
                     if params is not None:
-                        status = self._starting_status(job_id, params)
-                        status["active"] = True
-                        return status
+                        job_status = self._starting_status(job_id, params)
+                        job_status["active"] = True
+                        return job_status
                     return {"active": False, "job_id": job_id}
                 self._refresh_session_runtime_state(session)
                 return {
