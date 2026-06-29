@@ -116,6 +116,8 @@ This file defines how coding agents should work in this repository.
 - CLI method-specific result validation must include nested records consumed by
   downstream tools: `status.active_jobs` entries, `stop_keep` job-id lists and
   error values, and `list_gpus` GPU records with visible ordinal metadata.
+  Known nested `status.params` fields must match the public session contract
+  while extra fields remain forward-compatible.
 - CLI service endpoint inputs (`--host`, `--port`) must be validated locally
   before service RPC, daemon auto-start, stop-all fallback, or daemon ownership
   operations. JSON-output commands must return structured `{"error": "..."}`
@@ -177,6 +179,8 @@ This file defines how coding agents should work in this repository.
 - Hardware probes must clean up vendor libraries after detection (for example, NVML shutdown and ROCm SMI shutdown after init).
 - ROCm/HIP PyTorch builds take precedence over NVML-based CUDA fallback: if `torch.version.hip` is truthy, `_check_cuda()` must not classify the runtime as CUDA or probe NVML.
 - Keep lifecycle state truthful: a reserved starting session must be visible in status as `state="starting"`; a session is removed only after release succeeds; timed-out or failed stops must stay visible with state and error details.
+- Status responses must be read-only snapshots. Returning active or starting
+  session params must not expose the mutable objects stored in service state.
 - Release paths must be idempotent after timeout: when a previously stopping
   worker has since died, perform backend cache cleanup and clear stale thread
   and stop-event state instead of returning early as not running.

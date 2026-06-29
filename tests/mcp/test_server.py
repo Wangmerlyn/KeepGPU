@@ -134,6 +134,25 @@ def test_start_status_stop_cycle():
     assert server.status(job_id)["active"] is False
 
 
+def test_status_returns_param_snapshots_for_active_sessions():
+    server = make_server()
+    job_id = server.start_keep(job_id="snapshot-job", gpu_ids=[0])["job_id"]
+
+    single_status = server.status(job_id)
+    single_status["params"]["gpu_ids"].append(99)
+    single_status["params"]["vram"] = "8GiB"
+
+    all_status = server.status()
+    all_status["active_jobs"][0]["params"]["gpu_ids"].append(42)
+
+    assert server.status(job_id)["params"] == {
+        "gpu_ids": [0],
+        "vram": "1GiB",
+        "interval": 300,
+        "busy_threshold": 25,
+    }
+
+
 def test_start_keep_preserves_fractional_interval():
     server = make_server()
 
@@ -320,6 +339,11 @@ def test_status_reports_starting_session_during_controller_keep():
                 "last_error": None,
             }
         ]
+        single_status = server.status("starting-job")
+        single_status["params"]["gpu_ids"].append(99)
+        list_status = server.status()
+        list_status["active_jobs"][0]["params"]["gpu_ids"].append(42)
+        assert server.status("starting-job")["params"] == expected_params
     finally:
         keep_release.set()
 

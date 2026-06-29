@@ -139,6 +139,9 @@ session state changes.
 Status calls show reserved jobs as `state="starting"` while controller startup
 is still in progress. That includes both `status(job_id)` and the all-session
 `status()` list, so agents do not mistake an in-progress start for no session.
+Returned session `params` are snapshots; local embedding callers can inspect
+or modify the returned object without mutating service state. Known fields in
+`params` follow the same public session contract as `start_keep`.
 If an already-started worker later reports a terminal runtime or allocation
 failure, the retained session is refreshed to `state="runtime_failed"` with
 `last_error`. It remains visible and stoppable. This is distinct from normal

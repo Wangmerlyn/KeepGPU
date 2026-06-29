@@ -669,17 +669,34 @@ def _require_nullable_int_field(
     return value
 
 
+def _validate_status_params(params: Dict[str, Any], method: str, prefix: str) -> None:
+    validators = {
+        "gpu_ids": validate_gpu_ids,
+        "interval": validate_interval,
+        "busy_threshold": validate_busy_threshold,
+        "vram": parse_vram_to_elements,
+    }
+    for field, validator in validators.items():
+        if field not in params:
+            continue
+        try:
+            validator(params[field])
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise _malformed_method_result(method, f"{prefix}.{field}: {exc}") from exc
+
+
 def _validate_status_session_record(
     record: Dict[str, Any], method: str, prefix: str
 ) -> None:
     try:
         _require_string_field(record, "job_id", method)
-        _require_dict_field(record, "params", method)
+        params = _require_dict_field(record, "params", method)
         _require_string_field(record, "state", method)
         _require_nullable_string_field(record, "last_error", method)
     except ServiceResponseError as exc:
         detail = str(exc).split(": ", 1)[-1]
         raise _malformed_method_result(method, f"{prefix}.{detail}") from exc
+    _validate_status_params(params, method, f"{prefix}.params")
 
 
 def _validate_status_result(
