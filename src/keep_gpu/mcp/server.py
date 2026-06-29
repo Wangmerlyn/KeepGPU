@@ -349,6 +349,8 @@ class KeepGPUServer:
             session = Session(
                 controller=controller,
                 params=params,
+                state="stopping" if pending_stop else "active",
+                last_error=self._timeout_error_message() if pending_stop else None,
             )
             self._sessions[job_id] = session
             self._sessions_cond.notify_all()
@@ -358,6 +360,7 @@ class KeepGPUServer:
                 kwargs={
                     "job_id": job_id,
                     "expected_session": session,
+                    "pending_stop_cleanup": True,
                 },
                 daemon=True,
             ).start()
@@ -432,6 +435,7 @@ class KeepGPUServer:
         job_id: str,
         quiet: bool = False,
         expected_session: Optional[Session] = None,
+        pending_stop_cleanup: bool = False,
     ) -> Optional[Dict[str, Any]]:
         with self._sessions_lock:
             session = self._sessions.get(job_id)
@@ -439,12 +443,16 @@ class KeepGPUServer:
                 return None
             if session is None:
                 return None
-            if session.state == "stopping":
+            release_existing_stopping = (
+                pending_stop_cleanup and expected_session is session
+            )
+            if session.state == "stopping" and not release_existing_stopping:
                 result = self._empty_stop_result()
                 result["timed_out"].append(job_id)
                 return self._finalize_stop_result(result)
-            session.state = "stopping"
-            session.last_error = None
+            if session.state != "stopping":
+                session.state = "stopping"
+                session.last_error = None
 
         result = self._empty_stop_result()
         try:
@@ -476,6 +484,15 @@ class KeepGPUServer:
         self._mark_stop_timeout(job_id, session)
         result["timed_out"].append(job_id)
         return self._finalize_stop_result(result)
+
+    def _starting_status(self, job_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        pending_stop = job_id in self._pending_stop_job_ids
+        return {
+            "job_id": job_id,
+            "params": params,
+            "state": "stopping" if pending_stop else "starting",
+            "last_error": self._timeout_error_message() if pending_stop else None,
+        }
 
     def stop_keep(
         self, job_id: Optional[str] = None, quiet: bool = False
@@ -622,13 +639,9 @@ class KeepGPUServer:
                 if not session:
                     params = self._starting_params.get(job_id)
                     if params is not None:
-                        return {
-                            "active": True,
-                            "job_id": job_id,
-                            "params": params,
-                            "state": "starting",
-                            "last_error": None,
-                        }
+                        status = self._starting_status(job_id, params)
+                        status["active"] = True
+                        return status
                     return {"active": False, "job_id": job_id}
                 self._refresh_session_runtime_state(session)
                 return {
@@ -643,12 +656,7 @@ class KeepGPUServer:
                 self._refresh_session_runtime_state(session)
             return {
                 "active_jobs": [
-                    {
-                        "job_id": jid,
-                        "params": params,
-                        "state": "starting",
-                        "last_error": None,
-                    }
+                    self._starting_status(jid, params)
                     for jid, params in self._starting_params.items()
                 ]
                 + [

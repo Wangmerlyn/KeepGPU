@@ -1676,7 +1676,9 @@ def test_stop_keep_times_out_waiting_for_stuck_starting_session(monkeypatch):
         assert not stop_thread.is_alive()
         assert stop_result["value"]["timed_out"] == ["starting-job"]
         assert "Timed out" in stop_result["value"]["message"]
-        assert server.status("starting-job")["state"] == "starting"
+        status = server.status("starting-job")
+        assert status["state"] == "stopping"
+        assert status["last_error"] == server._timeout_error_message()
     finally:
         keep_release.set()
         start_thread.join(timeout=1.0)
@@ -1720,13 +1722,148 @@ def test_stop_all_times_out_waiting_for_stuck_starting_session(monkeypatch):
         assert not stop_thread.is_alive()
         assert stop_result["value"]["timed_out"] == ["starting-job"]
         assert "Timed out" in stop_result["value"]["message"]
-        assert server.status("starting-job")["state"] == "starting"
+        status = server.status("starting-job")
+        assert status["state"] == "stopping"
+        assert status["last_error"] == server._timeout_error_message()
     finally:
         keep_release.set()
         start_thread.join(timeout=1.0)
         stop_thread.join(timeout=1.0)
 
     assert start_result["value"] == {"job_id": "starting-job"}
+
+
+def test_timed_out_stop_of_starting_session_reports_stopping_before_startup_finishes(
+    monkeypatch,
+):
+    keep_entered = threading.Event()
+    keep_release = threading.Event()
+    start_result = {}
+
+    class BlockingStartController(DummyController):
+        def keep(self):
+            self.kept = True
+            keep_entered.set()
+            keep_release.wait(timeout=1.0)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: BlockingStartController(**kwargs))
+    )
+    monkeypatch.setattr(server, "_startup_stop_wait_timeout_s", 0.02, raising=False)
+
+    start_thread = threading.Thread(
+        target=lambda: start_result.update(
+            value=server.start_keep(job_id="starting-job")
+        )
+    )
+    start_thread.start()
+    assert keep_entered.wait(timeout=1.0)
+
+    try:
+        stop_result = server.stop_keep(job_id="starting-job")
+
+        assert stop_result["timed_out"] == ["starting-job"]
+        expected_error = server._timeout_error_message()
+        status = server.status("starting-job")
+        assert status["active"] is True
+        assert status["state"] == "stopping"
+        assert status["last_error"] == expected_error
+        jobs = {job["job_id"]: job for job in server.status()["active_jobs"]}
+        assert jobs["starting-job"]["state"] == "stopping"
+        assert jobs["starting-job"]["last_error"] == expected_error
+    finally:
+        keep_release.set()
+        start_thread.join(timeout=1.0)
+
+    assert start_result["value"] == {"job_id": "starting-job"}
+
+
+def test_pending_stop_session_is_not_reported_with_active_state_before_background_release(
+    monkeypatch,
+):
+    keep_entered = threading.Event()
+    keep_release = threading.Event()
+    controllers = []
+    deferred_threads = []
+    start_result = {}
+
+    class BlockingStartController(DummyController):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            controllers.append(self)
+
+        def keep(self):
+            self.kept = True
+            keep_entered.set()
+            keep_release.wait(timeout=1.0)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: BlockingStartController(**kwargs))
+    )
+    monkeypatch.setattr(server, "_startup_stop_wait_timeout_s", 0.02, raising=False)
+
+    real_thread = threading.Thread
+
+    class DeferredThread:
+        def __init__(self, target, args=(), kwargs=None):
+            self._target = target
+            self._args = args
+            self._kwargs = kwargs or {}
+
+        def start(self):
+            deferred_threads.append(self)
+
+        def run(self):
+            self._target(*self._args, **self._kwargs)
+
+    def thread_factory(*args, **kwargs):
+        target_kwargs = kwargs.get("kwargs") or {}
+        if (
+            target_kwargs.get("job_id") == "starting-job"
+            and target_kwargs.get("expected_session") is not None
+        ):
+            return DeferredThread(
+                kwargs.get("target"), kwargs.get("args", ()), target_kwargs
+            )
+        return real_thread(*args, **kwargs)
+
+    monkeypatch.setattr(server_module.threading, "Thread", thread_factory)
+
+    start_thread = real_thread(
+        target=lambda: start_result.update(
+            value=server.start_keep(job_id="starting-job")
+        )
+    )
+    start_thread.start()
+    assert keep_entered.wait(timeout=1.0)
+
+    try:
+        stop_result = server.stop_keep(job_id="starting-job")
+        assert stop_result["timed_out"] == ["starting-job"]
+
+        keep_release.set()
+        start_thread.join(timeout=1.0)
+        assert start_result["value"] == {"job_id": "starting-job"}
+        assert len(deferred_threads) == 1
+
+        expected_error = server._timeout_error_message()
+        status = server.status("starting-job")
+        # "active" means the retained session is visible; state carries lifecycle truth.
+        assert status["active"] is True
+        assert status["state"] == "stopping"
+        assert status["last_error"] == expected_error
+
+        duplicate_stop = server.stop_keep("starting-job")
+        assert duplicate_stop["timed_out"] == ["starting-job"]
+        assert controllers[0].released is False
+        assert server.status("starting-job")["last_error"] == expected_error
+
+        deferred_threads[0].run()
+        assert controllers[0].released is True
+        assert server.status("starting-job")["active"] is False
+    finally:
+        keep_release.set()
+        start_thread.join(timeout=1.0)
 
 
 def test_timed_out_stop_of_starting_session_releases_after_startup_completes(
@@ -1863,7 +2000,10 @@ def test_pending_stop_does_not_stop_reused_job_id_after_original_removed(
     assert len(deferred_threads) == 1
 
     old_controller = controllers_by_gpu[(0,)][0]
-    stop_original = server.stop_keep("race-job")
+    old_session = server._sessions["race-job"]
+    stop_original = server._stop_current_session(
+        "race-job", expected_session=old_session, pending_stop_cleanup=True
+    )
     assert stop_original["stopped"] == ["race-job"]
     assert old_controller.released is True
 

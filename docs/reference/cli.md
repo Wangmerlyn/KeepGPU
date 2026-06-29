@@ -88,10 +88,11 @@ error before any RPC or stop-all fallback runs.
 Targeted stop waits for a matching in-progress start to settle before returning
 `not found`, so starting sessions are not silently skipped. That wait is
 bounded; if startup does not settle in time, the response includes the job in
-`timed_out`, and the service remembers the cancellation so a later successful
-startup is released in the background. For `--all`, the service records the
-initial active/starting boundary first, waits only for starting jobs in that
-boundary, and does not stop later starts.
+`timed_out`, status shows the remembered cancellation as `state="stopping"`
+with the timeout message, and the service releases a later successful startup
+in the background. For `--all`, the service records the initial active/starting
+boundary first, waits only for starting jobs in that boundary, and does not stop
+later starts.
 `--all` releases the sessions in its snapshot concurrently and prints results
 in deterministic snapshot order with the same additive response fields.
 The output is a directly parseable JSON object, including `{"error": "..."}` for
