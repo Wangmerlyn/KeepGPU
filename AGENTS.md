@@ -43,6 +43,9 @@ This file defines how coding agents should work in this repository.
 - Keep it "Linus" simple - concise, readable, and robust; avoid bloat/over-engineering.
 - Run the smallest relevant checks first (unit tests, targeted scripts), then broader checks when needed.
 - Add tests when there is an existing test pattern; do not introduce a brand-new testing framework unless requested.
+- Python files that use PEP 604 annotations such as `X | Y` must include
+  `from __future__ import annotations` while the project tooling targets
+  Python 3.8.
 
 ### Git Hygiene & Security
 

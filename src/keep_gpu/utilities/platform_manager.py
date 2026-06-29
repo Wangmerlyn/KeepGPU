@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import os
-import sys
 import platform
+import sys
 from enum import Enum
 from typing import Callable, List, Tuple
 
