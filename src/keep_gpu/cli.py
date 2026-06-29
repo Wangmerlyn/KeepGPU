@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import math
 import os
 import shlex
 import signal
@@ -632,6 +633,55 @@ def _require_dict_field(
     return value
 
 
+def _require_string_field(result: Dict[str, Any], field: str, method: str) -> str:
+    value = result.get(field)
+    if not isinstance(value, str):
+        raise _malformed_method_result(method, f"{field} must be a string")
+    return value
+
+
+def _require_nullable_string_field(
+    result: Dict[str, Any], field: str, method: str
+) -> Optional[str]:
+    if field not in result:
+        raise _malformed_method_result(method, f"{field} must be a string or null")
+    value = result[field]
+    if value is not None and not isinstance(value, str):
+        raise _malformed_method_result(method, f"{field} must be a string or null")
+    return value
+
+
+def _require_plain_int_field(result: Dict[str, Any], field: str, method: str) -> int:
+    value = result.get(field)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise _malformed_method_result(method, f"{field} must be an integer")
+    return value
+
+
+def _require_nullable_int_field(
+    result: Dict[str, Any], field: str, method: str
+) -> Optional[int]:
+    if field not in result:
+        raise _malformed_method_result(method, f"{field} must be an integer or null")
+    value = result[field]
+    if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+        raise _malformed_method_result(method, f"{field} must be an integer or null")
+    return value
+
+
+def _validate_status_session_record(
+    record: Dict[str, Any], method: str, prefix: str
+) -> None:
+    try:
+        _require_string_field(record, "job_id", method)
+        _require_dict_field(record, "params", method)
+        _require_string_field(record, "state", method)
+        _require_nullable_string_field(record, "last_error", method)
+    except ServiceResponseError as exc:
+        detail = str(exc).split(": ", 1)[-1]
+        raise _malformed_method_result(method, f"{prefix}.{detail}") from exc
+
+
 def _validate_status_result(
     result: Dict[str, Any], *, single_job: bool
 ) -> Dict[str, Any]:
@@ -640,17 +690,37 @@ def _validate_status_result(
             raise _malformed_method_result("status", "active must be a bool")
         if not isinstance(result.get("job_id"), str):
             raise _malformed_method_result("status", "job_id must be a string")
+        if result["active"]:
+            _validate_status_session_record(result, "status", "result")
     else:
-        _require_list_field(result, "active_jobs", "status")
+        active_jobs = _require_list_field(result, "active_jobs", "status")
+        for index, active_job in enumerate(active_jobs):
+            if not isinstance(active_job, dict):
+                raise _malformed_method_result(
+                    "status", f"active_jobs[{index}] must be an object"
+                )
+            _validate_status_session_record(
+                active_job, "status", f"active_jobs[{index}]"
+            )
     return result
 
 
 def _validate_stop_keep_result(result: Dict[str, Any]) -> Dict[str, Any]:
     for field in ("stopped", "timed_out", "failed"):
-        _require_list_field(result, field, "stop_keep")
-    _require_dict_field(result, "errors", "stop_keep")
+        value = _require_list_field(result, field, "stop_keep")
+        for index, job_id in enumerate(value):
+            if not isinstance(job_id, str):
+                raise _malformed_method_result(
+                    "stop_keep", f"{field}[{index}] must be a string"
+                )
+    errors = _require_dict_field(result, "errors", "stop_keep")
+    for job_id, error in errors.items():
+        if not isinstance(error, str):
+            raise _malformed_method_result(
+                "stop_keep", f"errors[{job_id!r}] must be a string"
+            )
     message = result.get("message")
-    if message is not None and not isinstance(message, str):
+    if "message" in result and not isinstance(message, str):
         raise _malformed_method_result("stop_keep", "message must be a string")
     return result
 
@@ -662,6 +732,31 @@ def _validate_list_gpus_result(result: Dict[str, Any]) -> Dict[str, Any]:
             raise _malformed_method_result(
                 "list_gpus", f"gpus[{index}] must be an object"
             )
+        try:
+            _require_plain_int_field(gpu, "id", "list_gpus")
+            _require_plain_int_field(gpu, "visible_id", "list_gpus")
+            _require_string_field(gpu, "platform", "list_gpus")
+            _require_string_field(gpu, "name", "list_gpus")
+            _require_nullable_int_field(gpu, "memory_total", "list_gpus")
+            _require_nullable_int_field(gpu, "memory_used", "list_gpus")
+            if "utilization" not in gpu:
+                raise _malformed_method_result(
+                    "list_gpus", "utilization must be a number or null"
+                )
+            utilization = gpu["utilization"]
+            if utilization is not None and (
+                isinstance(utilization, bool)
+                or not isinstance(utilization, (int, float))
+                or not math.isfinite(utilization)
+            ):
+                raise _malformed_method_result(
+                    "list_gpus", "utilization must be a number or null"
+                )
+        except ServiceResponseError as exc:
+            detail = str(exc).split(": ", 1)[-1]
+            raise _malformed_method_result(
+                "list_gpus", f"gpus[{index}].{detail}"
+            ) from exc
     return result
 
 
