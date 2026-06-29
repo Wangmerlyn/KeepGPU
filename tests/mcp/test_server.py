@@ -607,6 +607,32 @@ def test_jsonrpc_start_keep_zero_visible_gpus_returns_public_code(monkeypatch):
         server.shutdown()
 
 
+def test_jsonrpc_start_keep_out_of_range_gpu_ids_returns_invalid_params(monkeypatch):
+    import torch
+
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    server = KeepGPUServer()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"job_id": "bad-visible-gpu", "gpu_ids": [99]},
+    }
+
+    try:
+        resp = _handle_request(server, req)
+
+        assert "error" in resp
+        assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
+        assert (
+            "gpu_ids must be visible device ordinals less than 1"
+            in resp["error"]["message"]
+        )
+        assert server.status()["active_jobs"] == []
+    finally:
+        server.shutdown()
+
+
 def test_jsonrpc_cuda_worker_startup_failure_creates_no_active_session(monkeypatch):
     import torch
 
@@ -900,6 +926,39 @@ def test_mcp_tools_call_startup_unavailable_returns_tool_error():
     assert result["isError"] is True
     assert "No usable GPUs are available" in result["content"][0]["text"]
     assert server.status()["active_jobs"] == []
+
+
+def test_mcp_tools_call_out_of_range_gpu_ids_returns_tool_error(monkeypatch):
+    import torch
+
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    server = KeepGPUServer()
+    req = {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "tools/call",
+        "params": {
+            "name": "start_keep",
+            "arguments": {"job_id": "tool-bad-visible-gpu", "gpu_ids": [99]},
+        },
+    }
+
+    try:
+        resp = _handle_request(server, req)
+
+        assert resp["jsonrpc"] == "2.0"
+        assert resp["id"] == 5
+        assert "result" in resp
+        result = resp["result"]
+        assert result["isError"] is True
+        assert (
+            "gpu_ids must be visible device ordinals less than 1"
+            in result["content"][0]["text"]
+        )
+        assert server.status()["active_jobs"] == []
+    finally:
+        server.shutdown()
 
 
 def test_mcp_tools_call_unexpected_failure_returns_jsonrpc_internal_error():

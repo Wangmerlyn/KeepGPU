@@ -30,13 +30,17 @@ class UnsupportedControllerPlatformError(
     """The current platform cannot run the global GPU controller."""
 
 
+class InvalidVisibleGPUSelectionError(ValueError):
+    """Public gpu_ids selection is not valid for the visible device set."""
+
+
 def _resolve_visible_gpu_ids(gpu_ids: Optional[List[int]]) -> List[int]:
     visible_count = torch.cuda.device_count()
     if gpu_ids is None:
         return list(range(visible_count))
     invalid_ids = [gpu_id for gpu_id in gpu_ids if gpu_id >= visible_count]
     if invalid_ids:
-        raise ValueError(
+        raise InvalidVisibleGPUSelectionError(
             "gpu_ids must be visible device ordinals less than "
             f"{visible_count}; got {invalid_ids}"
         )
@@ -86,7 +90,7 @@ class GlobalGPUController:
             elif gpu_ids == [0]:
                 self.gpu_ids = gpu_ids
             else:
-                raise ValueError(
+                raise InvalidVisibleGPUSelectionError(
                     f"MACM platform only supports gpu_ids=[0] or None, got {gpu_ids}"
                 )
         elif self.computing_platform in (

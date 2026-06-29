@@ -46,6 +46,7 @@ from keep_gpu import __version__
 from keep_gpu.global_gpu_controller.global_gpu_controller import (
     ControllerStartupUnavailable,
     GlobalGPUController,
+    InvalidVisibleGPUSelectionError,
 )
 from keep_gpu.utilities.humanized_input import (
     PUBLIC_VRAM_MAX_BYTES,
@@ -310,6 +311,8 @@ class KeepGPUServer:
                 self._starting_job_ids.discard(job_id)
                 self._starting_params.pop(job_id, None)
                 self._sessions_cond.notify_all()
+            if isinstance(exc, InvalidVisibleGPUSelectionError):
+                raise SessionInputError(str(exc)) from exc
             if isinstance(exc, ControllerStartupUnavailable):
                 raise SessionStartupUnavailable(str(exc)) from exc
             raise

@@ -91,6 +91,11 @@ conditions, such as an unsupported controller platform or no usable visible
 GPUs, return `-32000` with the startup message. Unexpected server failures use
 `-32603 Internal error`.
 
+Explicit `gpu_ids` that are validly shaped but outside the service process's
+current visible GPU count are public validation failures. Direct JSON-RPC
+returns `-32602`, while MCP `tools/call` returns a tool result with
+`isError=true`.
+
 MCP `tools/call` responses keep protocol envelopes successful for normal tool
 results, public tool-input validation failures, and expected hardware/platform
 startup-unavailable failures. Those tool-level failures return
