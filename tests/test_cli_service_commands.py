@@ -784,6 +784,42 @@ def test_status_rejects_malformed_active_job_entries(monkeypatch, payload):
 
 
 @pytest.mark.parametrize(
+    "session_params",
+    [
+        {"gpu_ids": "all"},
+        {"gpu_ids": []},
+        {"interval": -1},
+        {"busy_threshold": 101},
+        {"vram": []},
+    ],
+)
+def test_status_rejects_malformed_known_session_params(monkeypatch, session_params):
+    def fake_rpc(method, params, host, port):
+        assert method == "status"
+        assert params == {}
+        return {
+            "active_jobs": [
+                {
+                    "job_id": "job-1",
+                    "params": session_params,
+                    "state": "active",
+                    "last_error": None,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed status response" in decoded["error"]
+    assert "active_jobs[0].params" in decoded["error"]
+    assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
     "payload",
     [
         {},

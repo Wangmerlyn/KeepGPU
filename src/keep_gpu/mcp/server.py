@@ -28,6 +28,7 @@ HTTP endpoints:
 from __future__ import annotations
 
 import atexit
+import copy
 import ipaddress
 import json
 import sys
@@ -490,10 +491,14 @@ class KeepGPUServer:
         pending_stop = job_id in self._pending_stop_job_ids
         return {
             "job_id": job_id,
-            "params": params,
+            "params": self._status_params_snapshot(params),
             "state": "stopping" if pending_stop else "starting",
             "last_error": self._timeout_error_message() if pending_stop else None,
         }
+
+    @staticmethod
+    def _status_params_snapshot(params: Dict[str, Any]) -> Dict[str, Any]:
+        return copy.deepcopy(params)
 
     def stop_keep(
         self, job_id: Optional[str] = None, quiet: bool = False
@@ -648,7 +653,7 @@ class KeepGPUServer:
                 return {
                     "active": True,
                     "job_id": job_id,
-                    "params": session.params,
+                    "params": self._status_params_snapshot(session.params),
                     "state": session.state,
                     "last_error": session.last_error,
                 }
@@ -663,7 +668,7 @@ class KeepGPUServer:
                 + [
                     {
                         "job_id": jid,
-                        "params": sess.params,
+                        "params": self._status_params_snapshot(sess.params),
                         "state": sess.state,
                         "last_error": sess.last_error,
                     }
