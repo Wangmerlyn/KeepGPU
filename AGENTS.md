@@ -254,10 +254,10 @@ This file defines how coding agents should work in this repository.
   selection, not that the device is unstartable.
 - `KeepGPUServer.list_gpus()` must validate GPU records before any REST,
   direct JSON-RPC, or MCP response advertises them: required `id`/`visible_id`
-  fields are matching plain integers, `platform`/`name` are strings,
-  `memory_total` and `memory_used` are integers or null, and `utilization` is
-  finite numeric or null. Malformed records from telemetry helpers are internal
-  server failures.
+  fields are matching plain non-negative integers, visible ordinals are unique,
+  `platform`/`name` are strings, `memory_total` and `memory_used` are integers
+  or null, and `utilization` is finite numeric or null. Malformed records from
+  telemetry helpers are internal server failures.
 - Keep GPU listing platform precedence aligned with controller platform
   detection: HIP/ROCm torch builds must prefer ROCm listing over NVML CUDA
   listing, and must not fall back to NVML CUDA records when torch's active

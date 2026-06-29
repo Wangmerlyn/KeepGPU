@@ -216,6 +216,7 @@ def _validate_list_gpus_records(infos: Any) -> None:
     if not isinstance(infos, list):
         raise RuntimeError("Malformed list_gpus response: expected a GPU record list")
 
+    visible_ids = set()
     for index, record in enumerate(infos):
         if not isinstance(record, dict):
             _raise_malformed_gpu_record(index, "must be an object")
@@ -226,6 +227,12 @@ def _validate_list_gpus_records(infos: Any) -> None:
                 _raise_malformed_gpu_record(index, f"{field!r} must be an integer")
         if record["id"] != record["visible_id"]:
             _raise_malformed_gpu_record(index, "'id' must match 'visible_id'")
+        visible_id = record["visible_id"]
+        if visible_id < 0:
+            _raise_malformed_gpu_record(index, "'visible_id' must be non-negative")
+        if visible_id in visible_ids:
+            _raise_malformed_gpu_record(index, "duplicate 'visible_id'")
+        visible_ids.add(visible_id)
         for field in ("platform", "name"):
             if field not in record:
                 _raise_malformed_gpu_record(index, f"missing {field!r}")

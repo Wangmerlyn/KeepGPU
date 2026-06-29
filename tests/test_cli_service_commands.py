@@ -1186,6 +1186,54 @@ def test_list_gpus_rejects_malformed_payloads(monkeypatch, payload):
         {
             "gpus": [
                 {
+                    "id": 1,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": 12.5,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": -1,
+                    "visible_id": -1,
+                    "platform": "cuda",
+                    "name": "GPU hidden",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": 12.5,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": 12.5,
+                },
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU alias",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": 12.5,
+                },
+            ]
+        },
+        {
+            "gpus": [
+                {
                     "id": 0,
                     "visible_id": 0,
                     "platform": 1,
@@ -1276,7 +1324,7 @@ def test_list_gpus_rejects_malformed_payloads(monkeypatch, payload):
         },
     ],
 )
-def test_list_gpus_rejects_records_missing_required_fields(monkeypatch, payload):
+def test_list_gpus_rejects_malformed_gpu_records(monkeypatch, payload):
     def fake_rpc(method, params, host, port):
         assert method == "list_gpus"
         assert params == {}

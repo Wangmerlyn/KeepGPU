@@ -103,11 +103,12 @@ instead of empty success results.
 
 ### `keep-gpu list-gpus`
 
-Returns GPU telemetry from service. `id` and `visible_id` are the visible
-ordinals accepted by `--gpu-ids` and service `gpu_ids`; optional `physical_id`
-or `uuid` fields are metadata only. The output is a directly parseable JSON
-object. On CUDA, NVML records are listed only when Torch CUDA can start the same
-visible ordinal set; NVML-only devices are hidden rather than advertised as
+Returns GPU telemetry from service. `id` and `visible_id` are matching
+non-negative, unique visible ordinals accepted by `--gpu-ids` and service
+`gpu_ids`; optional `physical_id` or `uuid` fields are metadata only. The output
+is a directly parseable JSON object. On CUDA, NVML records are listed only when
+Torch CUDA can start the same visible ordinal set; NVML-only devices are hidden
+rather than advertised as
 usable `gpu_ids`. On ROCm, listed records are limited to visible ordinals that
 Torch can select; nullable memory fields mean memory telemetry is unavailable
 after selection succeeds. Service/runtime errors after CLI parsing succeeds are

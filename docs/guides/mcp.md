@@ -181,9 +181,10 @@ curl http://127.0.0.1:8765/api/gpus
 curl http://127.0.0.1:8765/api/sessions
 ```
 
-`/api/gpus` returns start-compatible visible ordinals as `id`/`visible_id`.
-Optional `physical_id` or `uuid` fields describe the underlying vendor device
-only; clients should not send those metadata values as `gpu_ids`.
+`/api/gpus` returns start-compatible, non-negative, unique visible ordinals as
+`id`/`visible_id`. Optional `physical_id` or `uuid` fields describe the
+underlying vendor device only; clients should not send those metadata values as
+`gpu_ids`.
 On CUDA, NVML records are exposed only when Torch CUDA can start the same
 visible ordinal set, so NVML-only devices are omitted instead of advertised as
 usable session targets.

@@ -860,6 +860,58 @@ def test_list_gpus_accepts_nullable_memory_and_utilization(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    ("records", "message_fragment"),
+    [
+        (
+            [
+                {
+                    "id": -1,
+                    "visible_id": -1,
+                    "platform": "CUDA",
+                    "name": "GPU hidden",
+                    "memory_total": None,
+                    "memory_used": None,
+                    "utilization": None,
+                }
+            ],
+            "non-negative",
+        ),
+        (
+            [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "CUDA",
+                    "name": "GPU 0",
+                    "memory_total": None,
+                    "memory_used": None,
+                    "utilization": None,
+                },
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "CUDA",
+                    "name": "GPU alias",
+                    "memory_total": None,
+                    "memory_used": None,
+                    "utilization": None,
+                },
+            ],
+            "duplicate",
+        ),
+    ],
+)
+def test_list_gpus_rejects_invalid_visible_ordinals(
+    monkeypatch, records, message_fragment
+):
+    monkeypatch.setattr(server_module, "get_gpu_info", lambda: records)
+    server = make_server()
+
+    with pytest.raises(RuntimeError, match=message_fragment):
+        server.list_gpus()
+
+
+@pytest.mark.parametrize(
     ("record", "message_fragment"),
     [
         (
@@ -884,6 +936,18 @@ def test_list_gpus_accepts_nullable_memory_and_utilization(monkeypatch):
                 "utilization": None,
             },
             "must match",
+        ),
+        (
+            {
+                "id": -1,
+                "visible_id": -1,
+                "platform": "CUDA",
+                "name": "GPU hidden",
+                "memory_total": None,
+                "memory_used": None,
+                "utilization": None,
+            },
+            "non-negative",
         ),
         (
             {
