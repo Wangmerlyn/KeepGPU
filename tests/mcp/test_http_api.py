@@ -216,6 +216,41 @@ def test_http_rpc_rejects_unsupported_options_with_json_405():
     }
 
 
+@pytest.mark.parametrize(
+    ("method", "path", "allowed_methods", "data"),
+    [
+        ("POST", "/health", {"GET"}, b"{bad json"),
+        ("POST", "/api/gpus", {"GET"}, b"{bad json"),
+        ("POST", "/api/sessions/demo", {"GET", "DELETE"}, b"{bad json"),
+        ("DELETE", "/", {"GET", "POST"}, None),
+        ("DELETE", "/health", {"GET"}, None),
+        ("DELETE", "/api/gpus", {"GET"}, None),
+        ("DELETE", "/rpc", {"POST"}, None),
+    ],
+)
+def test_http_implemented_handlers_reject_known_wrong_methods_with_json_405(
+    method, path, allowed_methods, data
+):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response(method, f"{base}{path}", data)
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 405
+    assert headers.get("content-type") == "application/json"
+    assert _allow_methods(headers) == allowed_methods
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Method not allowed"}
+    }
+
+
 def test_http_rpc_get_rejects_with_json_405_instead_of_static_fallback():
     server = make_server()
     httpd, thread, base = _start_http_server(server)

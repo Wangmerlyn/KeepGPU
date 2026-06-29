@@ -848,6 +848,12 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             return True
         return False
 
+    def _send_known_route_unsupported_method_response(self, path: str) -> bool:
+        allowed_methods = self._allowed_methods_for_path(path)
+        if allowed_methods is None or self.command in allowed_methods:
+            return False
+        return self._send_api_rpc_unsupported_method_response()
+
     def send_error(self, code, message=None, explain=None):  # noqa: ANN001, N802
         if int(code) == 501 and self._send_api_rpc_unsupported_method_response():
             return
@@ -980,6 +986,8 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if self._send_known_route_unsupported_method_response(path):
+                return
             if path not in ("/api/sessions", "/", "/rpc"):
                 self._json_response(404, {"error": {"message": "Unknown endpoint"}})
                 return
@@ -1083,6 +1091,8 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if self._send_known_route_unsupported_method_response(path):
+                return
             server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]
             if path == "/api/sessions":
                 if self._reject_session_route_components(parsed):
