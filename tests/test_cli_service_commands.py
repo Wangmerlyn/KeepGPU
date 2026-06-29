@@ -654,7 +654,17 @@ def test_status_outputs_single_decoded_json_object(monkeypatch):
     def fake_rpc(method, params, host, port):
         assert method == "status"
         assert params == {}
-        return {"active": True, "active_jobs": [{"job_id": "job-1"}]}
+        return {
+            "active": True,
+            "active_jobs": [
+                {
+                    "job_id": "job-1",
+                    "params": {"gpu_ids": [0]},
+                    "state": "active",
+                    "last_error": None,
+                }
+            ],
+        }
 
     monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
 
@@ -670,7 +680,13 @@ def test_status_job_outputs_single_decoded_json_object(monkeypatch):
     def fake_rpc(method, params, host, port):
         assert method == "status"
         assert params == {"job_id": "job-1"}
-        return {"active": True, "job_id": "job-1"}
+        return {
+            "active": True,
+            "job_id": "job-1",
+            "params": {"gpu_ids": [0]},
+            "state": "active",
+            "last_error": None,
+        }
 
     monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
 
@@ -701,6 +717,75 @@ def test_status_rejects_malformed_all_session_payloads(monkeypatch, payload):
 @pytest.mark.parametrize(
     "payload",
     [
+        {"active_jobs": [1]},
+        {
+            "active_jobs": [
+                {
+                    "job_id": 1,
+                    "params": {},
+                    "state": "active",
+                    "last_error": None,
+                }
+            ]
+        },
+        {
+            "active_jobs": [
+                {
+                    "params": {},
+                    "state": "active",
+                    "last_error": None,
+                }
+            ]
+        },
+        {
+            "active_jobs": [
+                {
+                    "job_id": "job-1",
+                    "state": "active",
+                    "last_error": None,
+                }
+            ]
+        },
+        {
+            "active_jobs": [
+                {
+                    "job_id": "job-1",
+                    "params": {},
+                    "last_error": None,
+                }
+            ]
+        },
+        {
+            "active_jobs": [
+                {
+                    "job_id": "job-1",
+                    "params": {},
+                    "state": "active",
+                    "last_error": 1,
+                }
+            ]
+        },
+    ],
+)
+def test_status_rejects_malformed_active_job_entries(monkeypatch, payload):
+    def fake_rpc(method, params, host, port):
+        assert method == "status"
+        assert params == {}
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed status response" in decoded["error"]
+    assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
         {},
         {"active": "yes", "job_id": "job-1"},
         {"active": True, "job_id": 1},
@@ -720,6 +805,63 @@ def test_status_job_rejects_malformed_payloads(monkeypatch, payload):
     decoded = _single_decoded_json_object(result.output)
     assert "Malformed status response" in decoded["error"]
     assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"active": True, "job_id": "job-1"},
+        {
+            "active": True,
+            "job_id": "job-1",
+            "params": [],
+            "state": "active",
+            "last_error": None,
+        },
+        {
+            "active": True,
+            "job_id": "job-1",
+            "params": {},
+            "last_error": None,
+        },
+        {
+            "active": True,
+            "job_id": "job-1",
+            "params": {},
+            "state": "active",
+            "last_error": 1,
+        },
+    ],
+)
+def test_status_job_rejects_active_payload_missing_session_fields(monkeypatch, payload):
+    def fake_rpc(method, params, host, port):
+        assert method == "status"
+        assert params == {"job_id": "job-1"}
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status", "--job-id", "job-1"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed status response" in decoded["error"]
+    assert "Traceback" not in result.output
+
+
+def test_status_job_allows_inactive_payload_without_session_fields(monkeypatch):
+    def fake_rpc(method, params, host, port):
+        assert method == "status"
+        assert params == {"job_id": "missing-job"}
+        return {"active": False, "job_id": "missing-job"}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status", "--job-id", "missing-job"])
+
+    assert result.exit_code == 0
+    payload = _single_decoded_json_object(result.output)
+    assert payload == {"active": False, "job_id": "missing-job"}
 
 
 def test_stop_job_outputs_single_decoded_json_object(monkeypatch):
@@ -753,9 +895,42 @@ def test_stop_job_outputs_single_decoded_json_object(monkeypatch):
             "errors": {},
             "message": {"text": "bad"},
         },
+        {
+            "stopped": [],
+            "timed_out": [],
+            "failed": [],
+            "errors": {},
+            "message": None,
+        },
     ],
 )
 def test_stop_job_rejects_malformed_payloads(monkeypatch, payload):
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        assert method == "stop_keep"
+        assert params == {"job_id": "job-1"}
+        assert timeout == 45.0
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["stop", "--job-id", "job-1"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed stop_keep response" in decoded["error"]
+    assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"stopped": [1], "timed_out": [], "failed": [], "errors": {}},
+        {"stopped": [], "timed_out": [None], "failed": [], "errors": {}},
+        {"stopped": [], "timed_out": [], "failed": [False], "errors": {}},
+        {"stopped": [], "timed_out": [], "failed": [], "errors": {"job-1": 1}},
+    ],
+)
+def test_stop_job_rejects_malformed_job_id_lists_and_errors(monkeypatch, payload):
     def fake_rpc(method, params, host, port, timeout=8.0):
         assert method == "stop_keep"
         assert params == {"job_id": "job-1"}
@@ -822,7 +997,19 @@ def test_list_gpus_outputs_single_decoded_json_object(monkeypatch):
     def fake_rpc(method, params, host, port):
         assert method == "list_gpus"
         assert params == {}
-        return {"gpus": [{"id": 0, "name": "GPU 0"}]}
+        return {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": 12.5,
+                }
+            ]
+        }
 
     monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
 
@@ -835,6 +1022,156 @@ def test_list_gpus_outputs_single_decoded_json_object(monkeypatch):
 
 @pytest.mark.parametrize("payload", [{}, {"gpus": {}}, {"gpus": [1]}])
 def test_list_gpus_rejects_malformed_payloads(monkeypatch, payload):
+    def fake_rpc(method, params, host, port):
+        assert method == "list_gpus"
+        assert params == {}
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["list-gpus"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed list_gpus response" in decoded["error"]
+    assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": True,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": 12.5,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": "0",
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": 12.5,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": 1,
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": 12.5,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": 0,
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": 12.5,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": "1024",
+                    "memory_used": 512,
+                    "utilization": 12.5,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": False,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": float("nan"),
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": float("inf"),
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 512,
+                    "utilization": float("-inf"),
+                }
+            ]
+        },
+    ],
+)
+def test_list_gpus_rejects_records_missing_required_fields(monkeypatch, payload):
     def fake_rpc(method, params, host, port):
         assert method == "list_gpus"
         assert params == {}
@@ -1378,7 +1715,16 @@ def test_service_stop_refuses_active_sessions_without_force(monkeypatch):
         cli,
         "_rpc_call",
         lambda method, params, host, port, timeout=8.0: (
-            {"active_jobs": [{"job_id": "j1"}]}
+            {
+                "active_jobs": [
+                    {
+                        "job_id": "j1",
+                        "params": {},
+                        "state": "active",
+                        "last_error": None,
+                    }
+                ]
+            }
             if method == "status"
             else {"stopped": []}
         ),

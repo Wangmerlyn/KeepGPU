@@ -100,9 +100,9 @@ Flags that matter:
   - `status`, `stop`, and `list-gpus` print structured JSON objects, including
     `{"error": "..."}` for service/runtime errors after CLI parsing succeeds,
     that tools such as `jq` can parse directly. Malformed JSON-RPC service
-    envelopes and invalid service endpoints, including non-integer ports, are
-    reported as those JSON error objects instead of empty success results or
-    tracebacks.
+    envelopes, malformed method-specific result records, and invalid service
+    endpoints, including non-integer ports, are reported as those JSON error
+    objects instead of empty success results or tracebacks.
 
 ## Embed in Python
 

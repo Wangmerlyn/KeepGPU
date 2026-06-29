@@ -69,7 +69,8 @@ just-created daemon instead of leaving it idle.
 
 Prints a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
-envelopes are reported as JSON error objects instead of empty success results.
+envelopes and malformed status job records are reported as JSON error objects
+instead of empty success results.
 Started sessions with terminal worker allocation/runtime failures remain listed
 as `state="runtime_failed"` with `last_error` and can still be stopped. Normal
 busy-GPU or unavailable-telemetry backoff keeps the session active; it is not a
@@ -97,7 +98,8 @@ later starts.
 in deterministic snapshot order with the same additive response fields.
 The output is a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
-envelopes are reported as JSON error objects instead of empty success results.
+envelopes and malformed stop result records are reported as JSON error objects
+instead of empty success results.
 
 ### `keep-gpu list-gpus`
 
@@ -110,9 +112,9 @@ usable `gpu_ids`. On ROCm, listed records are limited to visible ordinals that
 Torch can select; nullable memory fields mean memory telemetry is unavailable
 after selection succeeds. Service/runtime errors after CLI parsing succeeds are
 reported as `{"error": "..."}`. Malformed JSON-RPC service envelopes are
-reported as JSON error objects instead of empty success results. Invalid
-endpoint values, including non-integer or out-of-range ports, are reported as
-JSON errors before RPC.
+reported as JSON error objects instead of empty success results; malformed GPU
+records are reported the same way. Invalid endpoint values, including
+non-integer or out-of-range ports, are reported as JSON errors before RPC.
 
 ### `keep-gpu service-stop`
 
