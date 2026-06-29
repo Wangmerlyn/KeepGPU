@@ -32,7 +32,7 @@ Local `start` inputs are validated before auto-starting the service. Invalid
 `--vram`, `--job-id`, `--interval`, `--busy-threshold`, or `--gpu-ids` values
 fail without creating daemon runtime files or issuing RPC. Service endpoint
 flags are validated the same way: `--host` must be a DNS hostname or IPv4
-address, and `--port` must be in `1..65535`.
+address, and `--port` must be an integer in `1..65535`.
 Omit `--gpu-ids` to use all visible GPUs; an explicit empty or whitespace-only
 value is invalid.
 `--interval` must be finite, positive, and within the Python runtime wait
@@ -89,8 +89,9 @@ after selection succeeds. `status`, `stop`, and `list-gpus` print JSON objects,
 including `{"error": "..."}` for service/runtime errors after CLI parsing
 succeeds, that can be parsed directly with `jq` or a single `json.loads()` call.
 Malformed JSON-RPC service envelopes are reported as JSON error objects instead
-of empty success results. Invalid service endpoints are also reported as JSON
-errors before any RPC or stop-all fallback runs.
+of empty success results. Invalid service endpoints, including non-integer
+ports, are also reported as JSON errors before any RPC or stop-all fallback
+runs.
 When KeepGPU can identify the underlying device, it reports `physical_id` or
 `uuid` as metadata; those metadata values are not accepted as `--gpu-ids`.
 

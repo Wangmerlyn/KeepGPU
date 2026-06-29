@@ -328,13 +328,28 @@ def _validate_cli_service_host(host: str) -> str:
     return host
 
 
-def _validate_cli_service_port(port: int) -> int:
-    if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+def _validate_cli_service_port(port: Any) -> int:
+    if isinstance(port, bool):
         raise typer.BadParameter(SERVICE_PORT_ERROR)
-    return port
+
+    if isinstance(port, int):
+        parsed_port = port
+    elif isinstance(port, str):
+        if not port or port.strip() != port:
+            raise typer.BadParameter(SERVICE_PORT_ERROR)
+        try:
+            parsed_port = int(port)
+        except ValueError:
+            raise typer.BadParameter(SERVICE_PORT_ERROR) from None
+    else:
+        raise typer.BadParameter(SERVICE_PORT_ERROR)
+
+    if not 1 <= parsed_port <= 65535:
+        raise typer.BadParameter(SERVICE_PORT_ERROR)
+    return parsed_port
 
 
-def _validate_cli_service_endpoint(host: str, port: int) -> Tuple[str, int]:
+def _validate_cli_service_endpoint(host: str, port: Any) -> Tuple[str, int]:
     return _validate_cli_service_host(host), _validate_cli_service_port(port)
 
 
@@ -909,7 +924,11 @@ def start(
 def status(
     job_id: Optional[str] = typer.Option(None, help="Session id to inspect."),
     host: str = typer.Option(DEFAULT_SERVICE_HOST, "--host", help="Service host."),
-    port: int = typer.Option(DEFAULT_SERVICE_PORT, "--port", help="Service port."),
+    port: str = typer.Option(
+        str(DEFAULT_SERVICE_PORT),
+        "--port",
+        help="Service port.",
+    ),
 ):
     """Show session status from KeepGPU local service."""
     try:
@@ -940,7 +959,11 @@ def stop(
         help="Stop all sessions.",
     ),
     host: str = typer.Option(DEFAULT_SERVICE_HOST, "--host", help="Service host."),
-    port: int = typer.Option(DEFAULT_SERVICE_PORT, "--port", help="Service port."),
+    port: str = typer.Option(
+        str(DEFAULT_SERVICE_PORT),
+        "--port",
+        help="Service port.",
+    ),
 ):
     """Stop one session or all sessions."""
     try:
@@ -970,7 +993,11 @@ def stop(
 @app.command("list-gpus")
 def list_gpus(
     host: str = typer.Option(DEFAULT_SERVICE_HOST, "--host", help="Service host."),
-    port: int = typer.Option(DEFAULT_SERVICE_PORT, "--port", help="Service port."),
+    port: str = typer.Option(
+        str(DEFAULT_SERVICE_PORT),
+        "--port",
+        help="Service port.",
+    ),
 ):
     """List GPU telemetry from local service."""
     try:
