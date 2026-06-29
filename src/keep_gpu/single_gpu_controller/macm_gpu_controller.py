@@ -14,6 +14,7 @@ from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
     validate_positive_integer,
+    validate_visible_rank,
 )
 
 logger = setup_logger(__name__)
@@ -30,15 +31,15 @@ class MacMGPUController(BaseGPUController):
         iterations: int = 5000,
     ):
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
-        if rank != 0:
-            raise ValueError("MPS only supports device 0; rank must be 0")
+        busy_threshold = validate_busy_threshold(busy_threshold)
         iterations = validate_positive_integer(iterations, "iterations")
+        rank = validate_visible_rank(rank, 1)
         if not torch.backends.mps.is_available():
             raise RuntimeError("PyTorch MPS backend is not available")
 
         self.rank = rank
         self.device = torch.device("mps")
-        self.busy_threshold = validate_busy_threshold(busy_threshold)
+        self.busy_threshold = busy_threshold
         self.iterations = iterations
         self.platform = ComputingPlatform.MACM
 

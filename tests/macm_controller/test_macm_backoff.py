@@ -1,3 +1,5 @@
+import pytest
+
 from keep_gpu.single_gpu_controller.macm_gpu_controller import MacMGPUController
 
 
@@ -37,6 +39,65 @@ class _StopWaitForbidden:
 
     def wait(self, _timeout):
         raise AssertionError("fatal worker failures should stop immediately")
+
+
+def _forbid_mps_availability_probe(monkeypatch):
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    def fail_probe():
+        raise AssertionError("MPS availability should not be probed")
+
+    monkeypatch.setattr(macm_module.torch.backends.mps, "is_available", fail_probe)
+
+
+def test_macm_constructor_rejects_invalid_busy_threshold_before_mps_probe(
+    monkeypatch,
+):
+    _forbid_mps_availability_probe(monkeypatch)
+
+    with pytest.raises(
+        ValueError,
+        match="busy_threshold must be -1 or an integer between 0 and 100",
+    ):
+        MacMGPUController(busy_threshold=101)
+
+
+@pytest.mark.parametrize("rank", [False, "0", 1.5])
+def test_macm_constructor_rejects_invalid_rank_types_before_mps_probe(
+    monkeypatch,
+    rank,
+):
+    _forbid_mps_availability_probe(monkeypatch)
+
+    with pytest.raises(TypeError, match="rank must be an integer"):
+        MacMGPUController(rank=rank)
+
+
+@pytest.mark.parametrize("rank", [-1, 1])
+def test_macm_constructor_rejects_out_of_range_rank_before_mps_probe(
+    monkeypatch,
+    rank,
+):
+    _forbid_mps_availability_probe(monkeypatch)
+
+    with pytest.raises(
+        ValueError,
+        match=f"rank must be a visible device ordinal less than 1; got {rank}",
+    ):
+        MacMGPUController(rank=rank)
+
+
+def test_macm_constructor_preserves_unavailable_mps_runtime_error(monkeypatch):
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    monkeypatch.setattr(
+        macm_module.torch.backends.mps,
+        "is_available",
+        lambda: False,
+    )
+
+    with pytest.raises(RuntimeError, match="PyTorch MPS backend is not available"):
+        MacMGPUController(rank=0, busy_threshold=25, iterations=1)
 
 
 def test_macm_unknown_utilization_backs_off_when_threshold_enabled():

@@ -157,6 +157,9 @@ This file defines how coding agents should work in this repository.
   `interval`, `busy_threshold`, `vram_to_keep`) before calling
   `get_platform()` or other hardware/backend probes. Visible-count checks for
   explicit IDs still happen after platform/device discovery.
+- Direct single-GPU controllers must validate cheap public constructor inputs
+  before backend availability probes or device selection. For Mac M, validate
+  `rank`, `busy_threshold`, and `iterations` before checking MPS availability.
 - Hardware probes must clean up vendor libraries after detection (for example, NVML shutdown and ROCm SMI shutdown after init).
 - ROCm/HIP PyTorch builds take precedence over NVML-based CUDA fallback: if `torch.version.hip` is truthy, `_check_cuda()` must not classify the runtime as CUDA or probe NVML.
 - Keep lifecycle state truthful: a reserved starting session must be visible in status as `state="starting"`; a session is removed only after release succeeds; timed-out or failed stops must stay visible with state and error details.
