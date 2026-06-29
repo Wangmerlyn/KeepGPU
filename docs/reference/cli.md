@@ -45,6 +45,9 @@ Local input validation runs before service auto-start. Invalid `--vram`,
 `--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, or `--port`
 values fail before daemon startup or RPC. Omit `--gpu-ids` to use all visible
 GPUs; explicit empty or whitespace-only values are invalid.
+If `start` auto-starts the service and the service then reports expected
+startup unavailability before creating a session, the CLI best-effort stops the
+just-created daemon instead of leaving it idle.
 
 | Option | Default | Description |
 | --- | --- | --- |

@@ -31,6 +31,7 @@ from keep_gpu.utilities.session_config import (
 
 DEFAULT_SERVICE_HOST = "127.0.0.1"
 DEFAULT_SERVICE_PORT = 8765
+JSONRPC_STARTUP_UNAVAILABLE = -32000
 SERVICE_HOST_ERROR = "host must be a DNS hostname or IPv4 address"
 SERVICE_PORT_ERROR = "port must be an integer between 1 and 65535"
 ROOT_BLOCKING_OPTION_LABELS = {
@@ -59,6 +60,10 @@ class ServiceResponseError(RuntimeError):
 
 class ServiceRPCError(RuntimeError):
     """Raised when the local service returns a JSON-RPC error."""
+
+    def __init__(self, message: str, code: Optional[int] = None) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def _runtime_dir() -> Path:
@@ -591,7 +596,10 @@ def _rpc_call(
             raise ServiceResponseError("Malformed JSON-RPC response: missing id")
         if response.get("id") not in (payload["id"], None):
             raise ServiceResponseError("Malformed JSON-RPC response: mismatched id")
-        raise ServiceRPCError(error.get("message", str(error)))
+        code = error.get("code")
+        if isinstance(code, bool) or not isinstance(code, int):
+            code = None
+        raise ServiceRPCError(error.get("message", str(error)), code=code)
     if response.get("id") != payload["id"]:
         raise ServiceResponseError("Malformed JSON-RPC response: mismatched id")
     if "result" not in response:
@@ -655,6 +663,20 @@ def _validate_list_gpus_result(result: Dict[str, Any]) -> Dict[str, Any]:
                 "list_gpus", f"gpus[{index}] must be an object"
             )
     return result
+
+
+def _rollback_auto_started_service_on_startup_unavailable(
+    auto_started: bool, exc: ServiceRPCError, host: str, port: int
+) -> None:
+    if not auto_started or exc.code != JSONRPC_STARTUP_UNAVAILABLE:
+        return
+    try:
+        _stop_service_process(host, port)
+    except Exception:  # noqa: BLE001 - best-effort cleanup must not mask startup error
+        logger.debug(
+            "Failed to stop auto-started service after startup-unavailable error",
+            exc_info=True,
+        )
 
 
 def _is_service_unreachable_error(exc: RuntimeError) -> bool:
@@ -872,6 +894,7 @@ def start(
     Use `keep-gpu stop --job-id <id>` to release this session and
     `keep-gpu service-stop` to stop the local service daemon.
     """
+    auto_started = False
     try:
         host, port = _validate_cli_service_endpoint(host, port)
         interval = _validate_cli_interval(interval)
@@ -915,6 +938,12 @@ def start(
         console.print(
             "[dim]When all sessions are done, stop daemon with: keep-gpu service-stop[/dim]"
         )
+    except ServiceRPCError as exc:
+        _rollback_auto_started_service_on_startup_unavailable(
+            auto_started, exc, host, port
+        )
+        console.print(f"[bold red]Error: {exc}[/bold red]")
+        raise typer.Exit(code=1) from exc
     except (RuntimeError, typer.BadParameter) as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
         raise typer.Exit(code=1) from exc

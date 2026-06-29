@@ -127,6 +127,11 @@ This file defines how coding agents should work in this repository.
 - MCP executable HTTP endpoint inputs (`--host`, `--port`) must be validated
   before socket bind, matching the CLI service endpoint contract.
 - `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, and `--port` before auto-starting the service daemon or making RPC calls.
+- If `keep-gpu start` auto-starts a service daemon and the following
+  `start_keep` RPC returns expected startup-unavailable JSON-RPC code
+  `-32000` before creating a session, the CLI must best-effort stop that
+  just-created daemon. Do not stop already-running daemons, malformed success
+  payloads, or unrelated RPC failures.
 - Blocking-mode root CLI options (`--gpu-ids`, `--vram`,
   `--busy-threshold`/`--util-threshold`, hidden `--threshold`, and
   `--interval`) must be rejected when explicitly supplied before a service

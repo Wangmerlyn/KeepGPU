@@ -942,8 +942,9 @@ def test_rpc_call_propagates_error_envelope_with_null_id(monkeypatch):
         },
     )
 
-    with pytest.raises(cli.ServiceRPCError, match="Parse error"):
+    with pytest.raises(cli.ServiceRPCError, match="Parse error") as exc_info:
         cli._rpc_call("status", {}, "127.0.0.1", 8765)
+    assert exc_info.value.code == -32700
 
 
 def test_rpc_call_rejects_error_envelope_without_id_member(monkeypatch):
@@ -1152,6 +1153,123 @@ def test_start_prints_dashboard_and_stop_hints(monkeypatch):
     assert "keep-gpu status --job-id job-abc" in result.output
     assert "keep-gpu stop --job-id job-abc" in result.output
     assert "keep-gpu service-stop" in result.output
+
+
+def test_start_rolls_back_auto_started_service_on_startup_unavailable(monkeypatch):
+    stopped = []
+
+    def fake_ensure(host, port, auto_start=True):
+        return True
+
+    def fake_rpc(method, params, host, port):
+        raise cli.ServiceRPCError(
+            "No usable visible GPUs", code=cli.JSONRPC_STARTUP_UNAVAILABLE
+        )
+
+    def fake_stop(host, port):
+        stopped.append((host, port))
+        return True
+
+    monkeypatch.setattr(cli, "_ensure_service_running", fake_ensure)
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop)
+
+    result = runner.invoke(cli.app, ["start"])
+
+    assert result.exit_code == 1
+    assert "No usable visible GPUs" in result.output
+    assert stopped == [(cli.DEFAULT_SERVICE_HOST, cli.DEFAULT_SERVICE_PORT)]
+
+
+def test_start_does_not_stop_auto_started_service_for_non_startup_rpc_error(
+    monkeypatch,
+):
+    stopped = []
+
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: True)
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            cli.ServiceRPCError("Internal error", code=-32603)
+        ),
+    )
+    monkeypatch.setattr(
+        cli, "_stop_service_process", lambda host, port: stopped.append((host, port))
+    )
+
+    result = runner.invoke(cli.app, ["start"])
+
+    assert result.exit_code == 1
+    assert "Internal error" in result.output
+    assert stopped == []
+
+
+def test_start_does_not_stop_already_running_service_on_startup_unavailable(
+    monkeypatch,
+):
+    stopped = []
+
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            cli.ServiceRPCError(
+                "No usable visible GPUs", code=cli.JSONRPC_STARTUP_UNAVAILABLE
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        cli, "_stop_service_process", lambda host, port: stopped.append((host, port))
+    )
+
+    result = runner.invoke(cli.app, ["start"])
+
+    assert result.exit_code == 1
+    assert "No usable visible GPUs" in result.output
+    assert stopped == []
+
+
+def test_start_does_not_stop_auto_started_service_for_malformed_success_payload(
+    monkeypatch,
+):
+    stopped = []
+
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: True)
+    monkeypatch.setattr(cli, "_rpc_call", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        cli, "_stop_service_process", lambda host, port: stopped.append((host, port))
+    )
+
+    result = runner.invoke(cli.app, ["start"])
+
+    assert result.exit_code == 1
+    assert "start_keep result must include job_id" in result.output
+    assert stopped == []
+
+
+def test_start_rollback_stop_failure_preserves_startup_error(monkeypatch):
+    def fail_stop(host, port):
+        raise RuntimeError("stop failed")
+
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: True)
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            cli.ServiceRPCError(
+                "No usable visible GPUs", code=cli.JSONRPC_STARTUP_UNAVAILABLE
+            )
+        ),
+    )
+    monkeypatch.setattr(cli, "_stop_service_process", fail_stop)
+
+    result = runner.invoke(cli.app, ["start"])
+
+    assert result.exit_code == 1
+    assert "No usable visible GPUs" in result.output
+    assert "stop failed" not in result.output
 
 
 def test_service_stop_requires_managed_pid(monkeypatch):
