@@ -474,12 +474,20 @@ def _record_matches_running_process(
         return False
 
     recorded_uid = record.get("uid")
+    if recorded_uid is None:
+        return False
     current_uid = _process_uid(pid)
+    if current_uid is None:
+        return False
     if recorded_uid != current_uid:
         return False
 
     recorded_start = record.get("start_time")
+    if recorded_start is None:
+        return False
     current_start = _process_start_identity(pid)
+    if current_start is None:
+        return False
     if recorded_start != current_start:
         return False
 

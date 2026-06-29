@@ -116,6 +116,10 @@ This file defines how coding agents should work in this repository.
   before service RPC, daemon auto-start, stop-all fallback, or daemon ownership
   operations. JSON-output commands must return structured `{"error": "..."}`
   objects for invalid endpoints, not tracebacks.
+- CLI service daemon ownership checks must require known PID identity
+  components. A PID record with `uid` or `start_time` missing or `null`, or a
+  current process probe that cannot recover either value, is not ownership
+  verified and must not be signaled as a managed daemon.
 - MCP executable HTTP endpoint inputs (`--host`, `--port`) must be validated
   before socket bind, matching the CLI service endpoint contract.
 - `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, and `--port` before auto-starting the service daemon or making RPC calls.
