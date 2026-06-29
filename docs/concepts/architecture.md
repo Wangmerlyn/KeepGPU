@@ -99,9 +99,13 @@ Elementwise keep-alive batches:
   session snapshot, while aggregating results in deterministic snapshot order.
 - Service session state is intentionally conservative: `status` shows reserved
   jobs as `state="starting"` while controller startup is in progress, and
-  `stop_keep` removes a session only after release succeeds. Timed-out sessions
-  stay visible as `state="stopping"` until the background release finishes;
-  failed releases stay visible as `state="stop_failed"` with `last_error`.
+  `stop_keep` removes a session only after release succeeds. Stop requests wait
+  for starting jobs within a bounded budget; if that wait times out, the
+  response uses `timed_out`, the job can remain visible as `state="starting"`,
+  and the service remembers the cancellation so a later successful startup is
+  released quietly. Timed-out releases stay visible as `state="stopping"` until
+  the background release finishes; failed releases stay visible as
+  `state="stop_failed"` with `last_error`.
 - After startup, terminal worker runtime or allocation failures are surfaced as
   `state="runtime_failed"` with `last_error`. The retained session remains
   visible and can still be stopped. Busy-GPU or unavailable-telemetry deferral is

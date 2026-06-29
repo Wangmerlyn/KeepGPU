@@ -85,10 +85,13 @@ runtime failure.
 
 `--job-id` and `--all` are mutually exclusive. Passing both returns a JSON
 error before any RPC or stop-all fallback runs.
-Stop waits for in-progress starts to settle before returning `not found` or
-taking the stop-all snapshot, so starting sessions are not silently skipped.
-For `--all`, starts that begin after that command's initial snapshot are not
-stopped by that command.
+Targeted stop waits for a matching in-progress start to settle before returning
+`not found`, so starting sessions are not silently skipped. That wait is
+bounded; if startup does not settle in time, the response includes the job in
+`timed_out`, and the service remembers the cancellation so a later successful
+startup is released quietly. For `--all`, the service records the initial
+active/starting boundary first, waits only for starting jobs in that boundary,
+and does not stop later starts.
 `--all` releases the sessions in its snapshot concurrently and prints results
 in deterministic snapshot order with the same additive response fields.
 The output is a directly parseable JSON object, including `{"error": "..."}` for
