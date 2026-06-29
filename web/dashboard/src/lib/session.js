@@ -206,6 +206,10 @@ function formatErrors(errors) {
   return []
 }
 
+function cleanMessage(message) {
+  return typeof message === "string" && message.trim() ? message.trim() : null
+}
+
 export function formatStopResultMessage(result) {
   const stopped = asArray(result?.stopped)
   const timedOut = asArray(result?.timed_out)
@@ -233,5 +237,8 @@ export function formatStopResultMessage(result) {
     parts.push(`Errors: ${errors.join("; ")}.`)
   }
 
-  return parts.length > 0 ? parts.join(" ") : "No sessions were released."
+  return (
+    (parts.length > 0 ? parts.join(" ") : cleanMessage(result?.message)) ??
+    "No sessions were released."
+  )
 }
