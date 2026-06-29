@@ -95,8 +95,8 @@ Flags that matter:
     `id` is the visible ordinal accepted by `--gpu-ids`; optional
     `physical_id`/`uuid` fields are metadata only. CUDA and ROCm devices are
     listed only when Torch can select the same visible ordinal; NVML-only or
-    unselectable ROCm inventory is hidden instead of producing unusable
-    `gpu_ids`.
+    malformed CUDA mask or unselectable ROCm inventory is hidden instead of
+    producing unusable `gpu_ids`.
   - `status`, `stop`, and `list-gpus` print structured JSON objects, including
     `{"error": "..."}` for service/runtime errors after CLI parsing succeeds,
     that tools such as `jq` can parse directly. Malformed JSON-RPC service

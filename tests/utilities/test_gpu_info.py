@@ -372,6 +372,21 @@ def test_get_gpu_info_nvml_malformed_cuda_visible_devices_hides_all(monkeypatch)
     assert dummy_nvml.shutdown_calls == 1
 
 
+@pytest.mark.parametrize(
+    "mask",
+    ["", "-1", "0,,2", "0,0", "0,00", "GPU-abc123,gpu-abc123", "-1,0", "\u00b2"],
+)
+def test_get_gpu_info_cuda_hidden_or_invalid_mask_does_not_fall_back_to_torch(
+    monkeypatch, mask
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", mask)
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    dummy_cuda = _install_cuda_gpu_info_mocks(monkeypatch, count=1)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_cuda.set_devices == []
+
+
 def test_get_gpu_info_nvml_out_of_range_cuda_visible_devices_hides_all(
     monkeypatch,
 ):

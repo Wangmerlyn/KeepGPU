@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import torch
@@ -14,24 +15,50 @@ from keep_gpu.utilities.rocm_visibility import (
 logger = setup_logger(__name__)
 
 
+@dataclass(frozen=True)
+class _CudaVisibleMask:
+    tokens: Optional[List[str]]
+    invalid: bool = False
+
+    @property
+    def permits_torch_fallback(self) -> bool:
+        return not self.invalid and (self.tokens is None or bool(self.tokens))
+
+
+def _is_cuda_visible_index_token(token: str) -> bool:
+    return token.isascii() and token.isdigit()
+
+
+def _cuda_visible_token_key(token: str) -> tuple[str, int | str]:
+    if _is_cuda_visible_index_token(token):
+        return ("index", int(token))
+    return ("token", token.lower())
+
+
 def _decode_nvml_text(value: Any) -> str:
     if isinstance(value, bytes):
         return value.decode(errors="ignore")
     return str(value)
 
 
-def _cuda_visible_tokens() -> Optional[List[str]]:
+def _cuda_visible_mask() -> _CudaVisibleMask:
     raw = os.environ.get("CUDA_VISIBLE_DEVICES")
     if raw is None:
-        return None
+        return _CudaVisibleMask(tokens=None)
     if raw.strip() in {"", "-1"}:
-        return []
+        return _CudaVisibleMask(tokens=[])
     tokens = [token.strip() for token in raw.split(",")]
-    if any(not token or token == "-1" for token in tokens):
-        return []
-    if len(set(tokens)) != len(tokens):
-        return []
-    return tokens
+    if any(
+        not token
+        or token == "-1"
+        or (token.isdigit() and not _is_cuda_visible_index_token(token))
+        for token in tokens
+    ):
+        return _CudaVisibleMask(tokens=[], invalid=True)
+    token_keys = [_cuda_visible_token_key(token) for token in tokens]
+    if len(set(token_keys)) != len(token_keys):
+        return _CudaVisibleMask(tokens=[], invalid=True)
+    return _CudaVisibleMask(tokens=tokens)
 
 
 def _torch_cuda_visible_count() -> Optional[int]:
@@ -145,7 +172,10 @@ def _query_nvml() -> List[Dict[str, Any]]:
     infos: List[Dict[str, Any]] = []
     try:
         count = pynvml.nvmlDeviceGetCount()
-        visible_tokens = _cuda_visible_tokens()
+        visible_mask = _cuda_visible_mask()
+        if visible_mask.invalid:
+            return []
+        visible_tokens = visible_mask.tokens
         if visible_tokens is None:
             visible_tokens = [str(idx) for idx in range(count)]
 
@@ -158,13 +188,13 @@ def _query_nvml() -> List[Dict[str, Any]]:
             return []
 
         for token in visible_tokens:
-            if token.isdigit() and int(token) >= count:
+            if _is_cuda_visible_index_token(token) and int(token) >= count:
                 return []
 
         visible_handles = []
         seen_physical_ids = set()
         for visible_id, token in enumerate(visible_tokens):
-            physical_id = int(token) if token.isdigit() else None
+            physical_id = int(token) if _is_cuda_visible_index_token(token) else None
             try:
                 handle = (
                     pynvml.nvmlDeviceGetHandleByIndex(physical_id)
@@ -379,6 +409,7 @@ def get_gpu_info() -> List[Dict[str, Any]]:
             logger.debug("Torch GPU info failed: %s", exc)
         return _query_mps()
 
+    cuda_visible_mask = _cuda_visible_mask()
     try:
         infos = _query_nvml()
         if infos:
@@ -386,12 +417,13 @@ def get_gpu_info() -> List[Dict[str, Any]]:
     except Exception as exc:
         logger.debug("NVML info failed: %s", exc)
 
-    try:
-        infos = _query_torch()
-        if infos:
-            return infos
-    except Exception as exc:
-        logger.debug("Torch GPU info failed: %s", exc)
+    if cuda_visible_mask.permits_torch_fallback:
+        try:
+            infos = _query_torch()
+            if infos:
+                return infos
+        except Exception as exc:
+            logger.debug("Torch GPU info failed: %s", exc)
 
     return _query_mps()
 
