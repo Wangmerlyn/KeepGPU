@@ -188,7 +188,8 @@ to zero devices.
 - Stop responses distinguish completed cleanup from partial cleanup:
   `stopped` means released, while `timed_out` sessions remain visible as
   `stopping` until background cleanup completes and `failed` sessions remain
-  visible with `state` and `last_error`.
+  visible with `state` and `last_error`. The outcome lists are disjoint, and
+  `errors` contains one message for each `failed` job only.
 - Status and stop requests both account for in-progress starts: status reports
   them as `starting`, and stop waits for startup to settle so a session is not
   reported as missing or skipped by stop-all. That startup wait is bounded; if

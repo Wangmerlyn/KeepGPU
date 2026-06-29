@@ -983,6 +983,43 @@ def test_stop_job_rejects_malformed_job_id_lists_and_errors(monkeypatch, payload
     assert "Traceback" not in result.output
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"stopped": ["job-1", "job-1"], "timed_out": [], "failed": [], "errors": {}},
+        {"stopped": ["job-1"], "timed_out": ["job-1"], "failed": [], "errors": {}},
+        {
+            "stopped": ["job-1"],
+            "timed_out": [],
+            "failed": ["job-1"],
+            "errors": {"job-1": "boom"},
+        },
+        {"stopped": [], "timed_out": [], "failed": ["job-1"], "errors": {}},
+        {
+            "stopped": [],
+            "timed_out": [],
+            "failed": [],
+            "errors": {"job-1": "boom"},
+        },
+    ],
+)
+def test_stop_job_rejects_inconsistent_outcome_payloads(monkeypatch, payload):
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        assert method == "stop_keep"
+        assert params == {"job_id": "job-1"}
+        assert timeout == 45.0
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["stop", "--job-id", "job-1"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed stop_keep response" in decoded["error"]
+    assert "Traceback" not in result.output
+
+
 def test_stop_all_outputs_single_decoded_json_object(monkeypatch):
     monkeypatch.setattr(
         cli,
@@ -1010,6 +1047,38 @@ def test_stop_all_rejects_malformed_payload(monkeypatch):
         assert params == {}
         assert timeout == 45.0
         return {"stopped": []}
+
+    def fake_stop_process(host, port):
+        called["stop_process"] = True
+        raise AssertionError("_stop_service_process must not be called")
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: 1234)
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["stop", "--all"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed stop_keep response" in decoded["error"]
+    assert called["stop_process"] is False
+    assert "Traceback" not in result.output
+
+
+def test_stop_all_rejects_inconsistent_payload_before_stopping_daemon(monkeypatch):
+    called = {"stop_process": False}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        assert method == "stop_keep"
+        assert params == {}
+        assert timeout == 45.0
+        return {
+            "stopped": ["job-1"],
+            "timed_out": [],
+            "failed": ["job-1"],
+            "errors": {"job-1": "boom"},
+        }
 
     def fake_stop_process(host, port):
         called["stop_process"] = True
