@@ -650,6 +650,27 @@ def test_http_json_request_reports_invalid_utf8_as_service_response_error(monkey
         cli._http_json_request("GET", "http://127.0.0.1:8765/health")
 
 
+def test_ensure_service_running_stops_auto_started_process_on_health_timeout(
+    monkeypatch,
+):
+    stopped = []
+
+    monkeypatch.setattr(cli, "_service_available", lambda host, port: False)
+    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: None)
+    monkeypatch.setattr(cli, "_start_service_process", lambda host, port: 4321)
+    monkeypatch.setattr(cli.time, "sleep", lambda seconds: None)
+
+    def fake_stop(host, port, timeout=3.0):
+        stopped.append((host, port, timeout))
+
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop)
+
+    with pytest.raises(RuntimeError, match="Failed to auto-start KeepGPU service"):
+        cli._ensure_service_running("127.0.0.1", 8765)
+
+    assert stopped == [("127.0.0.1", 8765, 1.0)]
+
+
 def test_status_outputs_single_decoded_json_object(monkeypatch):
     def fake_rpc(method, params, host, port):
         assert method == "status"

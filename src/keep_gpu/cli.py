@@ -471,6 +471,14 @@ def _ensure_service_running(host: str, port: int, auto_start: bool = True) -> bo
             return True
         time.sleep(0.2)
 
+    try:
+        _stop_service_process(host, port, timeout=1.0)
+    except Exception:  # noqa: BLE001 - cleanup must not mask auto-start timeout
+        logger.debug(
+            "Failed to stop auto-started service after health-check timeout",
+            exc_info=True,
+        )
+
     raise RuntimeError(
         f"Failed to auto-start KeepGPU service at {host}:{port}. Try `keep-gpu serve` manually."
     )
