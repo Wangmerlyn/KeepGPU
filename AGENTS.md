@@ -82,8 +82,9 @@ This file defines how coding agents should work in this repository.
   JSON-RPC `-32700` parse-error envelopes.
 - API/RPC unsupported HTTP methods must not fall back to
   `BaseHTTPRequestHandler` HTML errors; known API/RPC routes return structured
-  JSON `405 Method Not Allowed` responses with `Allow`, and unknown `/api/*`
-  routes return structured JSON `404 Unknown endpoint` responses.
+  JSON `405 Method Not Allowed` responses with `Allow`, and exact `/api` plus
+  unknown `/api/*` routes return structured JSON `404 Unknown endpoint`
+  responses.
 - Implemented HTTP verb handlers (`do_POST`, `do_DELETE`, and future siblings)
   must call the shared unsupported-method helper before local unknown-endpoint
   404 branches, so known paths never regress to 404 or body-parse errors solely
