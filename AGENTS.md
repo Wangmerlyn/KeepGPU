@@ -94,6 +94,9 @@ This file defines how coding agents should work in this repository.
 - `/rpc` is a POST-only JSON-RPC endpoint; `GET /rpc` must return structured
   JSON `405 Method Not Allowed` with `Allow: POST` and must never serve the
   dashboard/static fallback.
+- Missing dashboard asset URLs, including `/assets/*` and extension-bearing
+  static paths, must return structured JSON `404` errors instead of the
+  dashboard HTML shell.
 - For stdio MCP, stdout must contain only JSON protocol messages; diagnostics
   and human logs belong on stderr.
 

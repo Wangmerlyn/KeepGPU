@@ -10,6 +10,8 @@ KeepGPU ships a local service that powers three interfaces:
 This is the same backend used by `keep-gpu start/status/stop/list-gpus`.
 Exact `/api` and unknown `/api/*` paths return structured JSON `404` errors
 instead of dashboard HTML.
+Missing packaged asset URLs also return JSON `404` responses instead of the
+dashboard shell.
 
 ## Start service
 

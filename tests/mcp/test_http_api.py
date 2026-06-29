@@ -486,6 +486,45 @@ def test_http_health_and_static_index():
         thread.join(timeout=2)
 
 
+@pytest.mark.parametrize("path", ["/assets/missing.js", "/missing.keepgpu-test.js"])
+def test_http_missing_static_asset_returns_404_not_dashboard_index(path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("GET", f"{base}{path}")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get_content_type() == "application/json"
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Static asset not found"}
+    }
+
+
+def test_http_missing_dashboard_shell_reports_ui_not_built(monkeypatch, tmp_path):
+    monkeypatch.setattr(server_module, "STATIC_DIR", tmp_path)
+
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("GET", f"{base}/")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get_content_type() == "application/json"
+    assert json.loads(body.decode("utf-8")) == {"error": {"message": "UI not built"}}
+
+
 def test_http_session_lifecycle():
     server = make_server()
 
