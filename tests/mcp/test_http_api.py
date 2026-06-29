@@ -14,6 +14,7 @@ from keep_gpu.mcp.server import (
     SessionStartupUnavailable,
     _JSONRPCHandler,
 )
+from keep_gpu.mcp import server as server_module
 from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableError
 
 
@@ -1163,6 +1164,38 @@ def test_http_get_api_gpus_runtime_error_returns_json_500(monkeypatch):
 
     assert status_code == 500
     assert payload["error"]["message"] == "telemetry exploded"
+    assert payload["error"]["type"] == "RuntimeError"
+
+
+def test_http_get_api_gpus_malformed_record_returns_json_500(monkeypatch):
+    monkeypatch.setattr(
+        server_module,
+        "get_gpu_info",
+        lambda: [
+            {
+                "id": 0,
+                "platform": "CUDA",
+                "name": "GPU 0",
+                "memory_total": None,
+                "memory_used": None,
+                "utilization": None,
+            }
+        ],
+    )
+    server = KeepGPUServer(controller_factory=cast(Any, dummy_factory))
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("GET", f"{base}/api/gpus")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status_code == 500
+    assert "Malformed list_gpus response" in payload["error"]["message"]
+    assert "visible_id" in payload["error"]["message"]
     assert payload["error"]["type"] == "RuntimeError"
 
 

@@ -841,6 +841,97 @@ def test_list_gpus():
     assert "gpus" in info
 
 
+def test_list_gpus_accepts_nullable_memory_and_utilization(monkeypatch):
+    records = [
+        {
+            "id": 0,
+            "visible_id": 0,
+            "platform": "CUDA",
+            "name": "GPU 0",
+            "memory_total": None,
+            "memory_used": None,
+            "utilization": None,
+        }
+    ]
+    monkeypatch.setattr(server_module, "get_gpu_info", lambda: records)
+    server = make_server()
+
+    assert server.list_gpus() == {"gpus": records}
+
+
+@pytest.mark.parametrize(
+    ("record", "message_fragment"),
+    [
+        (
+            {
+                "id": 0,
+                "platform": "CUDA",
+                "name": "GPU 0",
+                "memory_total": None,
+                "memory_used": None,
+                "utilization": None,
+            },
+            "visible_id",
+        ),
+        (
+            {
+                "id": 2,
+                "visible_id": 0,
+                "platform": "CUDA",
+                "name": "GPU 0",
+                "memory_total": None,
+                "memory_used": None,
+                "utilization": None,
+            },
+            "must match",
+        ),
+        (
+            {
+                "id": 0,
+                "visible_id": 0,
+                "platform": "CUDA",
+                "name": "GPU 0",
+                "memory_total": None,
+                "memory_used": None,
+                "utilization": float("nan"),
+            },
+            "finite number",
+        ),
+        (
+            {
+                "id": 0,
+                "visible_id": 0,
+                "platform": "CUDA",
+                "name": "GPU 0",
+                "memory_total": None,
+                "memory_used": None,
+                "utilization": float("inf"),
+            },
+            "finite number",
+        ),
+    ],
+)
+def test_jsonrpc_list_gpus_rejects_malformed_gpu_record(
+    monkeypatch, record, message_fragment
+):
+    monkeypatch.setattr(
+        server_module,
+        "get_gpu_info",
+        lambda: [record],
+    )
+    server = make_server()
+    req = {"jsonrpc": "2.0", "id": 21, "method": "list_gpus", "params": {}}
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 21
+    assert "result" not in resp
+    assert resp["error"]["code"] == JSONRPC_INTERNAL_ERROR
+    assert "Malformed list_gpus response" in resp["error"]["message"]
+    assert message_fragment in resp["error"]["message"]
+
+
 def test_mcp_initialize_returns_server_capabilities():
     server = make_server()
     req = {
@@ -1070,6 +1161,39 @@ def test_mcp_tools_call_unexpected_failure_returns_jsonrpc_internal_error():
     assert resp["error"]["code"] == JSONRPC_INTERNAL_ERROR
     assert "controller exploded" in resp["error"]["message"]
     assert server.status()["active_jobs"] == []
+
+
+def test_mcp_tools_call_list_gpus_rejects_malformed_gpu_record(monkeypatch):
+    monkeypatch.setattr(
+        server_module,
+        "get_gpu_info",
+        lambda: [
+            {
+                "id": 0,
+                "platform": "CUDA",
+                "name": "GPU 0",
+                "memory_total": None,
+                "memory_used": None,
+                "utilization": None,
+            }
+        ],
+    )
+    server = make_server()
+    req = {
+        "jsonrpc": "2.0",
+        "id": 22,
+        "method": "tools/call",
+        "params": {"name": "list_gpus", "arguments": {}},
+    }
+
+    resp = _handle_request(server, req)
+
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 22
+    assert "result" not in resp
+    assert resp["error"]["code"] == JSONRPC_INTERNAL_ERROR
+    assert "Malformed list_gpus response" in resp["error"]["message"]
+    assert "visible_id" in resp["error"]["message"]
 
 
 def test_mcp_tools_call_unknown_tool_returns_protocol_error():

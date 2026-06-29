@@ -30,6 +30,7 @@ from __future__ import annotations
 import atexit
 import ipaddress
 import json
+import math
 import sys
 import uuid
 import argparse
@@ -187,6 +188,62 @@ class SessionInputError(ValueError):
 
 class SessionStartupUnavailable(Exception):
     """Expected session startup failure caused by unavailable hardware/platform."""
+
+
+def _plain_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _finite_number_or_none(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return True
+    return isinstance(value, float) and math.isfinite(value)
+
+
+def _int_or_none(value: Any) -> bool:
+    return value is None or _plain_int(value)
+
+
+def _raise_malformed_gpu_record(index: int, message: str) -> None:
+    raise RuntimeError(f"Malformed list_gpus response: GPU record {index} {message}")
+
+
+def _validate_list_gpus_records(infos: Any) -> None:
+    if not isinstance(infos, list):
+        raise RuntimeError("Malformed list_gpus response: expected a GPU record list")
+
+    for index, record in enumerate(infos):
+        if not isinstance(record, dict):
+            _raise_malformed_gpu_record(index, "must be an object")
+        for field in ("id", "visible_id"):
+            if field not in record:
+                _raise_malformed_gpu_record(index, f"missing {field!r}")
+            if not _plain_int(record[field]):
+                _raise_malformed_gpu_record(index, f"{field!r} must be an integer")
+        if record["id"] != record["visible_id"]:
+            _raise_malformed_gpu_record(index, "'id' must match 'visible_id'")
+        for field in ("platform", "name"):
+            if field not in record:
+                _raise_malformed_gpu_record(index, f"missing {field!r}")
+            if not isinstance(record[field], str):
+                _raise_malformed_gpu_record(index, f"{field!r} must be a string")
+        for field in ("memory_total", "memory_used"):
+            if field not in record:
+                _raise_malformed_gpu_record(index, f"missing {field!r}")
+            if not _int_or_none(record[field]):
+                _raise_malformed_gpu_record(
+                    index, f"{field!r} must be an integer or null"
+                )
+        if "utilization" not in record:
+            _raise_malformed_gpu_record(index, "missing 'utilization'")
+        if not _finite_number_or_none(record["utilization"]):
+            _raise_malformed_gpu_record(
+                index, "'utilization' must be a finite number or null"
+            )
 
 
 def _validate_public_session_input(validator: Callable[..., Any], *args: Any) -> Any:
@@ -681,6 +738,7 @@ class KeepGPUServer:
     def list_gpus(self) -> Dict[str, Any]:
         """Return detailed GPU info with visible and physical identifiers."""
         infos = get_gpu_info()
+        _validate_list_gpus_records(infos)
         return {"gpus": infos}
 
     def shutdown(self) -> None:
