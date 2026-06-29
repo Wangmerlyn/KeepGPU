@@ -192,9 +192,11 @@ This file defines how coding agents should work in this repository.
 - Non-force `keep-gpu service-stop` must require a reachable service and a successful status/RPC check before signaling; use `--force` for unresponsive auto-started daemons.
 - Treat custom `job_id` values as reserved from the moment startup begins; duplicate starts must fail before another controller can begin keep-alive work.
 - Keep custom `job_id` validation centralized in `session_config.py`: only `None` means omitted/all-sessions, and custom IDs must be non-empty URL-path-safe strings before any session state changes.
-- Stop requests must not miss starting sessions; wait briefly for startup to
-  settle before returning `not found` or taking a stop-all snapshot, and honor
-  timed-out starting-session stops after startup eventually completes.
+- Stop requests must not miss starting sessions; targeted stop waits briefly
+  for a matching start before returning `not found`, and stop-all records its
+  active and starting boundary before waiting only for starts in that boundary.
+  Timed-out starting-session stops must be honored after startup eventually
+  completes.
 - Stop-all may release independent sessions concurrently, but must not duplicate release work for `stopping` sessions and must keep deterministic additive result fields.
 - Keep utilization backoff eco-safe: valid `busy_threshold` values are `-1` or `0..100`; public defaults must use the shared `DEFAULT_BUSY_THRESHOLD` (`25`), and when telemetry is unavailable with `busy_threshold >= 0`, controllers should sleep instead of allocating keep tensors or running keepalive compute. Only `busy_threshold=-1` is the explicit unconditional mode.
 - Dashboard telemetry must display unavailable utilization as unknown/`n/a`, not

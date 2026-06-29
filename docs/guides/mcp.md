@@ -159,8 +159,8 @@ request timeout.
 
 If `stop_keep` arrives while a matching session is still starting, the service
 waits briefly for startup to settle before deciding whether the job exists.
-Stop-all requests also wait briefly for in-progress starts before taking their
-session snapshot.
+Stop-all records the active and starting sessions in its initial snapshot, then
+waits briefly only for the starts in that snapshot.
 If startup does not settle within the stop wait budget, the stop response lists
 that job in `timed_out`; when startup later completes successfully, the service
 releases the session in the background instead of leaving the keeper active.

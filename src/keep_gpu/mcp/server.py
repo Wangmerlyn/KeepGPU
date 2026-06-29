@@ -169,6 +169,7 @@ MCP_TOOLS: List[Dict[str, Any]] = [
 class Session:
     controller: GlobalGPUController
     params: Dict[str, Any]
+    start_token: str
     state: str = "active"
     last_error: Optional[str] = None
 
@@ -201,26 +202,33 @@ class KeepGPUServer:
         controller_factory: Optional[Callable[..., GlobalGPUController]] = None,
     ) -> None:
         self._sessions: Dict[str, Session] = {}
-        self._starting_job_ids: set[str] = set()
         self._starting_params: Dict[str, Dict[str, Any]] = {}
-        self._pending_stop_job_ids: set[str] = set()
+        self._starting_tokens: Dict[str, str] = {}
+        self._pending_stop_tokens: set[str] = set()
         self._startup_stop_wait_timeout_s = STARTUP_STOP_WAIT_TIMEOUT_SECONDS
         self._sessions_lock = threading.RLock()
         self._sessions_cond = threading.Condition(self._sessions_lock)
         self._controller_factory = controller_factory or GlobalGPUController
         atexit.register(self.shutdown)
 
-    def _wait_for_starting_jobs_or_mark_pending(self, job_ids: List[str]) -> set[str]:
+    def _wait_for_starting_jobs_or_mark_pending(
+        self, starting_tokens: Dict[str, str]
+    ) -> set[str]:
         deadline = time.monotonic() + self._startup_stop_wait_timeout_s
-        job_id_set = set(job_ids)
         with self._sessions_lock:
             while True:
-                still_starting = job_id_set & self._starting_job_ids
+                still_starting = {
+                    job_id
+                    for job_id, start_token in starting_tokens.items()
+                    if self._starting_tokens.get(job_id) == start_token
+                }
                 if not still_starting:
                     return set()
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    self._pending_stop_job_ids.update(still_starting)
+                    self._pending_stop_tokens.update(
+                        starting_tokens[job_id] for job_id in still_starting
+                    )
                     return still_starting
                 self._sessions_cond.wait(remaining)
 
@@ -304,6 +312,7 @@ class KeepGPUServer:
         job_id = _validate_public_session_input(validate_job_id, job_id)
         if job_id is None:
             job_id = str(uuid.uuid4())
+        start_token = str(uuid.uuid4())
         params = {
             "gpu_ids": gpu_ids,
             "vram": vram,
@@ -311,10 +320,10 @@ class KeepGPUServer:
             "busy_threshold": busy_threshold,
         }
         with self._sessions_lock:
-            if job_id in self._sessions or job_id in self._starting_job_ids:
+            if job_id in self._sessions or job_id in self._starting_params:
                 raise SessionInputError(f"job_id {job_id} already exists")
-            self._starting_job_ids.add(job_id)
             self._starting_params[job_id] = params
+            self._starting_tokens[job_id] = start_token
 
         try:
             controller = self._controller_factory(
@@ -326,9 +335,10 @@ class KeepGPUServer:
             controller.keep()
         except Exception as exc:
             with self._sessions_lock:
-                self._starting_job_ids.discard(job_id)
                 self._starting_params.pop(job_id, None)
-                self._pending_stop_job_ids.discard(job_id)
+                failed_start_token = self._starting_tokens.pop(job_id, None)
+                if failed_start_token is not None:
+                    self._pending_stop_tokens.discard(failed_start_token)
                 self._sessions_cond.notify_all()
             if isinstance(exc, InvalidVisibleGPUSelectionError):
                 raise SessionInputError(str(exc)) from exc
@@ -337,23 +347,29 @@ class KeepGPUServer:
             raise
 
         with self._sessions_lock:
-            self._starting_job_ids.discard(job_id)
             params = self._starting_params.pop(job_id, params)
-            pending_stop = job_id in self._pending_stop_job_ids
-            self._pending_stop_job_ids.discard(job_id)
+            start_token = self._starting_tokens.pop(job_id, start_token)
+            pending_stop = start_token in self._pending_stop_tokens
+            self._pending_stop_tokens.discard(start_token)
             self._sessions[job_id] = Session(
                 controller=controller,
                 params=params,
+                start_token=start_token,
             )
             self._sessions_cond.notify_all()
         if pending_stop:
             threading.Thread(
-                target=self.stop_keep,
-                kwargs={"job_id": job_id},
+                target=self._stop_keep_for_start_token,
+                args=(job_id, start_token),
                 daemon=True,
             ).start()
         logger.info("Started keep session %s on GPUs %s", job_id, gpu_ids)
         return {"job_id": job_id}
+
+    def _stop_keep_for_start_token(
+        self, job_id: str, start_token: str
+    ) -> Dict[str, Any]:
+        return self.stop_keep(job_id=job_id, _expected_start_token=start_token)
 
     @staticmethod
     def _empty_stop_result() -> Dict[str, Any]:
@@ -419,7 +435,10 @@ class KeepGPUServer:
         logger.warning("Delayed release failed for keep session %s: %s", job_id, error)
 
     def stop_keep(
-        self, job_id: Optional[str] = None, quiet: bool = False
+        self,
+        job_id: Optional[str] = None,
+        quiet: bool = False,
+        _expected_start_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Stop one or all active keep sessions.
@@ -437,13 +456,34 @@ class KeepGPUServer:
         """
         job_id = _validate_public_session_input(validate_job_id, job_id)
         if job_id is not None:
-            timed_out_starting = self._wait_for_starting_jobs_or_mark_pending([job_id])
+            with self._sessions_lock:
+                starting_token = self._starting_tokens.get(job_id)
+                if _expected_start_token is not None:
+                    starting_to_wait_for = (
+                        {job_id: _expected_start_token}
+                        if starting_token == _expected_start_token
+                        else {}
+                    )
+                else:
+                    starting_to_wait_for = (
+                        {job_id: starting_token} if starting_token is not None else {}
+                    )
+            timed_out_starting = self._wait_for_starting_jobs_or_mark_pending(
+                starting_to_wait_for
+            )
             if job_id in timed_out_starting:
                 result = self._empty_stop_result()
                 result["timed_out"].append(job_id)
                 return self._finalize_stop_result(result)
             with self._sessions_lock:
                 session = self._sessions.get(job_id)
+                expected_start_token = _expected_start_token or starting_token
+                if (
+                    session is not None
+                    and expected_start_token is not None
+                    and session.start_token != expected_start_token
+                ):
+                    session = None
                 if session and session.state == "stopping":
                     result = self._empty_stop_result()
                     result["timed_out"].append(job_id)
@@ -491,12 +531,21 @@ class KeepGPUServer:
             return result
 
         with self._sessions_lock:
-            starting_to_wait_for = list(self._starting_params)
+            starting_to_wait_for = dict(self._starting_tokens)
+            active_tokens_to_stop = {
+                job_id: session.start_token
+                for job_id, session in self._sessions.items()
+            }
         timed_out_starting = self._wait_for_starting_jobs_or_mark_pending(
             starting_to_wait_for
         )
         with self._sessions_lock:
-            session_items = list(self._sessions.items())
+            session_items = [
+                (job_id, session)
+                for job_id, session in self._sessions.items()
+                if active_tokens_to_stop.get(job_id) == session.start_token
+                or starting_to_wait_for.get(job_id) == session.start_token
+            ]
             releasable_items = []
             release_outcomes: List[Dict[str, Any]] = [
                 {} for _job_id, _session in session_items
@@ -754,13 +803,15 @@ def _prevalidate_rest_session_payload(
         )
     if "vram" in safe_payload:
         _validate_public_session_input(parse_vram_to_elements, safe_payload["vram"])
-    if "job_id" in safe_payload:
-        job_id = _validate_public_session_input(validate_job_id, safe_payload["job_id"])
-        safe_payload["job_id"] = job_id
-        if job_id is not None:
-            with server._sessions_lock:
-                if job_id in server._sessions or job_id in server._starting_job_ids:
-                    raise SessionInputError(f"job_id {job_id} already exists")
+        if "job_id" in safe_payload:
+            job_id = _validate_public_session_input(
+                validate_job_id, safe_payload["job_id"]
+            )
+            safe_payload["job_id"] = job_id
+            if job_id is not None:
+                with server._sessions_lock:
+                    if job_id in server._sessions or job_id in server._starting_params:
+                        raise SessionInputError(f"job_id {job_id} already exists")
     return safe_payload
 
 

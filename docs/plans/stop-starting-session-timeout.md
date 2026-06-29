@@ -23,6 +23,10 @@ automatically.
 - Track timed-out stop requests for starting jobs. If such a startup later
   completes successfully, immediately trigger a logged background stop so a
   timed-out cancellation does not leave a surprise active keeper.
+- Track immutable per-start tokens while waiting on startup so reusable custom
+  job IDs cannot let an older stop request affect a later start.
+- Bind pending-stop background cleanup to the original start token so a delayed
+  cleanup cannot release a replacement session that reused the same job ID.
 - Preserve existing behavior for slow startups that settle within the wait
   budget: the original stop request releases the session and reports it in
   `stopped`.
@@ -41,6 +45,12 @@ automatically.
       pending-stop state before a later reuse of the same job ID.
 - [x] Add GREEN coverage that the pending-stop background release keeps normal
       stop logging enabled.
+- [x] Add GREEN coverage that reused job IDs with different start tokens are not
+      attributed to an older startup wait.
+- [x] Add GREEN coverage that stop-all does not stop a session that starts and
+      completes after the initial stop-all snapshot.
+- [x] Add GREEN coverage that a stale pending-stop cleanup does not stop a
+      replacement session with the same job ID and a new start token.
 - [x] Implement bounded startup wait and pending-stop handoff.
 - [x] Update `AGENTS.md`, MCP/CLI docs, and this plan.
 - [x] Run focused tests, MCP shard, full tests, docs build, pre-commit, and
@@ -71,13 +81,25 @@ automatically.
   failed under a temporary mutation that restored `quiet=True` on the background
   pending-stop release, then passed with `1 passed` after normal logging was
   restored.
+- Start-token regressions:
+  `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_starting_wait_ignores_reused_job_id_with_different_start_token -q`
+  first failed before per-start token tracking existed, then passed with
+  `1 passed`. `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_stop_all_does_not_stop_completed_session_started_after_snapshot -q`
+  passed with `1 passed`.
+- Token-bound background cleanup regression:
+  `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_pending_stop_release_does_not_stop_reused_job_id_with_new_token -q`
+  first failed before the token-bound internal stop helper existed, then passed
+  with `1 passed`.
+- Hosted review fix shard:
+  `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_pending_stop_release_does_not_stop_reused_job_id_with_new_token tests/mcp/test_server.py::test_stop_all_does_not_stop_completed_session_started_after_snapshot tests/mcp/test_server.py::test_starting_wait_ignores_reused_job_id_with_different_start_token tests/mcp/test_server.py::test_timed_out_stop_of_starting_session_releases_after_startup_completes tests/mcp/test_server.py::test_timed_out_stop_of_failed_startup_does_not_affect_reused_job_id tests/mcp/test_server.py::test_stop_all_does_not_duplicate_starting_timeout_after_startup_settles -q`
+  passed with `6 passed`.
 - Combined focused shard:
-  `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_stop_keep_times_out_waiting_for_stuck_starting_session tests/mcp/test_server.py::test_stop_all_times_out_waiting_for_stuck_starting_session tests/mcp/test_server.py::test_timed_out_stop_of_starting_session_releases_after_startup_completes tests/mcp/test_server.py::test_timed_out_stop_of_failed_startup_does_not_affect_reused_job_id tests/mcp/test_server.py::test_stop_all_does_not_duplicate_starting_timeout_after_startup_settles tests/mcp/test_server.py::test_stop_keep_waits_for_starting_session tests/mcp/test_server.py::test_stop_all_waits_for_starting_session tests/mcp/test_server.py::test_stop_all_waits_only_for_sessions_starting_at_snapshot -q`
-  passed with `8 passed`.
+  `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_stop_all_waits_only_for_sessions_starting_at_snapshot tests/mcp/test_server.py::test_stop_all_does_not_stop_completed_session_started_after_snapshot tests/mcp/test_server.py::test_stop_keep_times_out_waiting_for_stuck_starting_session tests/mcp/test_server.py::test_stop_all_times_out_waiting_for_stuck_starting_session tests/mcp/test_server.py::test_starting_wait_ignores_reused_job_id_with_different_start_token tests/mcp/test_server.py::test_timed_out_stop_of_starting_session_releases_after_startup_completes tests/mcp/test_server.py::test_timed_out_stop_of_failed_startup_does_not_affect_reused_job_id tests/mcp/test_server.py::test_stop_all_does_not_duplicate_starting_timeout_after_startup_settles tests/mcp/test_server.py::test_stop_keep_waits_for_starting_session tests/mcp/test_server.py::test_stop_all_waits_for_starting_session -q`
+  passed with `10 passed`.
 - MCP shard:
-  `PYTHONPATH=$PWD/src pytest tests/mcp -q` passed with `184 passed`.
+  `PYTHONPATH=$PWD/src pytest tests/mcp -q` passed with `187 passed`.
 - Full no-GPU-safe gate:
-  `PYTHONPATH=$PWD/src pytest tests -q` passed with `626 passed, 11 skipped`.
+  `PYTHONPATH=$PWD/src pytest tests -q` passed with `629 passed, 11 skipped`.
 - Docs and hygiene:
   `PYTHONPATH=$PWD/src mkdocs build` passed with the existing Material warning
   and unnav'd plan notices; `pre-commit run --all-files` passed; and
@@ -94,3 +116,10 @@ automatically.
   Gemini Code Assist requested preserving logs for pending-stop background
   releases. The background stop now uses normal logging, and docs refer to a
   background release rather than a quiet release.
+  CodeRabbit requested per-start tracking for reusable job IDs and deterministic
+  fake blockers in the concurrency tests. Local re-review then found the delayed
+  background cleanup also needed to keep the original start token, plus README
+  and architecture docs needed the bounded startup-stop behavior. These were
+  addressed before merge. A final local re-check clarified that stop-all docs
+  should describe the initial active/starting boundary before waiting; AGENTS,
+  MCP docs, and CLI docs were updated accordingly.
