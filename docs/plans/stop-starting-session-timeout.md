@@ -32,6 +32,9 @@ automatically.
 - Bind remembered post-timeout cleanup to the `Session` object created by the
   timed-out startup so a delayed quiet cleanup cannot stop a later replacement
   using the same custom `job_id`.
+- Bind targeted stop release to the session observed before the startup wait, or
+  to the settled session whose params match the captured starting job, so a stop
+  request cannot release a later same-`job_id` replacement.
 - Keep failed startups clearing reservations and pending-stop markers.
 - Update `AGENTS.md`, MCP/CLI docs, and this plan.
 
@@ -45,6 +48,8 @@ automatically.
       its initial boundary, including same-`job_id` reuse.
 - [x] Add regression coverage that delayed remembered cleanup does not stop a
       later same-`job_id` replacement after the original session was removed.
+- [x] Add CodeRabbit follow-up regression coverage that targeted stop does not
+      stop a later same-`job_id` replacement after the wait window.
 - [x] Implement bounded startup wait and pending-stop handoff.
 - [x] Update `AGENTS.md`, MCP/CLI docs, and this plan.
 - [x] Run focused tests, MCP shard, full tests, docs build, pre-commit, and
@@ -82,12 +87,19 @@ automatically.
   failed before the identity-bound cleanup helper because the replacement
   controller was released. After binding cleanup to the original `Session`, the
   same command passed with `1 passed`.
+- Targeted stop same-`job_id` reuse regression:
+  `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_stop_keep_does_not_stop_reused_job_id_after_wait_window -q`
+  failed before the CodeRabbit follow-up because the replacement controller was
+  released and the result had no `job_id not found` message. After passing the
+  captured expected session into `_stop_current_session()`, the same command
+  passed with `1 passed`.
+- CodeRabbit follow-up focused shard:
+  `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_stop_all_does_not_stop_session_started_after_snapshot_even_if_it_completes tests/mcp/test_server.py::test_stop_all_does_not_stop_reused_job_id_started_after_snapshot tests/mcp/test_server.py::test_stop_keep_times_out_waiting_for_stuck_starting_session tests/mcp/test_server.py::test_stop_all_times_out_waiting_for_stuck_starting_session tests/mcp/test_server.py::test_timed_out_stop_of_starting_session_releases_after_startup_completes tests/mcp/test_server.py::test_pending_stop_does_not_stop_reused_job_id_after_original_removed tests/mcp/test_server.py::test_stop_keep_does_not_stop_reused_job_id_after_wait_window tests/mcp/test_server.py::test_timed_out_stop_all_of_starting_session_releases_after_startup_completes tests/mcp/test_server.py::test_stop_keep_waits_for_starting_session tests/mcp/test_server.py::test_stop_all_waits_for_starting_session tests/mcp/test_server.py::test_stop_all_waits_only_for_sessions_starting_at_snapshot -q`
+  passed with `11 passed`.
 - Current post-review gates:
-  `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_stop_all_does_not_stop_session_started_after_snapshot_even_if_it_completes tests/mcp/test_server.py::test_stop_all_does_not_stop_reused_job_id_started_after_snapshot tests/mcp/test_server.py::test_stop_keep_times_out_waiting_for_stuck_starting_session tests/mcp/test_server.py::test_stop_all_times_out_waiting_for_stuck_starting_session tests/mcp/test_server.py::test_timed_out_stop_of_starting_session_releases_after_startup_completes tests/mcp/test_server.py::test_timed_out_stop_all_of_starting_session_releases_after_startup_completes tests/mcp/test_server.py::test_stop_keep_waits_for_starting_session tests/mcp/test_server.py::test_stop_all_waits_for_starting_session tests/mcp/test_server.py::test_stop_all_waits_only_for_sessions_starting_at_snapshot -q`
-  plus `tests/mcp/test_server.py::test_pending_stop_does_not_stop_reused_job_id_after_original_removed`
-  passed with `10 passed`; `PYTHONPATH=$PWD/src pytest tests/mcp -q` passed
-  with `186 passed`; `PYTHONPATH=$PWD/src pytest tests -q` passed with
-  `628 passed, 11 skipped`; `PYTHONPATH=$PWD/src mkdocs build`,
+  `PYTHONPATH=$PWD/src pytest tests/mcp -q` passed with `187 passed`;
+  `PYTHONPATH=$PWD/src pytest tests -q` passed with
+  `629 passed, 11 skipped`; `PYTHONPATH=$PWD/src mkdocs build`,
   `pre-commit run --all-files`, and `git diff --check` passed.
 - Local subagent review:
   The reviewer found a stop-all snapshot race where a session that started
@@ -104,3 +116,6 @@ automatically.
   route pending cleanup through an expected-session helper.
   The final local reviewer reported no Critical or Important findings after
   that fix.
+  CodeRabbit later found the targeted-stop variant of the same identity race;
+  the current changes add the regression, use the existing expected-session
+  helper for targeted stops, and document the guard in `AGENTS.md`.

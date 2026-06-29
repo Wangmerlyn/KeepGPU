@@ -195,7 +195,9 @@ This file defines how coding agents should work in this repository.
 - Stop requests must not miss starting sessions. Targeted stops wait for the
   matching startup before returning `not found`; stop-all records its initial
   active/starting boundary first, waits only for starts in that boundary, and
-  never includes later starts.
+  never includes later starts. After waiting, targeted stops must release only
+  the session observed before the wait or the settled session matching the
+  captured starting params, not a later same-`job_id` replacement.
 - Stop requests waiting on starting sessions must be bounded. If startup does
   not settle within the stop wait budget, return the normal additive timeout
   payload and remember the cancellation so a later successful startup is

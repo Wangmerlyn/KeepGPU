@@ -1860,6 +1860,52 @@ def test_pending_stop_does_not_stop_reused_job_id_after_original_removed(
     server.stop_keep("race-job")
 
 
+def test_stop_keep_does_not_stop_reused_job_id_after_wait_window(monkeypatch):
+    controllers_by_gpu = {}
+    start_results = {}
+    intercept_wait = True
+
+    class TrackingController(DummyController):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            gpu_key = tuple(kwargs.get("gpu_ids") or [])
+            controllers_by_gpu.setdefault(gpu_key, []).append(self)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: TrackingController(**kwargs))
+    )
+
+    start_results["old"] = server.start_keep(job_id="race-job", gpu_ids=[0])
+    old_controller = controllers_by_gpu[(0,)][0]
+    original_wait = server._wait_for_starting_jobs_or_mark_pending
+
+    def replace_job_id_during_wait(starting_snapshot):
+        nonlocal intercept_wait
+        if not intercept_wait:
+            return original_wait(starting_snapshot)
+        intercept_wait = False
+        result = original_wait(starting_snapshot)
+        stop_original = server.stop_keep("race-job")
+        assert stop_original["stopped"] == ["race-job"]
+        start_results["new"] = server.start_keep(job_id="race-job", gpu_ids=[1])
+        return result
+
+    monkeypatch.setattr(
+        server, "_wait_for_starting_jobs_or_mark_pending", replace_job_id_during_wait
+    )
+
+    stop_result = server.stop_keep("race-job")
+
+    replacement_controller = controllers_by_gpu[(1,)][0]
+    assert start_results["old"] == {"job_id": "race-job"}
+    assert start_results["new"] == {"job_id": "race-job"}
+    assert old_controller.released is True
+    assert stop_result["message"] == "job_id not found"
+    assert replacement_controller.released is False
+    assert server.status("race-job")["active"] is True
+    server.stop_keep("race-job")
+
+
 def test_timed_out_stop_all_of_starting_session_releases_after_startup_completes(
     monkeypatch,
 ):

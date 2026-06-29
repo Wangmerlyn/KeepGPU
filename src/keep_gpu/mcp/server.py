@@ -437,7 +437,7 @@ class KeepGPUServer:
         with self._sessions_lock:
             session = self._sessions.get(job_id)
             if expected_session is not None and session is not expected_session:
-                return self._empty_stop_result()
+                return None
             if session is None:
                 return None
             if session.state == "stopping":
@@ -499,6 +499,7 @@ class KeepGPUServer:
         if job_id is not None:
             with self._sessions_lock:
                 starting_params = self._starting_params.get(job_id)
+                expected_session = self._sessions.get(job_id)
                 starting_snapshot = (
                     {job_id: starting_params} if starting_params is not None else {}
                 )
@@ -509,7 +510,21 @@ class KeepGPUServer:
                 result = self._empty_stop_result()
                 result["timed_out"].append(job_id)
                 return self._finalize_stop_result(result)
-            stop_result = self._stop_current_session(job_id, quiet=quiet)
+            if starting_params is not None:
+                with self._sessions_lock:
+                    expected_session = self._sessions.get(job_id)
+                    if (
+                        expected_session is not None
+                        and expected_session.params is not starting_params
+                    ):
+                        expected_session = None
+            if expected_session is None:
+                result = self._empty_stop_result()
+                result["message"] = "job_id not found"
+                return result
+            stop_result = self._stop_current_session(
+                job_id, quiet=quiet, expected_session=expected_session
+            )
             if stop_result is not None:
                 return stop_result
             result = self._empty_stop_result()
