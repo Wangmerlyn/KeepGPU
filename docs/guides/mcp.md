@@ -158,14 +158,13 @@ job id only appears in `stopped` after cleanup has completed within the stop
 request timeout.
 
 If `stop_keep` arrives while a matching session is still starting, the service
-waits briefly for startup to settle before deciding whether the job exists.
-Stop-all records the active and starting sessions in its initial snapshot, then
-waits briefly only for the starts in that snapshot.
-If startup does not settle within the stop wait budget, the stop response lists
-that job in `timed_out`; when startup later completes successfully, the service
-releases the session in the background instead of leaving the keeper active.
-For stop-all, starts that begin after that request's initial snapshot are not
-stopped by that request.
+waits for startup to settle before deciding whether the job exists. This wait
+is bounded: if startup does not settle within the stop wait budget, the response
+uses the normal `timed_out` field and the service remembers the cancellation so
+the session is released in the background if startup later succeeds. Stop-all
+requests also wait for in-progress starts from their initial snapshot, with the
+same bounded timeout behavior. For stop-all, starts that begin after that
+request's initial snapshot are not stopped by that request.
 Stop-all releases the sessions in its snapshot concurrently and aggregates
 results in deterministic snapshot order using the same additive fields.
 

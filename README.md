@@ -190,10 +190,11 @@ to zero devices.
   `stopping` until background cleanup completes and `failed` sessions remain
   visible with `state` and `last_error`.
 - Status and stop requests both account for in-progress starts: status reports
-  them as `starting`, and stop waits briefly for startup to settle so a session
-  is not reported as missing or skipped by stop-all. If startup does not settle
-  within the stop wait budget, the response lists that job in `timed_out`; a
-  successful later startup is released in the background.
+  them as `starting`, and stop waits for startup to settle so a session is not
+  reported as missing or skipped by stop-all. That startup wait is bounded; if
+  it times out, the stop response includes the job in `timed_out`, the job may
+  remain `starting`, and the service remembers the cancellation so a later
+  successful startup is released in the background.
 - Stop-all only covers sessions active or already starting when that request
   begins; later concurrent starts belong to a later stop request.
 - Stop-all releases independent sessions concurrently and reports outcomes in

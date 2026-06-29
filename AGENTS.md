@@ -169,7 +169,7 @@ This file defines how coding agents should work in this repository.
   `torch.cuda.device_count()`.
 - Hardware probes must clean up vendor libraries after detection (for example, NVML shutdown and ROCm SMI shutdown after init).
 - ROCm/HIP PyTorch builds take precedence over NVML-based CUDA fallback: if `torch.version.hip` is truthy, `_check_cuda()` must not classify the runtime as CUDA or probe NVML.
-- Keep lifecycle state truthful: a reserved starting session must be visible in status as `state="starting"`; stop requests must wait briefly for starting sessions so they are not missed, but the wait is bounded and timed-out starting-session stops must be honored with an automatic background release after startup eventually completes. A session is removed only after release succeeds; timed-out or failed stops must stay visible with state and error details.
+- Keep lifecycle state truthful: a reserved starting session must be visible in status as `state="starting"`; a session is removed only after release succeeds; timed-out or failed stops must stay visible with state and error details.
 - Release paths must be idempotent after timeout: when a previously stopping
   worker has since died, perform backend cache cleanup and clear stale thread
   and stop-event state instead of returning early as not running.
@@ -192,11 +192,16 @@ This file defines how coding agents should work in this repository.
 - Non-force `keep-gpu service-stop` must require a reachable service and a successful status/RPC check before signaling; use `--force` for unresponsive auto-started daemons.
 - Treat custom `job_id` values as reserved from the moment startup begins; duplicate starts must fail before another controller can begin keep-alive work.
 - Keep custom `job_id` validation centralized in `session_config.py`: only `None` means omitted/all-sessions, and custom IDs must be non-empty URL-path-safe strings before any session state changes.
-- Stop requests must not miss starting sessions; targeted stop waits briefly
-  for a matching start before returning `not found`, and stop-all records its
-  active and starting boundary before waiting only for starts in that boundary.
-  Timed-out starting-session stops must be honored after startup eventually
-  completes.
+- Stop requests must not miss starting sessions. Targeted stops wait for the
+  matching startup before returning `not found`; stop-all records its initial
+  active/starting boundary first, waits only for starts in that boundary, and
+  never includes later starts. After waiting, targeted stops must release only
+  the session observed before the wait or the settled session matching the
+  captured starting params, not a later same-`job_id` replacement.
+- Stop requests waiting on starting sessions must be bounded. If startup does
+  not settle within the stop wait budget, return the normal additive timeout
+  payload and remember the cancellation so a later successful startup is
+  released in the background instead of becoming a surprise active keeper.
 - Stop-all may release independent sessions concurrently, but must not duplicate release work for `stopping` sessions and must keep deterministic additive result fields.
 - Keep utilization backoff eco-safe: valid `busy_threshold` values are `-1` or `0..100`; public defaults must use the shared `DEFAULT_BUSY_THRESHOLD` (`25`), and when telemetry is unavailable with `busy_threshold >= 0`, controllers should sleep instead of allocating keep tensors or running keepalive compute. Only `busy_threshold=-1` is the explicit unconditional mode.
 - Dashboard telemetry must display unavailable utilization as unknown/`n/a`, not
