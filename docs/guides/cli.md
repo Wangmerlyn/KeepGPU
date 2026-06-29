@@ -28,6 +28,10 @@ keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
 - follow-up status/stop command hints,
 - daemon shutdown hint (`keep-gpu service-stop`).
 
+If this invocation auto-starts the service but session creation fails with an
+expected startup-unavailable error before a session is created, `start`
+best-effort stops the just-created daemon so it does not remain idle.
+
 Local `start` inputs are validated before auto-starting the service. Invalid
 `--vram`, `--job-id`, `--interval`, `--busy-threshold`, or `--gpu-ids` values
 fail without creating daemon runtime files or issuing RPC. Service endpoint
