@@ -34,6 +34,7 @@ import sys
 import uuid
 import argparse
 import threading
+import time
 import mimetypes
 from http.server import BaseHTTPRequestHandler
 from socketserver import TCPServer, ThreadingMixIn
@@ -75,6 +76,7 @@ JSONRPC_INTERNAL_ERROR = -32603
 JSONRPC_STARTUP_UNAVAILABLE = -32000
 MCP_ENDPOINT_HOST_ERROR = "host must be a DNS hostname or IPv4 address"
 MCP_ENDPOINT_PORT_ERROR = "port must be an integer between 1 and 65535"
+STARTUP_STOP_WAIT_TIMEOUT_SECONDS = 10.0
 
 MCP_TOOLS: List[Dict[str, Any]] = [
     {
@@ -201,10 +203,31 @@ class KeepGPUServer:
         self._sessions: Dict[str, Session] = {}
         self._starting_job_ids: set[str] = set()
         self._starting_params: Dict[str, Dict[str, Any]] = {}
+        self._pending_stop_job_ids: set[str] = set()
+        self._startup_stop_wait_timeout_s = STARTUP_STOP_WAIT_TIMEOUT_SECONDS
         self._sessions_lock = threading.RLock()
         self._sessions_cond = threading.Condition(self._sessions_lock)
         self._controller_factory = controller_factory or GlobalGPUController
         atexit.register(self.shutdown)
+
+    def _wait_for_starting_jobs_or_mark_pending(
+        self, starting_snapshot: Dict[str, Dict[str, Any]]
+    ) -> set[str]:
+        deadline = time.monotonic() + self._startup_stop_wait_timeout_s
+        with self._sessions_lock:
+            while True:
+                still_starting = {
+                    job_id
+                    for job_id, params in starting_snapshot.items()
+                    if self._starting_params.get(job_id) is params
+                }
+                if not still_starting:
+                    return set()
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    self._pending_stop_job_ids.update(still_starting)
+                    return still_starting
+                self._sessions_cond.wait(remaining)
 
     @staticmethod
     def _release_with_timeout(
@@ -310,6 +333,7 @@ class KeepGPUServer:
             with self._sessions_lock:
                 self._starting_job_ids.discard(job_id)
                 self._starting_params.pop(job_id, None)
+                self._pending_stop_job_ids.discard(job_id)
                 self._sessions_cond.notify_all()
             if isinstance(exc, InvalidVisibleGPUSelectionError):
                 raise SessionInputError(str(exc)) from exc
@@ -320,11 +344,24 @@ class KeepGPUServer:
         with self._sessions_lock:
             self._starting_job_ids.discard(job_id)
             params = self._starting_params.pop(job_id, params)
-            self._sessions[job_id] = Session(
+            pending_stop = job_id in self._pending_stop_job_ids
+            self._pending_stop_job_ids.discard(job_id)
+            session = Session(
                 controller=controller,
                 params=params,
             )
+            self._sessions[job_id] = session
             self._sessions_cond.notify_all()
+        if pending_stop:
+            threading.Thread(
+                target=self._stop_current_session,
+                kwargs={
+                    "job_id": job_id,
+                    "quiet": True,
+                    "expected_session": session,
+                },
+                daemon=True,
+            ).start()
         logger.info("Started keep session %s on GPUs %s", job_id, gpu_ids)
         return {"job_id": job_id}
 
@@ -391,6 +428,56 @@ class KeepGPUServer:
         self._mark_session(job_id, session, "stop_failed", message)
         logger.warning("Delayed release failed for keep session %s: %s", job_id, error)
 
+    def _stop_current_session(
+        self,
+        job_id: str,
+        quiet: bool = False,
+        expected_session: Optional[Session] = None,
+    ) -> Optional[Dict[str, Any]]:
+        with self._sessions_lock:
+            session = self._sessions.get(job_id)
+            if expected_session is not None and session is not expected_session:
+                return self._empty_stop_result()
+            if session is None:
+                return None
+            if session.state == "stopping":
+                result = self._empty_stop_result()
+                result["timed_out"].append(job_id)
+                return self._finalize_stop_result(result)
+            session.state = "stopping"
+            session.last_error = None
+
+        result = self._empty_stop_result()
+        try:
+            released = self._release_with_timeout(
+                session.controller,
+                on_late_result=lambda error: self._finalize_late_release(
+                    job_id, session, error
+                ),
+            )
+        except Exception as exc:
+            error = str(exc)
+            self._mark_session(job_id, session, "stop_failed", error)
+            result["failed"].append(job_id)
+            result["errors"][job_id] = error
+            if not quiet:
+                logger.warning("Failed to stop keep session %s: %s", job_id, exc)
+            return self._finalize_stop_result(result)
+        if not quiet:
+            if released:
+                logger.info("Stopped keep session %s", job_id)
+            else:
+                logger.warning("Timed out while stopping keep session %s", job_id)
+        if released:
+            with self._sessions_lock:
+                if self._sessions.get(job_id) is session:
+                    self._sessions.pop(job_id, None)
+            result["stopped"].append(job_id)
+            return self._finalize_stop_result(result)
+        self._mark_stop_timeout(job_id, session)
+        result["timed_out"].append(job_id)
+        return self._finalize_stop_result(result)
+
     def stop_keep(
         self, job_id: Optional[str] = None, quiet: bool = False
     ) -> Dict[str, Any]:
@@ -411,65 +498,51 @@ class KeepGPUServer:
         job_id = _validate_public_session_input(validate_job_id, job_id)
         if job_id is not None:
             with self._sessions_lock:
-                while job_id in self._starting_job_ids:
-                    self._sessions_cond.wait()
-                session = self._sessions.get(job_id)
-                if session and session.state == "stopping":
-                    result = self._empty_stop_result()
-                    result["timed_out"].append(job_id)
-                    return self._finalize_stop_result(result)
-                if session:
-                    session.state = "stopping"
-                    session.last_error = None
-            if session:
+                starting_params = self._starting_params.get(job_id)
+                starting_snapshot = (
+                    {job_id: starting_params} if starting_params is not None else {}
+                )
+            timed_out_starting = self._wait_for_starting_jobs_or_mark_pending(
+                starting_snapshot
+            )
+            if job_id in timed_out_starting:
                 result = self._empty_stop_result()
-                try:
-                    released = self._release_with_timeout(
-                        session.controller,
-                        on_late_result=lambda error: self._finalize_late_release(
-                            job_id, session, error
-                        ),
-                    )
-                except Exception as exc:
-                    error = str(exc)
-                    self._mark_session(job_id, session, "stop_failed", error)
-                    result["failed"].append(job_id)
-                    result["errors"][job_id] = error
-                    if not quiet:
-                        logger.warning(
-                            "Failed to stop keep session %s: %s", job_id, exc
-                        )
-                    return self._finalize_stop_result(result)
-                if not quiet:
-                    if released:
-                        logger.info("Stopped keep session %s", job_id)
-                    else:
-                        logger.warning(
-                            "Timed out while stopping keep session %s", job_id
-                        )
-                if released:
-                    with self._sessions_lock:
-                        if self._sessions.get(job_id) is session:
-                            self._sessions.pop(job_id, None)
-                    result["stopped"].append(job_id)
-                    return self._finalize_stop_result(result)
-                self._mark_stop_timeout(job_id, session)
                 result["timed_out"].append(job_id)
                 return self._finalize_stop_result(result)
+            stop_result = self._stop_current_session(job_id, quiet=quiet)
+            if stop_result is not None:
+                return stop_result
             result = self._empty_stop_result()
             result["message"] = "job_id not found"
             return result
 
         with self._sessions_lock:
-            starting_to_wait_for = set(self._starting_job_ids)
-            while starting_to_wait_for & self._starting_job_ids:
-                self._sessions_cond.wait()
-            session_items = list(self._sessions.items())
+            starting_snapshot = dict(self._starting_params)
+            initial_session_items = list(self._sessions.items())
+        timed_out_starting = self._wait_for_starting_jobs_or_mark_pending(
+            starting_snapshot
+        )
+        with self._sessions_lock:
+            session_items = [
+                (job_id, session)
+                for job_id, session in initial_session_items
+                if self._sessions.get(job_id) is session
+            ]
+            session_items.extend(
+                (job_id, session)
+                for job_id, params in starting_snapshot.items()
+                if job_id not in timed_out_starting
+                for session in [self._sessions.get(job_id)]
+                if session is not None and session.params is params
+            )
             releasable_items = []
             release_outcomes: List[Dict[str, Any]] = [
                 {} for _job_id, _session in session_items
             ]
             result = self._empty_stop_result()
+            for starting_job_id in starting_snapshot:
+                if starting_job_id in timed_out_starting:
+                    result["timed_out"].append(starting_job_id)
             for index, (job_id, session) in enumerate(session_items):
                 if session.state == "stopping":
                     release_outcomes[index] = {"state": "timed_out"}

@@ -1493,6 +1493,427 @@ def test_stop_all_waits_only_for_sessions_starting_at_snapshot(monkeypatch):
     server.stop_keep("second-job")
 
 
+def test_stop_all_does_not_stop_session_started_after_snapshot_even_if_it_completes(
+    monkeypatch,
+):
+    first_keep_entered = threading.Event()
+    first_keep_release = threading.Event()
+    stop_waiting_for_startup = threading.Event()
+    second_controller = {}
+    start_results = {}
+    stop_result = {}
+
+    class SlowFirstController(DummyController):
+        def keep(self):
+            self.kept = True
+            first_keep_entered.set()
+            first_keep_release.wait(timeout=1.0)
+
+    class FastSecondController(DummyController):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            second_controller["value"] = self
+
+    def factory(**kwargs):
+        if kwargs.get("gpu_ids") == [1]:
+            return FastSecondController(**kwargs)
+        return SlowFirstController(**kwargs)
+
+    server = KeepGPUServer(controller_factory=cast(Any, factory))
+    original_wait = server._sessions_cond.wait
+
+    def wait_for_startup(timeout=None):
+        stop_waiting_for_startup.set()
+        return original_wait(timeout)
+
+    monkeypatch.setattr(server._sessions_cond, "wait", wait_for_startup)
+
+    first_start_thread = threading.Thread(
+        target=lambda: start_results.update(
+            first=server.start_keep(job_id="first-job", gpu_ids=[0])
+        )
+    )
+    first_start_thread.start()
+    assert first_keep_entered.wait(timeout=1.0)
+
+    stop_thread = threading.Thread(
+        target=lambda: stop_result.update(value=server.stop_keep())
+    )
+    stop_thread.start()
+    assert stop_waiting_for_startup.wait(timeout=1.0)
+
+    start_results["second"] = server.start_keep(job_id="second-job", gpu_ids=[1])
+    assert server.status("second-job")["active"] is True
+
+    first_keep_release.set()
+    first_start_thread.join(timeout=1.0)
+    stop_thread.join(timeout=1.0)
+
+    assert start_results["first"] == {"job_id": "first-job"}
+    assert start_results["second"] == {"job_id": "second-job"}
+    assert stop_result["value"]["stopped"] == ["first-job"]
+    assert second_controller["value"].released is False
+    assert server.status("first-job")["active"] is False
+    assert server.status("second-job")["active"] is True
+    server.stop_keep("second-job")
+
+
+def test_stop_all_does_not_stop_reused_job_id_started_after_snapshot(monkeypatch):
+    starting_keep_entered = threading.Event()
+    starting_keep_release = threading.Event()
+    stop_waiting_for_startup = threading.Event()
+    controllers_by_gpu = {}
+    start_results = {}
+    stop_result = {}
+
+    class TrackingController(DummyController):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            gpu_key = tuple(kwargs.get("gpu_ids") or [])
+            controllers_by_gpu.setdefault(gpu_key, []).append(self)
+
+    class BlockingStartController(TrackingController):
+        def keep(self):
+            self.kept = True
+            starting_keep_entered.set()
+            starting_keep_release.wait(timeout=1.0)
+
+    def factory(**kwargs):
+        if kwargs.get("gpu_ids") == [2]:
+            return BlockingStartController(**kwargs)
+        return TrackingController(**kwargs)
+
+    server = KeepGPUServer(controller_factory=cast(Any, factory))
+    original_wait = server._sessions_cond.wait
+
+    def wait_for_startup(timeout=None):
+        stop_waiting_for_startup.set()
+        return original_wait(timeout)
+
+    monkeypatch.setattr(server._sessions_cond, "wait", wait_for_startup)
+
+    start_results["old"] = server.start_keep(job_id="reused-job", gpu_ids=[0])
+    old_controller = controllers_by_gpu[(0,)][0]
+
+    starting_thread = threading.Thread(
+        target=lambda: start_results.update(
+            starting=server.start_keep(job_id="starting-job", gpu_ids=[2])
+        )
+    )
+    starting_thread.start()
+    assert starting_keep_entered.wait(timeout=1.0)
+
+    stop_thread = threading.Thread(
+        target=lambda: stop_result.update(value=server.stop_keep())
+    )
+    stop_thread.start()
+    assert stop_waiting_for_startup.wait(timeout=1.0)
+
+    targeted_stop = server.stop_keep("reused-job")
+    assert targeted_stop["stopped"] == ["reused-job"]
+    assert old_controller.released is True
+
+    start_results["new"] = server.start_keep(job_id="reused-job", gpu_ids=[1])
+    new_controller = controllers_by_gpu[(1,)][0]
+    assert server.status("reused-job")["active"] is True
+
+    starting_keep_release.set()
+    starting_thread.join(timeout=1.0)
+    stop_thread.join(timeout=1.0)
+
+    assert start_results["old"] == {"job_id": "reused-job"}
+    assert start_results["starting"] == {"job_id": "starting-job"}
+    assert start_results["new"] == {"job_id": "reused-job"}
+    assert stop_result["value"]["stopped"] == ["starting-job"]
+    assert new_controller.released is False
+    assert server.status("starting-job")["active"] is False
+    assert server.status("reused-job")["active"] is True
+    server.stop_keep("reused-job")
+
+
+def test_stop_keep_times_out_waiting_for_stuck_starting_session(monkeypatch):
+    keep_entered = threading.Event()
+    keep_release = threading.Event()
+    start_result = {}
+    stop_result = {}
+
+    class BlockingStartController(DummyController):
+        def keep(self):
+            self.kept = True
+            keep_entered.set()
+            keep_release.wait(timeout=1.0)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: BlockingStartController(**kwargs))
+    )
+    monkeypatch.setattr(server, "_startup_stop_wait_timeout_s", 0.02, raising=False)
+
+    start_thread = threading.Thread(
+        target=lambda: start_result.update(
+            value=server.start_keep(job_id="starting-job")
+        )
+    )
+    start_thread.start()
+    assert keep_entered.wait(timeout=1.0)
+
+    stop_thread = threading.Thread(
+        target=lambda: stop_result.update(value=server.stop_keep(job_id="starting-job"))
+    )
+    stop_thread.start()
+
+    try:
+        stop_thread.join(timeout=0.3)
+        assert not stop_thread.is_alive()
+        assert stop_result["value"]["timed_out"] == ["starting-job"]
+        assert "Timed out" in stop_result["value"]["message"]
+        assert server.status("starting-job")["state"] == "starting"
+    finally:
+        keep_release.set()
+        start_thread.join(timeout=1.0)
+        stop_thread.join(timeout=1.0)
+
+    assert start_result["value"] == {"job_id": "starting-job"}
+
+
+def test_stop_all_times_out_waiting_for_stuck_starting_session(monkeypatch):
+    keep_entered = threading.Event()
+    keep_release = threading.Event()
+    start_result = {}
+    stop_result = {}
+
+    class BlockingStartController(DummyController):
+        def keep(self):
+            self.kept = True
+            keep_entered.set()
+            keep_release.wait(timeout=1.0)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: BlockingStartController(**kwargs))
+    )
+    monkeypatch.setattr(server, "_startup_stop_wait_timeout_s", 0.02, raising=False)
+
+    start_thread = threading.Thread(
+        target=lambda: start_result.update(
+            value=server.start_keep(job_id="starting-job")
+        )
+    )
+    start_thread.start()
+    assert keep_entered.wait(timeout=1.0)
+
+    stop_thread = threading.Thread(
+        target=lambda: stop_result.update(value=server.stop_keep())
+    )
+    stop_thread.start()
+
+    try:
+        stop_thread.join(timeout=0.3)
+        assert not stop_thread.is_alive()
+        assert stop_result["value"]["timed_out"] == ["starting-job"]
+        assert "Timed out" in stop_result["value"]["message"]
+        assert server.status("starting-job")["state"] == "starting"
+    finally:
+        keep_release.set()
+        start_thread.join(timeout=1.0)
+        stop_thread.join(timeout=1.0)
+
+    assert start_result["value"] == {"job_id": "starting-job"}
+
+
+def test_timed_out_stop_of_starting_session_releases_after_startup_completes(
+    monkeypatch,
+):
+    keep_entered = threading.Event()
+    keep_release = threading.Event()
+    controllers = []
+    start_result = {}
+    stop_result = {}
+
+    class BlockingStartController(DummyController):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            controllers.append(self)
+
+        def keep(self):
+            self.kept = True
+            keep_entered.set()
+            keep_release.wait(timeout=1.0)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: BlockingStartController(**kwargs))
+    )
+    monkeypatch.setattr(server, "_startup_stop_wait_timeout_s", 0.02, raising=False)
+
+    start_thread = threading.Thread(
+        target=lambda: start_result.update(
+            value=server.start_keep(job_id="starting-job")
+        )
+    )
+    start_thread.start()
+    assert keep_entered.wait(timeout=1.0)
+
+    stop_thread = threading.Thread(
+        target=lambda: stop_result.update(value=server.stop_keep(job_id="starting-job"))
+    )
+    stop_thread.start()
+
+    try:
+        stop_thread.join(timeout=0.3)
+        assert not stop_thread.is_alive()
+        assert stop_result["value"]["timed_out"] == ["starting-job"]
+        assert controllers[0].released is False
+
+        keep_release.set()
+        start_thread.join(timeout=1.0)
+        assert start_result["value"] == {"job_id": "starting-job"}
+        assert _wait_until(lambda: server.status("starting-job")["active"] is False)
+        assert controllers[0].released is True
+    finally:
+        keep_release.set()
+        start_thread.join(timeout=1.0)
+        stop_thread.join(timeout=1.0)
+
+
+def test_pending_stop_does_not_stop_reused_job_id_after_original_removed(
+    monkeypatch,
+):
+    keep_entered = threading.Event()
+    keep_release = threading.Event()
+    controllers_by_gpu = {}
+    deferred_threads = []
+    start_result = {}
+
+    class TrackingController(DummyController):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            gpu_key = tuple(kwargs.get("gpu_ids") or [])
+            controllers_by_gpu.setdefault(gpu_key, []).append(self)
+
+    class BlockingStartController(TrackingController):
+        def keep(self):
+            self.kept = True
+            keep_entered.set()
+            keep_release.wait(timeout=1.0)
+
+    def factory(**kwargs):
+        if kwargs.get("gpu_ids") == [0]:
+            return BlockingStartController(**kwargs)
+        return TrackingController(**kwargs)
+
+    server = KeepGPUServer(controller_factory=cast(Any, factory))
+    monkeypatch.setattr(server, "_startup_stop_wait_timeout_s", 0.02, raising=False)
+
+    real_thread = threading.Thread
+
+    class DeferredThread:
+        def __init__(self, target, kwargs):
+            self._target = target
+            self._kwargs = kwargs
+
+        def start(self):
+            deferred_threads.append(self)
+
+        def run(self):
+            self._target(**self._kwargs)
+
+    def thread_factory(*args, **kwargs):
+        target = kwargs.get("target")
+        target_kwargs = kwargs.get("kwargs") or {}
+        if (
+            target_kwargs.get("job_id") == "race-job"
+            and target_kwargs.get("quiet") is True
+        ):
+            return DeferredThread(target, target_kwargs)
+        return real_thread(*args, **kwargs)
+
+    monkeypatch.setattr(server_module.threading, "Thread", thread_factory)
+
+    start_thread = real_thread(
+        target=lambda: start_result.update(
+            value=server.start_keep(job_id="race-job", gpu_ids=[0])
+        )
+    )
+    start_thread.start()
+    assert keep_entered.wait(timeout=1.0)
+
+    timed_out_stop = server.stop_keep(job_id="race-job")
+    assert timed_out_stop["timed_out"] == ["race-job"]
+
+    keep_release.set()
+    start_thread.join(timeout=1.0)
+    assert start_result["value"] == {"job_id": "race-job"}
+    assert len(deferred_threads) == 1
+
+    old_controller = controllers_by_gpu[(0,)][0]
+    stop_original = server.stop_keep("race-job")
+    assert stop_original["stopped"] == ["race-job"]
+    assert old_controller.released is True
+
+    replacement_start = server.start_keep(job_id="race-job", gpu_ids=[1])
+    replacement_controller = controllers_by_gpu[(1,)][0]
+    assert replacement_start == {"job_id": "race-job"}
+    assert server.status("race-job")["active"] is True
+
+    deferred_threads[0].run()
+
+    assert replacement_controller.released is False
+    assert server.status("race-job")["active"] is True
+    server.stop_keep("race-job")
+
+
+def test_timed_out_stop_all_of_starting_session_releases_after_startup_completes(
+    monkeypatch,
+):
+    keep_entered = threading.Event()
+    keep_release = threading.Event()
+    controllers = []
+    start_result = {}
+    stop_result = {}
+
+    class BlockingStartController(DummyController):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            controllers.append(self)
+
+        def keep(self):
+            self.kept = True
+            keep_entered.set()
+            keep_release.wait(timeout=1.0)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: BlockingStartController(**kwargs))
+    )
+    monkeypatch.setattr(server, "_startup_stop_wait_timeout_s", 0.02, raising=False)
+
+    start_thread = threading.Thread(
+        target=lambda: start_result.update(
+            value=server.start_keep(job_id="starting-job")
+        )
+    )
+    start_thread.start()
+    assert keep_entered.wait(timeout=1.0)
+
+    stop_thread = threading.Thread(
+        target=lambda: stop_result.update(value=server.stop_keep())
+    )
+    stop_thread.start()
+
+    try:
+        stop_thread.join(timeout=0.3)
+        assert not stop_thread.is_alive()
+        assert stop_result["value"]["timed_out"] == ["starting-job"]
+        assert controllers[0].released is False
+
+        keep_release.set()
+        start_thread.join(timeout=1.0)
+        assert start_result["value"] == {"job_id": "starting-job"}
+        assert _wait_until(lambda: server.status("starting-job")["active"] is False)
+        assert controllers[0].released is True
+    finally:
+        keep_release.set()
+        start_thread.join(timeout=1.0)
+        stop_thread.join(timeout=1.0)
+
+
 def test_stop_keep_returns_timeout_payload(monkeypatch):
     server = make_server()
     job_id = server.start_keep()["job_id"]
