@@ -163,7 +163,7 @@ Stop-all requests also wait briefly for in-progress starts before taking their
 session snapshot.
 If startup does not settle within the stop wait budget, the stop response lists
 that job in `timed_out`; when startup later completes successfully, the service
-quietly releases the session instead of leaving the keeper active.
+releases the session in the background instead of leaving the keeper active.
 For stop-all, starts that begin after that request's initial snapshot are not
 stopped by that request.
 Stop-all releases the sessions in its snapshot concurrently and aggregates

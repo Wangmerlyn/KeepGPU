@@ -349,7 +349,7 @@ class KeepGPUServer:
         if pending_stop:
             threading.Thread(
                 target=self.stop_keep,
-                kwargs={"job_id": job_id, "quiet": True},
+                kwargs={"job_id": job_id},
                 daemon=True,
             ).start()
         logger.info("Started keep session %s on GPUs %s", job_id, gpu_ids)

@@ -1604,6 +1604,14 @@ def test_timed_out_stop_of_starting_session_releases_after_startup_completes(
         controller_factory=cast(Any, lambda **kwargs: BlockingStartController(**kwargs))
     )
     monkeypatch.setattr(server, "_startup_stop_wait_timeout_s", 0.02, raising=False)
+    info_messages = []
+    original_info = server_module.logger.info
+
+    def record_info(message, *args, **kwargs):
+        info_messages.append(message % args if args else message)
+        original_info(message, *args, **kwargs)
+
+    monkeypatch.setattr(server_module.logger, "info", record_info)
 
     start_thread = threading.Thread(
         target=lambda: start_result.update(
@@ -1629,6 +1637,7 @@ def test_timed_out_stop_of_starting_session_releases_after_startup_completes(
         assert start_result["value"] == {"job_id": "starting-job"}
         assert _wait_until(lambda: server.status("starting-job")["active"] is False)
         assert controllers[0].released is True
+        assert "Stopped keep session starting-job" in info_messages
     finally:
         keep_release.set()
         start_thread.join(timeout=1.0)

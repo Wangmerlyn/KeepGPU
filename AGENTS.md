@@ -169,7 +169,7 @@ This file defines how coding agents should work in this repository.
   `torch.cuda.device_count()`.
 - Hardware probes must clean up vendor libraries after detection (for example, NVML shutdown and ROCm SMI shutdown after init).
 - ROCm/HIP PyTorch builds take precedence over NVML-based CUDA fallback: if `torch.version.hip` is truthy, `_check_cuda()` must not classify the runtime as CUDA or probe NVML.
-- Keep lifecycle state truthful: a reserved starting session must be visible in status as `state="starting"`; stop requests must wait briefly for starting sessions so they are not missed, but the wait is bounded and timed-out starting-session stops must be honored with a quiet release after startup eventually completes. A session is removed only after release succeeds; timed-out or failed stops must stay visible with state and error details.
+- Keep lifecycle state truthful: a reserved starting session must be visible in status as `state="starting"`; stop requests must wait briefly for starting sessions so they are not missed, but the wait is bounded and timed-out starting-session stops must be honored with an automatic background release after startup eventually completes. A session is removed only after release succeeds; timed-out or failed stops must stay visible with state and error details.
 - Release paths must be idempotent after timeout: when a previously stopping
   worker has since died, perform backend cache cleanup and clear stale thread
   and stop-event state instead of returning early as not running.

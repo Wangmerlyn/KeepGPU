@@ -21,7 +21,7 @@ automatically.
 - Return the existing additive timeout payload (`timed_out`, `message`) when a
   requested starting job does not settle before the startup-stop wait budget.
 - Track timed-out stop requests for starting jobs. If such a startup later
-  completes successfully, immediately trigger a quiet background stop so a
+  completes successfully, immediately trigger a logged background stop so a
   timed-out cancellation does not leave a surprise active keeper.
 - Preserve existing behavior for slow startups that settle within the wait
   budget: the original stop request releases the session and reports it in
@@ -39,6 +39,8 @@ automatically.
       startup settles between timeout classification and the session snapshot.
 - [x] Add GREEN coverage that a timed-out stop followed by startup failure clears
       pending-stop state before a later reuse of the same job ID.
+- [x] Add GREEN coverage that the pending-stop background release keeps normal
+      stop logging enabled.
 - [x] Implement bounded startup wait and pending-stop handoff.
 - [x] Update `AGENTS.md`, MCP/CLI docs, and this plan.
 - [x] Run focused tests, MCP shard, full tests, docs build, pre-commit, and
@@ -64,6 +66,11 @@ automatically.
   `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_timed_out_stop_of_failed_startup_does_not_affect_reused_job_id -q`
   failed under a temporary mutation that removed pending-stop cleanup from the
   startup failure path, then passed with `1 passed` after restoring cleanup.
+- External review logging regression:
+  `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_timed_out_stop_of_starting_session_releases_after_startup_completes -q`
+  failed under a temporary mutation that restored `quiet=True` on the background
+  pending-stop release, then passed with `1 passed` after normal logging was
+  restored.
 - Combined focused shard:
   `PYTHONPATH=$PWD/src pytest tests/mcp/test_server.py::test_stop_keep_times_out_waiting_for_stuck_starting_session tests/mcp/test_server.py::test_stop_all_times_out_waiting_for_stuck_starting_session tests/mcp/test_server.py::test_timed_out_stop_of_starting_session_releases_after_startup_completes tests/mcp/test_server.py::test_timed_out_stop_of_failed_startup_does_not_affect_reused_job_id tests/mcp/test_server.py::test_stop_all_does_not_duplicate_starting_timeout_after_startup_settles tests/mcp/test_server.py::test_stop_keep_waits_for_starting_session tests/mcp/test_server.py::test_stop_all_waits_for_starting_session tests/mcp/test_server.py::test_stop_all_waits_only_for_sessions_starting_at_snapshot -q`
   passed with `8 passed`.
@@ -83,3 +90,7 @@ automatically.
   missing failed-start pending-stop coverage. These were addressed before PR.
   Reviewer re-check found no new must-fix issues; the only remaining note was
   to ensure this plan file is staged for the PR.
+- Hosted review:
+  Gemini Code Assist requested preserving logs for pending-stop background
+  releases. The background stop now uses normal logging, and docs refer to a
+  background release rather than a quiet release.

@@ -89,7 +89,7 @@ Stop waits briefly for in-progress starts to settle before returning `not
 found` or taking the stop-all snapshot, so starting sessions are not silently
 skipped. If startup does not settle within the stop wait budget, the response
 lists that job in `timed_out`; when startup later completes successfully, the
-service quietly releases the session instead of leaving it active.
+service releases the session in the background instead of leaving it active.
 For `--all`, starts that begin after that command's initial snapshot are not
 stopped by that command.
 `--all` releases the sessions in its snapshot concurrently and prints results
