@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Preserve Truthful Pending-Stop State
+## Task 1: Preserve Truthful Pending-Stop State
 
 **Files:**
 - Modify: `src/keep_gpu/mcp/server.py`
