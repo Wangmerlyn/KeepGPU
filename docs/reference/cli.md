@@ -48,6 +48,8 @@ GPUs; explicit empty or whitespace-only values are invalid.
 If `start` auto-starts the service and the service then reports expected
 startup unavailability before creating a session, the CLI best-effort stops the
 just-created daemon instead of leaving it idle.
+The same best-effort cleanup runs when auto-start times out before the service
+passes its health check.
 
 | Option | Default | Description |
 | --- | --- | --- |

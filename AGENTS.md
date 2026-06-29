@@ -147,6 +147,9 @@ This file defines how coding agents should work in this repository.
   `-32000` before creating a session, the CLI must best-effort stop that
   just-created daemon. Do not stop already-running daemons, malformed success
   payloads, or unrelated RPC failures.
+- If service auto-start itself times out before the health check succeeds, the
+  CLI must best-effort stop the just-started managed daemon and preserve the
+  auto-start timeout error.
 - Blocking-mode root CLI options (`--gpu-ids`, `--vram`,
   `--busy-threshold`/`--util-threshold`, hidden `--threshold`, and
   `--interval`) must be rejected when explicitly supplied before a service

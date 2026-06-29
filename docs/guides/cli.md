@@ -31,6 +31,8 @@ keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
 If this invocation auto-starts the service but session creation fails with an
 expected startup-unavailable error before a session is created, `start`
 best-effort stops the just-created daemon so it does not remain idle.
+If auto-start times out before the service becomes healthy, the CLI applies the
+same best-effort cleanup to the daemon it just started.
 
 Local `start` inputs are validated before auto-starting the service. Invalid
 `--vram`, `--job-id`, `--interval`, `--busy-threshold`, or `--gpu-ids` values
