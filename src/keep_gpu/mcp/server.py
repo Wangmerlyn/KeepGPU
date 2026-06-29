@@ -28,7 +28,6 @@ HTTP endpoints:
 from __future__ import annotations
 
 import atexit
-import copy
 import ipaddress
 import json
 import sys
@@ -498,7 +497,10 @@ class KeepGPUServer:
 
     @staticmethod
     def _status_params_snapshot(params: Dict[str, Any]) -> Dict[str, Any]:
-        return copy.deepcopy(params)
+        snapshot = dict(params)
+        if isinstance(snapshot.get("gpu_ids"), list):
+            snapshot["gpu_ids"] = list(snapshot["gpu_ids"])
+        return snapshot
 
     def stop_keep(
         self, job_id: Optional[str] = None, quiet: bool = False
