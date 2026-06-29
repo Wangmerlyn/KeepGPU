@@ -9,6 +9,7 @@ from keep_gpu.utilities.session_config import (
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
+    validate_rank_type,
     validate_visible_rank,
 )
 
@@ -56,6 +57,16 @@ def test_validate_gpu_ids_rejects_duplicates():
 
 def test_validate_visible_rank_accepts_visible_ordinal():
     assert validate_visible_rank(1, 2) == 1
+
+
+def test_validate_rank_type_accepts_plain_integer_rank():
+    assert validate_rank_type(0) == 0
+
+
+@pytest.mark.parametrize("rank", [True, 1.5, "1"])
+def test_validate_rank_type_rejects_non_plain_integer_rank(rank):
+    with pytest.raises(TypeError, match="rank must be an integer"):
+        validate_rank_type(rank)
 
 
 @pytest.mark.parametrize("rank", [True, 1.5, "1"])

@@ -32,7 +32,8 @@ ordinals. CUDA and ROCm ranks must be plain integers within
 must be the plain integer `0`. Non-integer ranks raise `TypeError`, and negative
 or out-of-range ranks raise `ValueError` during construction, before KeepGPU
 creates a `torch.device`, checks backend availability, calls backend device
-selection, starts a worker, or queries telemetry.
+selection, starts a worker, or queries telemetry. CUDA and ROCm call
+`torch.cuda.device_count()` only after the rank is known to be a plain integer.
 
 CUDA telemetry resolves visible ordinals through `CUDA_VISIBLE_DEVICES` before
 querying NVML; malformed, duplicate/equivalent, ambiguous, or out-of-range

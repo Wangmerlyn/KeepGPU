@@ -12,6 +12,7 @@ from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
     validate_positive_integer,
+    validate_rank_type,
     validate_visible_rank,
 )
 from keep_gpu.utilities.rocm_visibility import resolve_rocm_visible_rank_to_smi_index
@@ -45,6 +46,7 @@ class RocmGPUController(BaseGPUController):
                 max_allocation_retries, "max_allocation_retries"
             )
         )
+        rank = validate_rank_type(rank)
         rank = validate_visible_rank(rank, torch.cuda.device_count())
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
