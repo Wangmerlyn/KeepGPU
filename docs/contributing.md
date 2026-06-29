@@ -49,6 +49,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
   ```bash
   mkdocs build
   ```
+- Internal agent plans and skill reports under `docs/plans/` and `docs/skills/`
+  stay in the repository but are excluded from the published MkDocs site.
 
 ## MCP server (experimental)
 

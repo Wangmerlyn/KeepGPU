@@ -4,6 +4,10 @@ repo_url: https://github.com/Wangmerlyn/KeepGPU
 repo_name: Wangmerlyn/KeepGPU
 edit_uri: blob/main/docs/
 
+exclude_docs: |
+  plans/**
+  skills/**
+
 theme:
   name: material
   features:
