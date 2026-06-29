@@ -54,7 +54,10 @@ def test_macm_controller_context_manager():
 
 
 def test_macm_controller_invalid_rank():
-    with pytest.raises(ValueError, match="MPS only supports device 0"):
+    with pytest.raises(
+        ValueError,
+        match="rank must be a visible device ordinal less than 1; got 1",
+    ):
         MacMGPUController(
             rank=1,
             interval=0.05,
