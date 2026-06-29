@@ -6,13 +6,19 @@ from typing import Optional, Tuple
 _UNSET = object()
 
 
+def _is_ascii_digit_token(token: str) -> bool:
+    return token.isascii() and token.isdigit()
+
+
 def _parse_numeric_mask(name: str) -> Optional[Tuple[int, ...]]:
     raw = os.environ.get(name)
     if raw is None:
         return None
 
     tokens = [token.strip() for token in raw.split(",")]
-    if not tokens or any(not token or not token.isdigit() for token in tokens):
+    if not tokens or any(
+        not token or not _is_ascii_digit_token(token) for token in tokens
+    ):
         return ()
 
     values = tuple(int(token) for token in tokens)

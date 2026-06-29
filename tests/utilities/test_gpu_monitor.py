@@ -154,6 +154,28 @@ def test_monitor_returns_none_for_equivalent_numeric_cuda_visible_devices(
     assert dummy.queried_uuids == []
 
 
+def test_monitor_returns_none_for_non_ascii_digit_cuda_visible_devices(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "\u00b2")
+    dummy = DummyNVML(gpu_util=99, support_uuid_lookup=True)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == []
+    assert dummy.queried_uuids == []
+
+
+def test_monitor_returns_none_for_non_ascii_cuda_visible_devices_uuid_token(
+    monkeypatch,
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-\u00b2")
+    dummy = DummyNVML(gpu_util=99, support_uuid_lookup=True)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == []
+    assert dummy.queried_uuids == []
+
+
 def test_monitor_returns_none_for_duplicate_uuid_cuda_visible_devices(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-abc123,GPU-abc123")
     dummy = DummyNVML(gpu_util=99, support_uuid_lookup=True)

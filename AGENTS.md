@@ -239,8 +239,8 @@ This file defines how coding agents should work in this repository.
   the current visible device count are public invalid-parameter errors
   (`-32602` for direct JSON-RPC, MCP tool `isError=true`), not internal server
   failures.
-- Keep CUDA telemetry aligned with visible CUDA ordinals: `get_gpu_utilization(index)` receives the visible rank used by `CudaGPUController`, and `gpu_monitor.py` resolves `CUDA_VISIBLE_DEVICES` numeric/UUID tokens to the correct NVML handle. If that mapping is malformed, duplicate/equivalent, ambiguous, or unsupported, return `None` without partial NVML handle queries so eco-safe backoff applies instead of falling back to a possibly wrong physical index.
-- Keep ROCm telemetry aligned with visible ROCm ordinals: resolve `ROCR_VISIBLE_DEVICES` as the base mask and one matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm SMI. If the mapping is malformed, conflicting, unsupported, or out of range, return unavailable utilization rather than querying a guessed SMI index.
+- Keep CUDA telemetry aligned with visible CUDA ordinals: `get_gpu_utilization(index)` receives the visible rank used by `CudaGPUController`, and `gpu_monitor.py` resolves `CUDA_VISIBLE_DEVICES` ASCII numeric/UUID tokens to the correct NVML handle. If that mapping is malformed, duplicate/equivalent, ambiguous, or unsupported, return `None` without partial NVML handle queries so eco-safe backoff applies instead of falling back to a possibly wrong physical index.
+- Keep ROCm telemetry aligned with visible ROCm ordinals: resolve `ROCR_VISIBLE_DEVICES` as the base mask and one matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` ASCII numeric overlay before querying ROCm SMI. If the mapping is malformed, conflicting, unsupported, or out of range, return unavailable utilization rather than querying a guessed SMI index.
 - Keep GPU listing IDs aligned with start APIs: `list_gpus`/`/api/gpus`
   must expose `id` as the visible ordinal users can pass as `gpu_ids`;
   physical/vendor identifiers belong in explicit metadata fields such as

@@ -18,6 +18,10 @@ except Exception:  # pragma: no cover - env without NVML
     pynvml = None
 
 
+def _is_ascii_digit_token(token: str) -> bool:
+    return token.isascii() and token.isdigit()
+
+
 class NVMLMonitor:
     """Lightweight wrapper around NVML to read GPU utilization."""
 
@@ -84,9 +88,15 @@ class NVMLMonitor:
             tokens = []
         elif any(not token or token == "-1" for token in tokens):
             return None
+        elif any(not token.isascii() for token in tokens):
+            return None
 
         token_keys = [
-            ("index", int(token)) if token.isdigit() else ("token", token.lower())
+            (
+                ("index", int(token))
+                if _is_ascii_digit_token(token)
+                else ("token", token.lower())
+            )
             for token in tokens
         ]
         if len(set(token_keys)) != len(token_keys):
@@ -105,7 +115,9 @@ class NVMLMonitor:
         return handles[index]
 
     def _numeric_tokens_within_device_count(self, tokens: list[str]) -> bool:
-        numeric_tokens = [int(token) for token in tokens if token.isdigit()]
+        numeric_tokens = [
+            int(token) for token in tokens if _is_ascii_digit_token(token)
+        ]
         if not numeric_tokens:
             return True
 
@@ -125,7 +137,7 @@ class NVMLMonitor:
         # UUID tokens can fail independently from numeric tokens. Resolve them
         # first so an unresolved later UUID cannot permit partial numeric telemetry.
         for visible_index, token in enumerate(tokens):
-            if token.isdigit():
+            if _is_ascii_digit_token(token):
                 continue
             handle = self._get_handle_for_visible_token(token)
             if handle is None:
@@ -133,7 +145,7 @@ class NVMLMonitor:
             handles[visible_index] = handle
 
         for visible_index, token in enumerate(tokens):
-            if not token.isdigit():
+            if not _is_ascii_digit_token(token):
                 continue
             handle = self._get_handle_for_visible_token(token)
             if handle is None:
@@ -156,7 +168,7 @@ class NVMLMonitor:
         if not token:
             return None
 
-        if token.isdigit():
+        if _is_ascii_digit_token(token):
             try:
                 return self._nvml.nvmlDeviceGetHandleByIndex(int(token))
             except self._nvml.NVMLError:
