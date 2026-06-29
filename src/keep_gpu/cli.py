@@ -767,14 +767,24 @@ def _validate_stop_keep_result(result: Dict[str, Any]) -> Dict[str, Any]:
 
 def _validate_list_gpus_result(result: Dict[str, Any]) -> Dict[str, Any]:
     gpus = _require_list_field(result, "gpus", "list_gpus")
+    visible_ids = set()
     for index, gpu in enumerate(gpus):
         if not isinstance(gpu, dict):
             raise _malformed_method_result(
                 "list_gpus", f"gpus[{index}] must be an object"
             )
         try:
-            _require_plain_int_field(gpu, "id", "list_gpus")
-            _require_plain_int_field(gpu, "visible_id", "list_gpus")
+            gpu_id = _require_plain_int_field(gpu, "id", "list_gpus")
+            visible_id = _require_plain_int_field(gpu, "visible_id", "list_gpus")
+            if gpu_id != visible_id:
+                raise _malformed_method_result("list_gpus", "id must match visible_id")
+            if visible_id < 0:
+                raise _malformed_method_result(
+                    "list_gpus", "visible_id must be non-negative"
+                )
+            if visible_id in visible_ids:
+                raise _malformed_method_result("list_gpus", "visible_id must be unique")
+            visible_ids.add(visible_id)
             _require_string_field(gpu, "platform", "list_gpus")
             _require_string_field(gpu, "name", "list_gpus")
             _require_nullable_int_field(gpu, "memory_total", "list_gpus")

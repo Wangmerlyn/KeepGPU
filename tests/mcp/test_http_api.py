@@ -1167,20 +1167,68 @@ def test_http_get_api_gpus_runtime_error_returns_json_500(monkeypatch):
     assert payload["error"]["type"] == "RuntimeError"
 
 
-def test_http_get_api_gpus_malformed_record_returns_json_500(monkeypatch):
+@pytest.mark.parametrize(
+    ("records", "message_fragment"),
+    [
+        (
+            [
+                {
+                    "id": 0,
+                    "platform": "CUDA",
+                    "name": "GPU 0",
+                    "memory_total": None,
+                    "memory_used": None,
+                    "utilization": None,
+                }
+            ],
+            "visible_id",
+        ),
+        (
+            [
+                {
+                    "id": -1,
+                    "visible_id": -1,
+                    "platform": "CUDA",
+                    "name": "GPU hidden",
+                    "memory_total": None,
+                    "memory_used": None,
+                    "utilization": None,
+                }
+            ],
+            "non-negative",
+        ),
+        (
+            [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "CUDA",
+                    "name": "GPU 0",
+                    "memory_total": None,
+                    "memory_used": None,
+                    "utilization": None,
+                },
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "CUDA",
+                    "name": "GPU alias",
+                    "memory_total": None,
+                    "memory_used": None,
+                    "utilization": None,
+                },
+            ],
+            "duplicate",
+        ),
+    ],
+)
+def test_http_get_api_gpus_malformed_record_returns_json_500(
+    monkeypatch, records, message_fragment
+):
     monkeypatch.setattr(
         server_module,
         "get_gpu_info",
-        lambda: [
-            {
-                "id": 0,
-                "platform": "CUDA",
-                "name": "GPU 0",
-                "memory_total": None,
-                "memory_used": None,
-                "utilization": None,
-            }
-        ],
+        lambda: records,
     )
     server = KeepGPUServer(controller_factory=cast(Any, dummy_factory))
     httpd, thread, base = _start_http_server(server)
@@ -1195,7 +1243,7 @@ def test_http_get_api_gpus_malformed_record_returns_json_500(monkeypatch):
 
     assert status_code == 500
     assert "Malformed list_gpus response" in payload["error"]["message"]
-    assert "visible_id" in payload["error"]["message"]
+    assert message_fragment in payload["error"]["message"]
     assert payload["error"]["type"] == "RuntimeError"
 
 
