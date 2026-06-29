@@ -16,14 +16,6 @@ export function parseGpuIds(raw) {
   return parts.map((part) => Number(part))
 }
 
-export function parsePositiveInt(value, fieldName) {
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    throw new Error(`${fieldName} must be an integer >= 1`)
-  }
-  return parsed
-}
-
 export function parsePositiveNumber(value, fieldName) {
   if (typeof value === "boolean") {
     throw new Error(`${fieldName} must be finite and positive`)

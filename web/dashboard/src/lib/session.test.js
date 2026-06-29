@@ -14,7 +14,6 @@ import {
   isSessionStopping,
   parseBusyThreshold,
   parseGpuIds,
-  parsePositiveInt,
   parsePositiveNumber,
   summarizeDashboardStats
 } from "./session"
@@ -49,11 +48,6 @@ describe("numeric parsing", () => {
     expect(() => parsePositiveNumber("0", "Interval")).toThrow()
     expect(() => parsePositiveNumber("NaN", "Interval")).toThrow()
     expect(() => parsePositiveNumber("Infinity", "Interval")).toThrow()
-  })
-
-  it("keeps integer-only helpers strict", () => {
-    expect(parsePositiveInt("5", "Iteration count")).toBe(5)
-    expect(() => parsePositiveInt("0.5", "Iteration count")).toThrow()
   })
 
   it("validates busy threshold", () => {
