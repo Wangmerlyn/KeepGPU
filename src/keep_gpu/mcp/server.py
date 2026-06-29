@@ -1067,13 +1067,26 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         else:
             relative = request_path.lstrip("/")
 
-        requested = (STATIC_DIR / unquote(relative)).resolve()
+        decoded_relative = unquote(relative)
+        requested = (STATIC_DIR / decoded_relative).resolve()
         static_root = STATIC_DIR.resolve()
         if static_root not in requested.parents and requested != static_root:
             self._json_response(403, {"error": {"message": "Forbidden"}})
             return
 
+        is_asset_request = (
+            decoded_relative == "assets"
+            or decoded_relative.startswith("assets/")
+            or (
+                bool(Path(decoded_relative).suffix) and decoded_relative != "index.html"
+            )
+        )
         if not requested.exists() or requested.is_dir():
+            if is_asset_request:
+                self._json_response(
+                    404, {"error": {"message": "Static asset not found"}}
+                )
+                return
             # SPA fallback for client-side routes.
             requested = static_root / "index.html"
             if not requested.exists():
