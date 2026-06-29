@@ -21,7 +21,7 @@ automatically.
 - Return the existing additive timeout payload (`timed_out`, `message`) when a
   requested starting job does not settle before the startup-stop wait budget.
 - Track timed-out stop requests for starting jobs. If such a startup later
-  completes successfully, immediately trigger a quiet background stop so a
+  completes successfully, immediately trigger a logged background stop so a
   timed-out cancellation does not leave a surprise active keeper.
 - Preserve existing behavior for slow startups that settle within the wait
   budget: the original stop request releases the session and reports it in
@@ -30,7 +30,7 @@ automatically.
   request begins. Use session/parameter identity so a later session that reuses
   the same `job_id` is not released by the older stop-all request.
 - Bind remembered post-timeout cleanup to the `Session` object created by the
-  timed-out startup so a delayed quiet cleanup cannot stop a later replacement
+  timed-out startup so a delayed cleanup cannot stop a later replacement
   using the same custom `job_id`.
 - Bind targeted stop release to the session observed before the startup wait, or
   to the settled session whose params match the captured starting job, so a stop

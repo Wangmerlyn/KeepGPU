@@ -357,7 +357,6 @@ class KeepGPUServer:
                 target=self._stop_current_session,
                 kwargs={
                     "job_id": job_id,
-                    "quiet": True,
                     "expected_session": session,
                 },
                 daemon=True,

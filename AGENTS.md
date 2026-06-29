@@ -201,7 +201,7 @@ This file defines how coding agents should work in this repository.
 - Stop requests waiting on starting sessions must be bounded. If startup does
   not settle within the stop wait budget, return the normal additive timeout
   payload and remember the cancellation so a later successful startup is
-  released quietly instead of becoming a surprise active keeper.
+  released in the background instead of becoming a surprise active keeper.
 - Stop-all may release independent sessions concurrently, but must not duplicate release work for `stopping` sessions and must keep deterministic additive result fields.
 - Keep utilization backoff eco-safe: valid `busy_threshold` values are `-1` or `0..100`; public defaults must use the shared `DEFAULT_BUSY_THRESHOLD` (`25`), and when telemetry is unavailable with `busy_threshold >= 0`, controllers should sleep instead of allocating keep tensors or running keepalive compute. Only `busy_threshold=-1` is the explicit unconditional mode.
 - Dashboard telemetry must display unavailable utilization as unknown/`n/a`, not

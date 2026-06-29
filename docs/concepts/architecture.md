@@ -103,9 +103,9 @@ Elementwise keep-alive batches:
   for starting jobs within a bounded budget; if that wait times out, the
   response uses `timed_out`, the job can remain visible as `state="starting"`,
   and the service remembers the cancellation so a later successful startup is
-  released quietly. Timed-out releases stay visible as `state="stopping"` until
-  the background release finishes; failed releases stay visible as
-  `state="stop_failed"` with `last_error`.
+  released in the background. Timed-out releases stay visible as
+  `state="stopping"` until the background release finishes; failed releases
+  stay visible as `state="stop_failed"` with `last_error`.
 - After startup, terminal worker runtime or allocation failures are surfaced as
   `state="runtime_failed"` with `last_error`. The retained session remains
   visible and can still be stopped. Busy-GPU or unavailable-telemetry deferral is
