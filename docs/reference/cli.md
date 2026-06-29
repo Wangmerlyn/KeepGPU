@@ -21,7 +21,7 @@ These options apply when you run `keep-gpu` without subcommands.
 | Option | Type | Description |
 | --- | --- | --- |
 | `--interval NUMBER` | seconds | Finite positive sleep duration, including fractional values, between utilization checks and keep-alive batches; values above the Python runtime wait limit are rejected. |
-| `--gpu-ids TEXT` | comma-separated unique non-negative ints | Subset of visible device ordinals to guard (for example, `0,2`). Omit to use all visible GPUs; explicit empty or whitespace-only values are invalid. Startup fails if all-visible resolution finds no GPUs or if an explicit ordinal is out of range. |
+| `--gpu-ids TEXT` | comma-separated unique non-negative ints | Subset of visible device ordinals to guard (for example, `0,2`). Omit to let the controller resolve all visible GPUs; explicit empty or whitespace-only values are invalid. Startup fails if all-visible resolution finds no GPUs or if an explicit ordinal is out of range. |
 | `--vram TEXT` | human size or bare bytes | Amount of memory each GPU controller allocates (`512MB`, `1GiB`, `1073741824`); byte-equivalent values above 1 PiB are rejected. |
 | `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | `0..100` backs off before allocation/compute when utilization is above this value or unavailable; `-1` disables utilization backoff. |
 | `--threshold TEXT` | deprecated | Legacy alias: numeric values map to busy-threshold, size strings map to vram. |
@@ -139,8 +139,9 @@ instead of dropping the connection.
 The dashboard consumes those JSON objects and displays `error.message` when it is
 present, falling back to the plain response body or HTTP status only when needed.
 Direct JSON-RPC service calls report the same expected hardware/platform
-startup-unavailable conditions with error code `-32000`; arbitrary runtime
-failures remain `-32603 Internal error`.
+startup-unavailable conditions, including failed CUDA/ROCm visible-device
+enumeration, with error code `-32000`; arbitrary runtime failures remain
+`-32603 Internal error`.
 
 | Endpoint | Method | Purpose |
 | --- | --- | --- |

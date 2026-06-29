@@ -143,6 +143,59 @@ def test_run_blocking_preserves_cuda_visible_devices_for_gpu_ids(monkeypatch):
     }
 
 
+def test_run_blocking_defers_omitted_gpu_enumeration_to_global_controller(
+    monkeypatch,
+):
+    import torch
+
+    captured = {}
+
+    class DummyGlobalController:
+        def __init__(self, *, gpu_ids, interval, vram_to_keep, busy_threshold):
+            captured["gpu_ids"] = gpu_ids
+            captured["interval"] = interval
+            captured["vram_to_keep"] = vram_to_keep
+            captured["busy_threshold"] = busy_threshold
+
+        def __enter__(self):
+            captured["entered"] = True
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            captured["exited"] = True
+
+    import keep_gpu.global_gpu_controller.global_gpu_controller as global_module
+
+    monkeypatch.setattr(global_module, "GlobalGPUController", DummyGlobalController)
+
+    def fail_device_count():
+        raise AssertionError("blocking mode should defer GPU enumeration")
+
+    monkeypatch.setattr(torch.cuda, "device_count", fail_device_count)
+
+    def interrupt_sleep(_seconds):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli.time, "sleep", interrupt_sleep)
+
+    cli._run_blocking(
+        interval=1,
+        gpu_ids=None,
+        vram="1MiB",
+        legacy_threshold=None,
+        busy_threshold=-1,
+    )
+
+    assert captured == {
+        "gpu_ids": None,
+        "interval": 1,
+        "vram_to_keep": "1MiB",
+        "busy_threshold": -1,
+        "entered": True,
+        "exited": True,
+    }
+
+
 @pytest.mark.parametrize(
     ("busy_threshold", "expected_message", "forbidden_message"),
     [

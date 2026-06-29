@@ -8,6 +8,7 @@ import torch
 
 from keep_gpu.single_gpu_controller.base_gpu_controller import BaseGPUController
 from keep_gpu.utilities.logger import setup_logger
+from keep_gpu.utilities.platform_manager import visible_torch_device_count
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
@@ -47,7 +48,7 @@ class RocmGPUController(BaseGPUController):
             )
         )
         rank = validate_rank_type(rank)
-        rank = validate_visible_rank(rank, torch.cuda.device_count())
+        rank = validate_visible_rank(rank, visible_torch_device_count())
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
         self._stop_evt: Optional[threading.Event] = None

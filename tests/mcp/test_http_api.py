@@ -14,6 +14,7 @@ from keep_gpu.mcp.server import (
     SessionStartupUnavailable,
     _JSONRPCHandler,
 )
+from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableError
 
 
 class DummyController:
@@ -696,7 +697,19 @@ def test_http_start_validates_gpu_ids_against_listed_visible_ids(monkeypatch):
     assert controllers == []
 
 
-def test_http_start_rejects_explicit_gpu_ids_when_no_visible_ids(monkeypatch):
+@pytest.mark.parametrize(
+    ("list_gpus_result", "message"),
+    [
+        ({"gpus": []}, "No usable visible GPUs are available"),
+        (
+            DeviceEnumerationUnavailableError("Unable to enumerate visible GPUs"),
+            "Unable to enumerate visible GPUs",
+        ),
+    ],
+)
+def test_http_start_reports_startup_unavailable_when_gpu_listing_unusable(
+    monkeypatch, list_gpus_result, message
+):
     controllers = []
 
     class TrackingController(DummyController):
@@ -707,7 +720,13 @@ def test_http_start_rejects_explicit_gpu_ids_when_no_visible_ids(monkeypatch):
     server = KeepGPUServer(
         controller_factory=cast(Any, lambda **kwargs: TrackingController(**kwargs))
     )
-    monkeypatch.setattr(server, "list_gpus", lambda: {"gpus": []})
+
+    def list_gpus():
+        if isinstance(list_gpus_result, Exception):
+            raise list_gpus_result
+        return list_gpus_result
+
+    monkeypatch.setattr(server, "list_gpus", list_gpus)
     httpd, thread, base = _start_http_server(server)
 
     try:
@@ -727,8 +746,9 @@ def test_http_start_rejects_explicit_gpu_ids_when_no_visible_ids(monkeypatch):
         server.shutdown()
         thread.join(timeout=2)
 
-    assert status == 400
-    assert "listed visible GPU IDs (none)" in payload["error"]["message"]
+    assert status == 503
+    assert payload["error"]["message"] == message
+    assert payload["error"]["type"] == "SessionStartupUnavailable"
     assert controllers == []
 
 

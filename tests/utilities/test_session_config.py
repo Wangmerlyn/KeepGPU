@@ -88,6 +88,17 @@ def test_validate_visible_rank_rejects_zero_visible_count_with_clear_message():
         validate_visible_rank(0, 0)
 
 
+def test_validate_visible_rank_selection_failures_are_typed_value_errors():
+    error_type = getattr(session_config, "VisibleRankValidationError", None)
+    assert error_type is not None
+    assert issubclass(error_type, ValueError)
+
+    with pytest.raises(error_type, match="no visible GPUs are available"):
+        validate_visible_rank(0, 0)
+    with pytest.raises(error_type, match="rank must be a visible device ordinal"):
+        validate_visible_rank(2, 2)
+
+
 @pytest.mark.parametrize("rank", [-1, 2])
 def test_validate_visible_rank_rejects_out_of_range_rank(rank):
     with pytest.raises(ValueError, match="rank must be a visible device ordinal"):

@@ -8,6 +8,10 @@ DEFAULT_BUSY_THRESHOLD = 25
 PUBLIC_INTERVAL_MAX_SECONDS = int(threading.TIMEOUT_MAX)
 
 
+class VisibleRankValidationError(ValueError):
+    """A rank cannot be selected from the current visible device set."""
+
+
 def _is_plain_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
@@ -80,9 +84,11 @@ def validate_visible_rank(rank: Any, visible_count: Any) -> int:
     if not _is_plain_int(visible_count) or visible_count < 0:
         raise ValueError("visible device count must be a non-negative integer")
     if visible_count == 0:
-        raise ValueError("no visible GPUs are available; rank cannot be selected")
+        raise VisibleRankValidationError(
+            "no visible GPUs are available; rank cannot be selected"
+        )
     if rank < 0 or rank >= visible_count:
-        raise ValueError(
+        raise VisibleRankValidationError(
             "rank must be a visible device ordinal less than "
             f"{visible_count}; got {rank}"
         )

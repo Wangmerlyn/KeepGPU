@@ -836,18 +836,15 @@ def _run_blocking(
 
     gpu_id_list = _parse_gpu_ids(gpu_ids)
 
-    import torch
-
     from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
 
     if gpu_id_list is not None:
         logger.info("Using specified visible GPU ordinals: %s", gpu_id_list)
         gpu_count = len(gpu_id_list)
+        logger.info("GPU count: %s", gpu_count)
     else:
-        gpu_count = torch.cuda.device_count()
         logger.info("Using all available GPUs")
 
-    logger.info("GPU count: %s", gpu_count)
     logger.info("VRAM to keep occupied: %s", vram)
     logger.info("Check interval: %s seconds", interval)
     if busy_threshold == -1:
