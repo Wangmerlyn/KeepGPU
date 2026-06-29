@@ -20,6 +20,20 @@ class ComputingPlatform(Enum):
     MACM = "macm"
 
 
+class DeviceEnumerationUnavailableError(RuntimeError):
+    """Visible torch GPU ordinals could not be enumerated."""
+
+
+def visible_torch_device_count() -> int:
+    """Return the count of torch-visible CUDA/ROCm device ordinals."""
+    try:
+        return int(torch.cuda.device_count())
+    except Exception as exc:
+        raise DeviceEnumerationUnavailableError(
+            f"Unable to enumerate visible GPUs: {exc}"
+        ) from exc
+
+
 def _check_cuda():
     """
     Return True if CUDA appears available.

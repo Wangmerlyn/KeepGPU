@@ -98,10 +98,11 @@ This file defines how coding agents should work in this repository.
 - Keep GPU telemetry helpers in `src/keep_gpu/utilities/gpu_info.py` and related utility modules.
 - Keep public session input validation centralized in `src/keep_gpu/utilities/session_config.py`; CLI, Python, REST, and JSON-RPC entry points must share the same contract.
 - JSON-RPC user parameter validation errors and unknown direct-method params must return `-32602 Invalid params`; reserve `-32603 Internal error` for unexpected server failures.
-- Expected controller startup unavailability, such as no usable visible GPUs or
-  unsupported platforms, must surface as explicit startup-unavailable errors
-  (direct JSON-RPC `-32000`, REST `503`, MCP tool `isError=true`) while
-  arbitrary unexpected startup/runtime failures remain internal errors.
+- Expected controller startup unavailability, such as no usable visible GPUs,
+  failed CUDA/ROCm visible-device enumeration, or unsupported platforms, must
+  surface as explicit startup-unavailable errors (direct JSON-RPC `-32000`,
+  REST `503`, MCP tool `isError=true`) while arbitrary unexpected
+  startup/runtime failures remain internal errors.
 - CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
 - CLI service RPC clients must reject malformed JSON-RPC service envelopes (wrong `jsonrpc`, mismatched `id`, missing `result`, non-object direct-method `result`, or non-object `error`) instead of treating them as successful empty responses or leaking tracebacks.
 - CLI commands that consume service-specific JSON-RPC results must validate
@@ -146,6 +147,9 @@ This file defines how coding agents should work in this repository.
   target was chosen.
 - For CLI `--gpu-ids`, only omission means all visible GPUs; explicit empty or
   whitespace-only values are invalid and must not silently expand to all GPUs.
+- Blocking CLI mode must defer omitted-GPU hardware enumeration to
+  `GlobalGPUController`; the CLI should not perform an early
+  `torch.cuda.device_count()` probe just to log the all-GPU count.
 - Destructive or broad stop surfaces must reject ambiguous inputs such as `--job-id` with `--all` before any RPC, stop-all fallback, or daemon stop side effect.
 - REST session creation bodies must be JSON objects; reject arrays/scalars before field validation or session state changes.
 - REST session creation must validate cheap local fields (`vram`, `interval`,

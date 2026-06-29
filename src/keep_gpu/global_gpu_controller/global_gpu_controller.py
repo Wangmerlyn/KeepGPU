@@ -1,17 +1,21 @@
 import threading
 from typing import List, Optional, Union
 
-import torch
-
 from keep_gpu.utilities.humanized_input import parse_size, parse_vram_to_elements
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
+    VisibleRankValidationError,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
 )
-from keep_gpu.utilities.platform_manager import ComputingPlatform, get_platform
+from keep_gpu.utilities.platform_manager import (
+    ComputingPlatform,
+    DeviceEnumerationUnavailableError,
+    get_platform,
+    visible_torch_device_count,
+)
 
 logger = setup_logger(__name__)
 
@@ -35,7 +39,10 @@ class InvalidVisibleGPUSelectionError(ValueError):
 
 
 def _resolve_visible_gpu_ids(gpu_ids: Optional[List[int]]) -> List[int]:
-    visible_count = torch.cuda.device_count()
+    try:
+        visible_count = visible_torch_device_count()
+    except DeviceEnumerationUnavailableError as exc:
+        raise NoGPUAvailableError(str(exc)) from exc
     if gpu_ids is None:
         return list(range(visible_count))
     invalid_ids = [gpu_id for gpu_id in gpu_ids if gpu_id >= visible_count]
@@ -104,15 +111,20 @@ class GlobalGPUController:
         if not self.gpu_ids:
             raise NoGPUAvailableError("No GPUs available for GlobalGPUController")
 
-        self.controllers = [
-            controller_cls(
-                rank=i,
-                interval=self.interval,
-                vram_to_keep=self.vram_to_keep,
-                busy_threshold=self.busy_threshold,
-            )
-            for i in self.gpu_ids
-        ]
+        try:
+            self.controllers = [
+                controller_cls(
+                    rank=i,
+                    interval=self.interval,
+                    vram_to_keep=self.vram_to_keep,
+                    busy_threshold=self.busy_threshold,
+                )
+                for i in self.gpu_ids
+            ]
+        except VisibleRankValidationError as exc:
+            raise NoGPUAvailableError(str(exc)) from exc
+        except DeviceEnumerationUnavailableError as exc:
+            raise NoGPUAvailableError(str(exc)) from exc
 
     def keep(self) -> None:
         started = []

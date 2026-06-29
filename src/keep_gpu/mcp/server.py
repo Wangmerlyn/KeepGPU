@@ -55,6 +55,7 @@ from keep_gpu.utilities.humanized_input import (
 )
 from keep_gpu.utilities.gpu_info import get_gpu_info
 from keep_gpu.utilities.logger import setup_logger
+from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableError
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     PUBLIC_INTERVAL_MAX_SECONDS,
@@ -1125,7 +1126,30 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                     return
 
                 if gpu_ids is not None:
-                    visible_gpus = server_ref.list_gpus().get("gpus", [])
+                    try:
+                        visible_gpus = server_ref.list_gpus().get("gpus", [])
+                    except DeviceEnumerationUnavailableError as exc:
+                        self._json_response(
+                            503,
+                            {
+                                "error": {
+                                    "message": str(exc),
+                                    "type": SessionStartupUnavailable.__name__,
+                                }
+                            },
+                        )
+                        return
+                    if not visible_gpus:
+                        self._json_response(
+                            503,
+                            {
+                                "error": {
+                                    "message": "No usable visible GPUs are available",
+                                    "type": SessionStartupUnavailable.__name__,
+                                }
+                            },
+                        )
+                        return
                     listed_ids = {
                         gpu["id"]
                         for gpu in visible_gpus

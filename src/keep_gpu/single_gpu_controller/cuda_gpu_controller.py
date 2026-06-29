@@ -10,7 +10,10 @@ from keep_gpu.single_gpu_controller.base_gpu_controller import BaseGPUController
 from keep_gpu.utilities.gpu_monitor import get_gpu_utilization
 from keep_gpu.utilities.humanized_input import parse_size
 from keep_gpu.utilities.logger import setup_logger
-from keep_gpu.utilities.platform_manager import ComputingPlatform
+from keep_gpu.utilities.platform_manager import (
+    ComputingPlatform,
+    visible_torch_device_count,
+)
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
@@ -83,7 +86,7 @@ class CudaGPUController(BaseGPUController):
         )
         self.busy_threshold = validate_busy_threshold(busy_threshold)
         rank = validate_rank_type(rank)
-        rank = validate_visible_rank(rank, torch.cuda.device_count())
+        rank = validate_visible_rank(rank, visible_torch_device_count())
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")
         self.interval = interval

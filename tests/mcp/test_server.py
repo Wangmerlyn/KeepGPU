@@ -607,6 +607,68 @@ def test_jsonrpc_start_keep_zero_visible_gpus_returns_public_code(monkeypatch):
         server.shutdown()
 
 
+@pytest.mark.parametrize(
+    ("platform", "device_counts", "job_id", "message"),
+    [
+        (
+            pm.ComputingPlatform.CUDA,
+            [RuntimeError("cuda runtime unavailable")],
+            "device-count-failed",
+            "cuda runtime unavailable",
+        ),
+        (
+            pm.ComputingPlatform.CUDA,
+            [1, RuntimeError("cuda runtime disappeared")],
+            "late-device-count-failed",
+            "cuda runtime disappeared",
+        ),
+        (
+            pm.ComputingPlatform.CUDA,
+            [1, 0],
+            "late-zero-device-count",
+            "no visible GPUs are available",
+        ),
+        (
+            pm.ComputingPlatform.ROCM,
+            [1, 0],
+            "rocm-late-zero-device-count",
+            "no visible GPUs are available",
+        ),
+    ],
+)
+def test_jsonrpc_start_keep_device_enumeration_unavailable_returns_startup_unavailable(
+    monkeypatch, platform, device_counts, job_id, message
+):
+    import torch
+
+    monkeypatch.setattr(pm, "_cached_platform", platform)
+    calls = iter(device_counts)
+
+    def device_count():
+        result = next(calls)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(torch.cuda, "device_count", device_count)
+    server = KeepGPUServer()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"job_id": job_id},
+    }
+
+    try:
+        resp = _handle_request(server, req)
+
+        assert "error" in resp
+        assert resp["error"]["code"] == JSONRPC_STARTUP_UNAVAILABLE
+        assert message in resp["error"]["message"]
+        assert server.status()["active_jobs"] == []
+    finally:
+        server.shutdown()
+
+
 def test_jsonrpc_start_keep_out_of_range_gpu_ids_returns_invalid_params(monkeypatch):
     import torch
 
