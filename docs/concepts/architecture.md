@@ -101,9 +101,9 @@ Elementwise keep-alive batches:
   jobs as `state="starting"` while controller startup is in progress, and
   `stop_keep` removes a session only after release succeeds. Stop requests wait
   for starting jobs within a bounded budget; if that wait times out, the
-  response uses `timed_out`, the job can remain visible as `state="starting"`,
-  and the service remembers the cancellation so a later successful startup is
-  released in the background. Timed-out releases stay visible as
+  response uses `timed_out`, status shows the remembered cancellation as
+  `state="stopping"` with the timeout message, and a later successful startup
+  is released in the background. Timed-out releases stay visible as
   `state="stopping"` until the background release finishes; failed releases
   stay visible as `state="stop_failed"` with `last_error`.
 - After startup, terminal worker runtime or allocation failures are surfaced as
