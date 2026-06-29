@@ -233,6 +233,8 @@ keepalive compute;
 Stop controls show timed-out or failed releases instead of claiming success when
 the backend keeps a session visible for follow-up cleanup. Retained session cards
 show `Releasing` or `Release failed` with the backend error detail when present.
+When no stop outcome list is populated, the dashboard preserves the backend
+message, for example a missing targeted `job_id`.
 When REST calls fail, the footer uses the structured backend `error.message`
 instead of showing the raw JSON error payload.
 

@@ -310,4 +310,10 @@ describe("formatStopResultMessage", () => {
       "No sessions were released."
     )
   })
+
+  it("reports backend stop messages when no result lists are populated", () => {
+    expect(formatStopResultMessage({ message: "job_id not found" })).toBe(
+      "job_id not found"
+    )
+  })
 })
