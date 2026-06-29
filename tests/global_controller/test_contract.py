@@ -71,6 +71,26 @@ def test_direct_cuda_rocm_controllers_reject_non_integer_ranks(
         controller(rank=rank, vram_to_keep=4)
 
 
+@pytest.mark.parametrize("rank", [1.5, True, "0"])
+@pytest.mark.parametrize(
+    "controller",
+    [
+        CudaGPUController,
+        RocmGPUController,
+    ],
+)
+def test_direct_cuda_rocm_controllers_reject_non_integer_ranks_before_device_count(
+    monkeypatch, controller, rank
+):
+    def fail_device_count():
+        raise AssertionError("device_count should not run for invalid rank type")
+
+    monkeypatch.setattr(torch.cuda, "device_count", fail_device_count)
+
+    with pytest.raises(TypeError, match="rank must be an integer"):
+        controller(rank=rank, vram_to_keep=4)
+
+
 @pytest.mark.parametrize("rank", [-1, 1])
 @pytest.mark.parametrize(
     "controller",

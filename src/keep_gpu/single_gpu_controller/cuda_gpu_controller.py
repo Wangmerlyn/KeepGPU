@@ -15,6 +15,7 @@ from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
     validate_positive_integer,
+    validate_rank_type,
     validate_visible_rank,
 )
 
@@ -81,6 +82,7 @@ class CudaGPUController(BaseGPUController):
             relu_iterations, "relu_iterations"
         )
         self.busy_threshold = validate_busy_threshold(busy_threshold)
+        rank = validate_rank_type(rank)
         rank = validate_visible_rank(rank, torch.cuda.device_count())
         self.rank = rank
         self.device = torch.device(f"cuda:{rank}")

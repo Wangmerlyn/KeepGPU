@@ -66,6 +66,13 @@ def validate_positive_integer(value: Any, name: str) -> int:
     return value
 
 
+def validate_rank_type(rank: Any) -> int:
+    """Validate a public single-GPU rank type before backend probing."""
+    if not _is_plain_int(rank):
+        raise TypeError("rank must be an integer")
+    return rank
+
+
 def validate_visible_rank(rank: Any, visible_count: Any) -> int:
     """Validate a public single-GPU visible device ordinal."""
     if not _is_plain_int(rank):
