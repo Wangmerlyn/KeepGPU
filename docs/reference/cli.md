@@ -35,7 +35,7 @@ Starts local KeepGPU service (HTTP + JSON-RPC + dashboard).
 | Option | Default | Description |
 | --- | --- | --- |
 | `--host` | `127.0.0.1` | Service bind host. Must be a DNS hostname or IPv4 address. |
-| `--port` | `8765` | Service port in `1..65535`. |
+| `--port` | `8765` | Service port as an integer in `1..65535`. |
 
 ### `keep-gpu start`
 
@@ -54,7 +54,7 @@ GPUs; explicit empty or whitespace-only values are invalid.
 | `--busy-threshold` / `--util-threshold` | `25` | `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
 | `--job-id` | auto | Optional URL-path-safe custom id. Invalid IDs are rejected locally before service auto-start; valid IDs must be unique across active and starting sessions. |
 | `--host` | `127.0.0.1` | Service host to contact; invalid values are rejected before auto-start. |
-| `--port` | `8765` | Service port to contact; must be in `1..65535`. |
+| `--port` | `8765` | Service port to contact; must be an integer in `1..65535`. |
 | `--auto-start/--no-auto-start` | `--auto-start` | Auto-start local service if unavailable. |
 
 ### `keep-gpu status`
@@ -62,7 +62,7 @@ GPUs; explicit empty or whitespace-only values are invalid.
 | Option | Description |
 | --- | --- |
 | `--job-id` | Optional non-empty URL-path-safe session id; omit to list all tracked sessions, including in-progress starts, in-progress releases, or failed releases. Invalid explicit IDs are rejected locally before RPC. |
-| `--host`, `--port` | Service host/port. Invalid endpoint values are rejected locally and printed as JSON errors before RPC. |
+| `--host`, `--port` | Service host/port. Invalid endpoint values, including non-integer or out-of-range ports, are rejected locally and printed as JSON errors before RPC. |
 
 Prints a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
@@ -78,7 +78,7 @@ runtime failure.
 | --- | --- |
 | `--job-id` | Stop one non-empty URL-path-safe session id. Invalid explicit IDs are rejected locally before RPC or stop-all fallback. |
 | `--all` | Stop all sessions. |
-| `--host`, `--port` | Service host/port. Invalid endpoint values are rejected locally and printed as JSON errors before RPC or stop-all fallback. |
+| `--host`, `--port` | Service host/port. Invalid endpoint values, including non-integer or out-of-range ports, are rejected locally and printed as JSON errors before RPC or stop-all fallback. |
 
 `--job-id` and `--all` are mutually exclusive. Passing both returns a JSON
 error before any RPC or stop-all fallback runs.
@@ -104,7 +104,8 @@ Torch can select; nullable memory fields mean memory telemetry is unavailable
 after selection succeeds. Service/runtime errors after CLI parsing succeeds are
 reported as `{"error": "..."}`. Malformed JSON-RPC service envelopes are
 reported as JSON error objects instead of empty success results. Invalid
-endpoint values are reported as JSON errors before RPC.
+endpoint values, including non-integer or out-of-range ports, are reported as
+JSON errors before RPC.
 
 ### `keep-gpu service-stop`
 
@@ -114,7 +115,7 @@ ownership-verified stop operations.
 
 | Option | Description |
 | --- | --- |
-| `--host`, `--port` | Service host/port. `--host` must be a DNS hostname or IPv4 address, and `--port` must be in `1..65535`. |
+| `--host`, `--port` | Service host/port. `--host` must be a DNS hostname or IPv4 address, and `--port` must be an integer in `1..65535`. |
 | `--force` | Skip active-session RPC checks and stop the daemon only if the auto-start ownership record verifies the process. |
 
 ## Service HTTP endpoints

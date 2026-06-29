@@ -82,7 +82,7 @@ Flags that matter:
   - `keep-gpu serve`: run local service (HTTP + dashboard).
   - `keep-gpu start`: create keep session and return immediately.
     Service endpoint flags are validated locally: `--host` must be a DNS
-    hostname or IPv4 address, and `--port` must be in `1..65535`.
+    hostname or IPv4 address, and `--port` must be an integer in `1..65535`.
   - `keep-gpu status`: inspect tracked sessions, including in-progress or failed releases.
   - `keep-gpu stop --job-id <id>` or `keep-gpu stop --all`: release sessions.
     The two stop targets are mutually exclusive; passing both returns a JSON
@@ -100,8 +100,9 @@ Flags that matter:
   - `status`, `stop`, and `list-gpus` print structured JSON objects, including
     `{"error": "..."}` for service/runtime errors after CLI parsing succeeds,
     that tools such as `jq` can parse directly. Malformed JSON-RPC service
-    envelopes and invalid service endpoints are reported as those JSON error
-    objects instead of empty success results or tracebacks.
+    envelopes and invalid service endpoints, including non-integer ports, are
+    reported as those JSON error objects instead of empty success results or
+    tracebacks.
 
 ## Embed in Python
 

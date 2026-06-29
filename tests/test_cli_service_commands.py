@@ -575,6 +575,38 @@ def test_service_json_command_rejects_invalid_port_before_rpc(monkeypatch):
     assert called["rpc"] is False
 
 
+@pytest.mark.parametrize(
+    ("command", "called_key"),
+    [
+        (["status", "--port", "abc"], "rpc"),
+        (["stop", "--all", "--port", "abc"], "stop_all"),
+        (["list-gpus", "--port", "abc"], "rpc"),
+    ],
+)
+def test_service_json_commands_reject_non_integer_port_as_json_before_rpc_or_fallback(
+    monkeypatch, command, called_key
+):
+    called = {"rpc": False, "stop_all": False}
+
+    def fake_rpc(*args, **kwargs):
+        called["rpc"] = True
+        return {}
+
+    def fake_stop_all(*args, **kwargs):
+        called["stop_all"] = True
+        return {"stopped": [], "timed_out": [], "failed": [], "errors": {}}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_all_sessions_with_fallback", fake_stop_all)
+
+    result = runner.invoke(cli.app, command)
+
+    assert result.exit_code == 1
+    payload = _single_decoded_json_object(result.output)
+    assert payload["error"] == "port must be an integer between 1 and 65535"
+    assert called[called_key] is False
+
+
 def test_service_stop_rejects_invalid_host_before_daemon_operations(monkeypatch):
     called = {"available": False, "stop": False}
 
