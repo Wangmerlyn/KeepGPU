@@ -292,13 +292,20 @@ def test_http_rpc_head_rejects_with_json_405_and_empty_body():
     assert body == b""
 
 
-@pytest.mark.parametrize("method", ["PUT", "OPTIONS"])
-def test_http_unknown_api_routes_reject_unsupported_methods_with_json_404(method):
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("PUT", "/api/unknown"),
+        ("OPTIONS", "/api/unknown"),
+        ("OPTIONS", "/api"),
+    ],
+)
+def test_http_unknown_api_routes_reject_unsupported_methods_with_json_404(method, path):
     server = make_server()
     httpd, thread, base = _start_http_server(server)
 
     try:
-        status, headers, body = _request_http_response(method, f"{base}/api/unknown")
+        status, headers, body = _request_http_response(method, f"{base}{path}")
     finally:
         httpd.shutdown()
         httpd.server_close()
@@ -1104,7 +1111,8 @@ def test_http_session_trailing_slash_rejected():
         thread.join(timeout=2)
 
 
-def test_http_unknown_api_route_returns_json_404():
+@pytest.mark.parametrize("path", ["/api/unknown", "/api"])
+def test_http_unknown_api_route_returns_json_404(path):
     server = make_server()
 
     class _Server(TCPServer):
@@ -1118,7 +1126,7 @@ def test_http_unknown_api_route_returns_json_404():
     base = f"http://127.0.0.1:{httpd.server_address[1]}"
 
     try:
-        status_code, payload = _request_json("GET", f"{base}/api/unknown")
+        status_code, payload = _request_json("GET", f"{base}{path}")
         assert status_code == 404
         assert payload["error"]["message"] == "Unknown endpoint"
     finally:

@@ -995,6 +995,10 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             return ("POST",)
         return None
 
+    @staticmethod
+    def _is_api_path(path: str) -> bool:
+        return path == "/api" or path.startswith("/api/")
+
     def _send_api_rpc_unsupported_method_response(self) -> bool:
         if not hasattr(self, "path") or not hasattr(self, "command"):
             return False
@@ -1010,7 +1014,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                 write_body=write_body,
             )
             return True
-        if path.startswith("/api/"):
+        if self._is_api_path(path):
             self._json_response(
                 404,
                 {"error": {"message": "Unknown endpoint"}},
@@ -1139,7 +1143,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                 self._json_response(200, server_ref.status(job_id=job_id))
                 return
 
-            if path.startswith("/api/"):
+            if self._is_api_path(path):
                 self._json_response(404, {"error": {"message": "Unknown endpoint"}})
                 return
 
