@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import types
 
 from keep_gpu.utilities.gpu_monitor import NVMLMonitor

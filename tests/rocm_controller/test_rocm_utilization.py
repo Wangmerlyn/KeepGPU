@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 
 from keep_gpu.single_gpu_controller import rocm_gpu_controller as rocm_module
