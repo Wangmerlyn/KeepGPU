@@ -723,19 +723,42 @@ def _validate_status_result(
 
 
 def _validate_stop_keep_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    outcomes: Dict[str, List[str]] = {}
+    seen_jobs: Dict[str, str] = {}
     for field in ("stopped", "timed_out", "failed"):
         value = _require_list_field(result, field, "stop_keep")
+        outcomes[field] = value
+        field_jobs = set()
         for index, job_id in enumerate(value):
             if not isinstance(job_id, str):
                 raise _malformed_method_result(
                     "stop_keep", f"{field}[{index}] must be a string"
                 )
+            if job_id in field_jobs:
+                raise _malformed_method_result(
+                    "stop_keep", f"{field}[{index}] duplicates job id"
+                )
+            field_jobs.add(job_id)
+            if job_id in seen_jobs:
+                raise _malformed_method_result(
+                    "stop_keep",
+                    f"{job_id!r} appears in both {seen_jobs[job_id]} and {field}",
+                )
+            seen_jobs[job_id] = field
     errors = _require_dict_field(result, "errors", "stop_keep")
     for job_id, error in errors.items():
+        if not isinstance(job_id, str):
+            raise _malformed_method_result("stop_keep", "errors keys must be strings")
         if not isinstance(error, str):
             raise _malformed_method_result(
                 "stop_keep", f"errors[{job_id!r}] must be a string"
             )
+    failed_jobs = set(outcomes["failed"])
+    error_jobs = set(errors)
+    if failed_jobs != error_jobs:
+        raise _malformed_method_result(
+            "stop_keep", "errors keys must match failed job ids"
+        )
     message = result.get("message")
     if "message" in result and not isinstance(message, str):
         raise _malformed_method_result("stop_keep", "message must be a string")

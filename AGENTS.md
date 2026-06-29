@@ -114,10 +114,11 @@ This file defines how coding agents should work in this repository.
   call sites before reading fields or triggering daemon stop side effects, while
   allowing extra result fields for forward compatibility.
 - CLI method-specific result validation must include nested records consumed by
-  downstream tools: `status.active_jobs` entries, `stop_keep` job-id lists and
-  error values, and `list_gpus` GPU records with visible ordinal metadata.
-  Known nested `status.params` fields must match the public session contract
-  while extra fields remain forward-compatible.
+  downstream tools: `status.active_jobs` entries, disjoint `stop_keep` job-id
+  outcome lists whose `errors` keys exactly match `failed`, and `list_gpus` GPU
+  records with visible ordinal metadata. Known nested `status.params` fields
+  must match the public session contract while extra fields remain
+  forward-compatible.
 - CLI service endpoint inputs (`--host`, `--port`) must be validated locally
   before service RPC, daemon auto-start, stop-all fallback, or daemon ownership
   operations. JSON-output commands must return structured `{"error": "..."}`
