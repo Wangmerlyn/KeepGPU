@@ -83,9 +83,6 @@ understand the minimum knobs you need to keep a GPU occupied.
    ```
    You should see Rich logs showing the GPUs being kept awake.
 
-If you encounter CUDA errors, run `python -m keep_gpu.benchmark` to confirm your
-drivers/toolkit can allocate VRAM outside KeepGPU.
-
 !!! tip "Lower-power keep-alive"
     KeepGPU uses intervalled elementwise ops (not big matmul floods) so you can
     keep schedulers happy while keeping power and thermals modest.
