@@ -311,9 +311,10 @@ This file defines how coding agents should work in this repository.
   - `pytest tests/mcp tests/utilities/test_gpu_info.py`
   - `pytest tests/rocm_controller/test_rocm_utilization.py tests/utilities/test_gpu_info.py`
   - `pytest --run-rocm tests/rocm_controller` (only on ROCm-capable machines)
+  - `pytest --run-large-memory -m large_memory` (only on machines where large VRAM allocations are acceptable)
 - Respect existing pytest markers:
   - `rocm` for ROCm-only tests
-  - `large_memory` for opt-in heavy VRAM tests
+  - `large_memory` for opt-in heavy VRAM tests; these are skipped unless `--run-large-memory` is supplied
 - Run `pre-commit run --all-files` before final push.
 
 ### Documentation and Build Expectations
