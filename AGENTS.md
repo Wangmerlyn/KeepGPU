@@ -82,6 +82,9 @@ This file defines how coding agents should work in this repository.
   used directly by CI or contributors, including `mkdocs` and
   `pymdown-extensions`; do not rely on theme/plugin transitive dependencies for
   documented commands or configured extensions.
+- Bound known incompatible docs-tool major versions in `docs/requirements.txt`;
+  MkDocs must remain `<2` while the Material warning says MkDocs 2 breaks
+  plugins/themes.
 
 ### Git Hygiene & Security
 

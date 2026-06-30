@@ -5,6 +5,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ROOT_REQUIREMENTS_INSTALL_RE = re.compile(
     r"\b(?:python\s+-m\s+)?pip\s+install\s+-r\s+(?:\./)?requirements\.txt\b"
 )
+MKDOCS_MAJOR_TWO_BOUND_RE = re.compile(r"<\s*2(?:\.0+)?(?:\s|,|$)")
 
 
 def _installs_root_requirements_file(workflow: str) -> bool:
@@ -22,10 +23,25 @@ def _active_requirement_names(requirements: str) -> list[str]:
     ]
 
 
+def _active_requirement_line(requirements: str, name: str) -> str:
+    for line in requirements.splitlines():
+        requirement = line.split("#", 1)[0].strip()
+        if not requirement:
+            continue
+        requirement_name = re.split(r"\s*(?:[<>=!~;\\[]|$)", requirement, maxsplit=1)[0]
+        if requirement_name == name:
+            return requirement
+    raise AssertionError(f"missing requirement: {name}")
+
+
 def _has_active_pymdown_extension(mkdocs_config: str) -> bool:
     return any(
         "pymdownx." in line.split("#", 1)[0] for line in mkdocs_config.splitlines()
     )
+
+
+def _bounds_below_mkdocs_two(requirement: str) -> bool:
+    return bool(MKDOCS_MAJOR_TWO_BOUND_RE.search(requirement))
 
 
 def test_precommit_workflow_does_not_install_runtime_package():
@@ -72,6 +88,23 @@ def test_docs_requirements_include_direct_mkdocs_dependency():
     )
 
     assert "mkdocs" in _active_requirement_names(docs_requirements)
+
+
+def test_docs_requirements_bound_known_incompatible_mkdocs_major():
+    docs_requirements = (PROJECT_ROOT / "docs/requirements.txt").read_text(
+        encoding="utf-8"
+    )
+
+    assert _bounds_below_mkdocs_two(
+        _active_requirement_line(docs_requirements, "mkdocs")
+    )
+
+
+def test_mkdocs_major_bound_guard_rejects_similar_but_unsafe_bounds():
+    assert _bounds_below_mkdocs_two("mkdocs<2")
+    assert _bounds_below_mkdocs_two("mkdocs >=1.6,<2.0")
+    assert not _bounds_below_mkdocs_two("mkdocs<20")
+    assert not _bounds_below_mkdocs_two("mkdocs<2.1")
 
 
 def test_docs_requirements_include_configured_pymdown_extensions():
