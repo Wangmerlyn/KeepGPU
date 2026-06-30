@@ -141,7 +141,10 @@ digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
 Supported REST route/method errors are JSON objects: validation errors return
 `400`, unknown API routes return `404`, expected startup-unavailable session
 creation returns `503`, and unexpected service/runtime failures return `500`
-instead of dropping the connection.
+instead of dropping the connection. Encoded noncanonical spellings such as
+`/api%2Fsessions`, `/api%3Bdebug`, or `/api%3Fsessions` are treated as
+unknown API routes and return JSON `404` responses rather than the dashboard
+HTML shell.
 The dashboard consumes those JSON objects and displays `error.message` when it is
 present, falling back to the plain response body or HTTP status only when needed.
 Direct JSON-RPC service calls report the same expected hardware/platform

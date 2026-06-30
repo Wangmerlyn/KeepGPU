@@ -125,6 +125,12 @@ This file defines how coding agents should work in this repository.
   JSON `405 Method Not Allowed` responses with `Allow`, and exact `/api` plus
   unknown `/api/*` routes return structured JSON `404 Unknown endpoint`
   responses.
+- Encoded or otherwise noncanonical route spellings whose raw or decoded target
+  is API-shaped (`/api`, `/api/...`, `/api;...`, `/api?...`, or `/api#...`)
+  must return structured JSON `404 Unknown endpoint` responses instead of
+  serving the dashboard/static fallback or `BaseHTTPRequestHandler` HTML errors.
+  Canonical API paths may still validate encoded `job_id` path components
+  normally.
 - Implemented HTTP verb handlers (`do_POST`, `do_DELETE`, and future siblings)
   must call the shared unsupported-method helper before local unknown-endpoint
   404 branches, so known paths never regress to 404 or body-parse errors solely
