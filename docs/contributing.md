@@ -66,6 +66,10 @@ expectations so you can get productive quickly and avoid surprises in CI.
 
 ## Docs
 
+- Install documentation dependencies once:
+  ```bash
+  pip install -r docs/requirements.txt
+  ```
 - Live preview:
   ```bash
   mkdocs serve
@@ -74,6 +78,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
   ```bash
   mkdocs build
   ```
+- API reference pages are resolved from the checkout's `src/` tree, so docs-only
+  builds do not need `pip install .`.
 - Internal agent plans and skill reports under `docs/plans/` and `docs/skills/`
   stay in the repository but are excluded from the published MkDocs site.
 

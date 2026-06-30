@@ -59,6 +59,8 @@ This file defines how coding agents should work in this repository.
 - Python files that use PEP 604 annotations such as `X | Y` must include
   `from __future__ import annotations` while the project tooling targets
   Python 3.8.
+- MkDocs/mkdocstrings must resolve API references from the checkout's `src/`
+  tree so docs-only builds work with `docs/requirements.txt` alone.
 
 ### Git Hygiene & Security
 
