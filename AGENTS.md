@@ -37,6 +37,9 @@ This file defines how coding agents should work in this repository.
 
 - When adding user-visible features, update the user documentation with usage guidance alongside the code changes.
 - For complex features, bug investigations, or refactorings that require detailed documentation (for example, plans, testing guides, summaries), create a dedicated subfolder under `docs/` with a descriptive name (for example, `docs/opencode-poll-loop-refactor/`). Place all related documentation files in that subfolder.
+- Keep `README.md` as a concise front door. Put detailed CLI/API/MCP/platform
+  contracts in `docs/` pages and link to them from README instead of repeating
+  reference material.
 - Avoid placing new project-specific documentation in the root directory; keep only canonical top-level docs (for example, `AGENTS.md`, `README.md`) at root.
 
 ### Quality Bar
