@@ -13,8 +13,9 @@ during longer CPU-bound sections of your workflow.
   recycle idle GPUs after a short grace period.
 - **Avoid surprise card sharing** – Keep teammates, notebooks, or background jobs from
   silently grabbing the GPU while you are still working.
-- **Stay lightweight** – Instead of pinning a full training job, KeepGPU runs a tiny
-  CUDA matmul loop and sleeps between bursts to keep thermals/noise low.
+- **Stay lightweight** – Instead of pinning a full training job, KeepGPU runs
+  periodic lightweight elementwise ops and sleeps between bursts to keep
+  thermals/noise low.
 
 ## What’s inside
 
@@ -22,7 +23,7 @@ during longer CPU-bound sections of your workflow.
 - `GlobalGPUController` that spins up a keep-alive worker per GPU.
 - `CudaGPUController` context manager for fine-grained orchestration inside scripts.
 - Helpers for parsing human VRAM sizes (`1GiB`, `850MB`, etc.) and platform detection.
-- Power-aware keep-alive loop: intervalled elementwise ops to signal “busy” without flooding matmuls or spiking thermals.
+- Power-aware keep-alive loop: periodic elementwise ops to signal “busy” without flooding matmuls or spiking thermals.
 
 ## Where to go next
 
