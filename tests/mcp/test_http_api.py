@@ -375,6 +375,119 @@ def test_http_unknown_api_routes_reject_unsupported_methods_with_json_404(method
     }
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api%2Fsessions",
+        "/api%2Funknown",
+        "/api%2Fsessions%2Fjob",
+        "/api%3Bdebug",
+        "/api%3Fsessions",
+        "/api%23sessions",
+    ],
+)
+def test_http_encoded_api_routes_return_json_404_without_static_fallback(path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("GET", f"{base}{path}")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get("content-type") == "application/json"
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Unknown endpoint"}
+    }
+
+
+def test_http_encoded_api_route_unsupported_method_returns_json_404():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response(
+            "OPTIONS", f"{base}/api%2Fsessions"
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get("content-type") == "application/json"
+    assert "allow" not in {name.lower() for name in headers.keys()}
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Unknown endpoint"}
+    }
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/api%3Bdebug", "/api%3Fsessions", "/api%23sessions"],
+)
+def test_http_encoded_api_separator_unsupported_method_returns_json_404(path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("OPTIONS", f"{base}{path}")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get("content-type") == "application/json"
+    assert "allow" not in {name.lower() for name in headers.keys()}
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Unknown endpoint"}
+    }
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("POST", "/api%2Fsessions"),
+        ("POST", "/api%3Bdebug"),
+        ("POST", "/api%3Fsessions"),
+        ("POST", "/api%23sessions"),
+        ("DELETE", "/api%2Fsessions"),
+        ("DELETE", "/api%3Bdebug"),
+        ("DELETE", "/api%3Fsessions"),
+        ("DELETE", "/api%23sessions"),
+    ],
+)
+def test_http_encoded_api_route_implemented_methods_return_json_404(method, path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response(method, f"{base}{path}")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get("content-type") == "application/json"
+    assert "allow" not in {name.lower() for name in headers.keys()}
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Unknown endpoint"}
+    }
+
+
 def test_http_multisegment_session_route_rejects_unsupported_method_with_json_404():
     server = make_server()
     httpd, thread, base = _start_http_server(server)
