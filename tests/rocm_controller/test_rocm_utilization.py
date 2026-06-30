@@ -8,6 +8,9 @@ from keep_gpu.single_gpu_controller import rocm_gpu_controller as rocm_module
 from keep_gpu.single_gpu_controller.rocm_gpu_controller import RocmGPUController
 
 
+OVERSIZED_NUMERIC_TOKEN = "9" * 100
+
+
 class DummyRocmSMI:
     def __init__(self, util_by_index: dict[int, int] | None = None, count: int = 8):
         self.util_by_index = util_by_index or {}
@@ -111,6 +114,24 @@ def test_rocm_utilization_treats_non_ascii_digit_mask_as_unavailable(
     monkeypatch.delenv("HIP_VISIBLE_DEVICES", raising=False)
     monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
     monkeypatch.setenv(mask_name, "\u00b2")
+    dummy = DummyRocmSMI()
+    controller = _controller_with_dummy_smi(monkeypatch, rank=0, dummy=dummy)
+
+    assert controller._query_utilization() is None
+    assert dummy.queried_indexes == []
+
+
+@pytest.mark.parametrize(
+    "mask_name",
+    ["ROCR_VISIBLE_DEVICES", "HIP_VISIBLE_DEVICES", "CUDA_VISIBLE_DEVICES"],
+)
+def test_rocm_utilization_treats_oversized_numeric_mask_as_unavailable(
+    monkeypatch, mask_name
+):
+    monkeypatch.delenv("ROCR_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("HIP_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    monkeypatch.setenv(mask_name, OVERSIZED_NUMERIC_TOKEN)
     dummy = DummyRocmSMI()
     controller = _controller_with_dummy_smi(monkeypatch, rank=0, dummy=dummy)
 

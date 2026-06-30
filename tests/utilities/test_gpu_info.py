@@ -7,6 +7,9 @@ import pytest
 from keep_gpu.utilities import gpu_info
 
 
+OVERSIZED_NUMERIC_TOKEN = "9" * 100
+
+
 class DummyNVMLMemory:
     def __init__(self, total: int, used: int):
         self.total = total
@@ -361,6 +364,20 @@ def test_get_gpu_info_nvml_unresolved_uuid_mask_does_not_list_placeholder(
     assert dummy_nvml.shutdown_calls == 1
 
 
+def test_get_gpu_info_nvml_mixed_invalid_uuid_mask_avoids_partial_numeric_lookup(
+    monkeypatch,
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,GPU-typo")
+    dummy_nvml = MultiGPUDummyNVML(count=2)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=2)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.queried_uuids == ["GPU-typo", b"GPU-typo"]
+    assert dummy_nvml.shutdown_calls == 1
+
+
 def test_get_gpu_info_nvml_malformed_cuda_visible_devices_hides_all(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,,2")
     dummy_nvml = MultiGPUDummyNVML(count=3)
@@ -374,7 +391,18 @@ def test_get_gpu_info_nvml_malformed_cuda_visible_devices_hides_all(monkeypatch)
 
 @pytest.mark.parametrize(
     "mask",
-    ["", "-1", "0,,2", "0,0", "0,00", "GPU-abc123,gpu-abc123", "-1,0", "\u00b2"],
+    [
+        "",
+        "-1",
+        "0,,2",
+        "0,0",
+        "0,00",
+        "GPU-abc123,gpu-abc123",
+        "-1,0",
+        "\u00b2",
+        "GPU-\u00b2",
+        OVERSIZED_NUMERIC_TOKEN,
+    ],
 )
 def test_get_gpu_info_cuda_hidden_or_invalid_mask_does_not_fall_back_to_torch(
     monkeypatch, mask
@@ -398,6 +426,20 @@ def test_get_gpu_info_nvml_out_of_range_cuda_visible_devices_hides_all(
     assert gpu_info.get_gpu_info() == []
     assert dummy_nvml.queried_indexes == []
     assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_out_of_range_cuda_visible_devices_blocks_torch_fallback(
+    monkeypatch,
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "99")
+    dummy_nvml = MultiGPUDummyNVML(count=2)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    dummy_cuda = _install_cuda_gpu_info_mocks(monkeypatch, count=1)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+    assert dummy_cuda.set_devices == []
 
 
 def test_get_gpu_info_nvml_duplicate_cuda_visible_devices_hides_all(monkeypatch):
@@ -425,6 +467,26 @@ def test_get_gpu_info_nvml_duplicate_uuid_mask_hides_all_when_torch_has_no_devic
     assert gpu_info.get_gpu_info() == []
     assert dummy_nvml.queried_indexes == []
     assert dummy_nvml.queried_uuids == []
+    assert dummy_nvml.shutdown_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("mask", "torch_count", "uuid_to_index"),
+    [
+        ("GPU-typo", 1, {}),
+        ("GPU-a,GPU-b", 1, {"GPU-a": 2, "GPU-b": 2}),
+        ("GPU-a,GPU-b", 2, {"GPU-a": 2, "GPU-b": 2}),
+    ],
+)
+def test_get_gpu_info_nvml_semantically_invalid_cuda_mask_blocks_torch_fallback(
+    monkeypatch, mask, torch_count, uuid_to_index
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", mask)
+    dummy_nvml = MultiGPUDummyNVML(count=3, uuid_to_index=uuid_to_index)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=torch_count)
+
+    assert gpu_info.get_gpu_info() == []
     assert dummy_nvml.shutdown_calls == 1
 
 

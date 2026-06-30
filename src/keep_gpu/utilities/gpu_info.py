@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import torch
 
+from keep_gpu.utilities.cuda_visibility import (
+    cuda_visible_index_value,
+    cuda_visible_mask,
+)
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.rocm_visibility import (
     resolve_rocm_visible_rank_to_smi_index,
@@ -15,50 +17,10 @@ from keep_gpu.utilities.rocm_visibility import (
 logger = setup_logger(__name__)
 
 
-@dataclass(frozen=True)
-class _CudaVisibleMask:
-    tokens: Optional[List[str]]
-    invalid: bool = False
-
-    @property
-    def permits_torch_fallback(self) -> bool:
-        return not self.invalid and (self.tokens is None or bool(self.tokens))
-
-
-def _is_cuda_visible_index_token(token: str) -> bool:
-    return token.isascii() and token.isdigit()
-
-
-def _cuda_visible_token_key(token: str) -> tuple[str, int | str]:
-    if _is_cuda_visible_index_token(token):
-        return ("index", int(token))
-    return ("token", token.lower())
-
-
 def _decode_nvml_text(value: Any) -> str:
     if isinstance(value, bytes):
         return value.decode(errors="ignore")
     return str(value)
-
-
-def _cuda_visible_mask() -> _CudaVisibleMask:
-    raw = os.environ.get("CUDA_VISIBLE_DEVICES")
-    if raw is None:
-        return _CudaVisibleMask(tokens=None)
-    if raw.strip() in {"", "-1"}:
-        return _CudaVisibleMask(tokens=[])
-    tokens = [token.strip() for token in raw.split(",")]
-    if any(
-        not token
-        or token == "-1"
-        or (token.isdigit() and not _is_cuda_visible_index_token(token))
-        for token in tokens
-    ):
-        return _CudaVisibleMask(tokens=[], invalid=True)
-    token_keys = [_cuda_visible_token_key(token) for token in tokens]
-    if len(set(token_keys)) != len(token_keys):
-        return _CudaVisibleMask(tokens=[], invalid=True)
-    return _CudaVisibleMask(tokens=tokens)
 
 
 def _torch_cuda_visible_count() -> Optional[int]:
@@ -165,54 +127,89 @@ def _nvml_info_for_handle(
     return info
 
 
-def _query_nvml() -> List[Dict[str, Any]]:
+def _resolve_nvml_visible_handles(pynvml, visible_tokens):
+    visible_handles = [None for _token in visible_tokens]
+    seen_physical_ids = set()
+    for visible_id, token in enumerate(visible_tokens):
+        physical_id = cuda_visible_index_value(token)
+        if physical_id is not None:
+            continue
+        try:
+            handle = _lookup_nvml_uuid_handle(pynvml, token)
+        except Exception:
+            handle = None
+
+        if handle is None:
+            return None
+
+        resolved_physical_id = _nvml_physical_id(pynvml, handle, physical_id)
+        if resolved_physical_id is not None:
+            if resolved_physical_id in seen_physical_ids:
+                return None
+            seen_physical_ids.add(resolved_physical_id)
+        visible_handles[visible_id] = (visible_id, handle, resolved_physical_id)
+
+    for visible_id, token in enumerate(visible_tokens):
+        physical_id = cuda_visible_index_value(token)
+        if physical_id is None:
+            continue
+        try:
+            handle = pynvml.nvmlDeviceGetHandleByIndex(physical_id)
+        except Exception:
+            handle = None
+
+        if handle is None:
+            return None
+
+        resolved_physical_id = _nvml_physical_id(pynvml, handle, physical_id)
+        if resolved_physical_id is not None:
+            if resolved_physical_id in seen_physical_ids:
+                return None
+            seen_physical_ids.add(resolved_physical_id)
+        visible_handles[visible_id] = (visible_id, handle, resolved_physical_id)
+
+    resolved_handles = [handle for handle in visible_handles if handle is not None]
+    return resolved_handles if len(resolved_handles) == len(visible_tokens) else None
+
+
+def _query_nvml() -> tuple[List[Dict[str, Any]], bool]:
     import pynvml
 
     pynvml.nvmlInit()
     infos: List[Dict[str, Any]] = []
     try:
         count = pynvml.nvmlDeviceGetCount()
-        visible_mask = _cuda_visible_mask()
+        visible_mask = cuda_visible_mask()
         if visible_mask.invalid:
-            return []
+            return [], False
         visible_tokens = visible_mask.tokens
         if visible_tokens is None:
             visible_tokens = [str(idx) for idx in range(count)]
 
+        for token in visible_tokens:
+            index_value = cuda_visible_index_value(token)
+            if index_value is not None and index_value >= count:
+                return [], False
+
         torch_visible_count = _torch_cuda_visible_count()
         if torch_visible_count is None or torch_visible_count <= 0:
-            return []
+            return [], False
+
+        visible_handles = None
+        if any(cuda_visible_index_value(token) is None for token in visible_tokens):
+            visible_handles = _resolve_nvml_visible_handles(pynvml, visible_tokens)
+            if visible_handles is None:
+                return [], False
+
         if len(visible_tokens) != torch_visible_count:
-            return []
+            return [], True
         if not _torch_cuda_visible_ordinals_startable(torch_visible_count):
-            return []
+            return [], False
 
-        for token in visible_tokens:
-            if _is_cuda_visible_index_token(token) and int(token) >= count:
-                return []
-
-        visible_handles = []
-        seen_physical_ids = set()
-        for visible_id, token in enumerate(visible_tokens):
-            physical_id = int(token) if _is_cuda_visible_index_token(token) else None
-            try:
-                handle = (
-                    pynvml.nvmlDeviceGetHandleByIndex(physical_id)
-                    if physical_id is not None
-                    else _lookup_nvml_uuid_handle(pynvml, token)
-                )
-            except Exception:
-                handle = None
-
-            if handle is None:
-                return []
-
-            resolved_physical_id = _nvml_physical_id(pynvml, handle, physical_id)
-            if resolved_physical_id is not None:
-                if resolved_physical_id in seen_physical_ids:
-                    return []
-                seen_physical_ids.add(resolved_physical_id)
-            visible_handles.append((visible_id, handle, resolved_physical_id))
+        if visible_handles is None:
+            visible_handles = _resolve_nvml_visible_handles(pynvml, visible_tokens)
+            if visible_handles is None:
+                return [], False
 
         for visible_id, handle, physical_id in visible_handles:
             infos.append(
@@ -228,7 +225,7 @@ def _query_nvml() -> List[Dict[str, Any]]:
             pynvml.nvmlShutdown()
         except Exception:
             pass
-    return infos
+    return infos, True
 
 
 def _query_rocm() -> List[Dict[str, Any]]:
@@ -409,15 +406,16 @@ def get_gpu_info() -> List[Dict[str, Any]]:
             logger.debug("Torch GPU info failed: %s", exc)
         return _query_mps()
 
-    cuda_visible_mask = _cuda_visible_mask()
+    cuda_visible_mask_info = cuda_visible_mask()
+    nvml_allows_torch_fallback = cuda_visible_mask_info.permits_torch_fallback
     try:
-        infos = _query_nvml()
+        infos, nvml_allows_torch_fallback = _query_nvml()
         if infos:
             return infos
     except Exception as exc:
         logger.debug("NVML info failed: %s", exc)
 
-    if cuda_visible_mask.permits_torch_fallback:
+    if cuda_visible_mask_info.permits_torch_fallback and nvml_allows_torch_fallback:
         try:
             infos = _query_torch()
             if infos:
