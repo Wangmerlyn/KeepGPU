@@ -215,6 +215,10 @@ This file defines how coding agents should work in this repository.
   For CUDA and ROCm, reject non-integer `rank` values before calling
   `torch.cuda.device_count()`.
 - Hardware probes must clean up vendor libraries after detection (for example, NVML shutdown and ROCm SMI shutdown after init).
+- Runtime telemetry must tolerate those independent vendor-library probes. If a
+  listing/detection path shuts down NVML or ROCm SMI after a keep loop has
+  cached telemetry initialization, the runtime monitor should reinitialize once
+  before reporting utilization as unavailable.
 - ROCm/HIP PyTorch builds take precedence over NVML-based CUDA fallback: if `torch.version.hip` is truthy, `_check_cuda()` must not classify the runtime as CUDA or probe NVML.
 - Keep lifecycle state truthful: a reserved starting session must be visible in status as `state="starting"`; a session is removed only after release succeeds; timed-out or failed stops must stay visible with state and error details.
 - Status responses must be read-only snapshots. Returning active or starting

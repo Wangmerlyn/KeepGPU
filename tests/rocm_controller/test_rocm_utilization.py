@@ -11,15 +11,38 @@ OVERSIZED_NUMERIC_TOKEN = "9" * 100
 
 
 class DummyRocmSMI:
-    def __init__(self, util_by_index: dict[int, int] | None = None, count: int = 8):
+    def __init__(
+        self,
+        util_by_index: dict[int, int] | None = None,
+        count: int = 8,
+        require_initialized: bool = False,
+    ):
         self.util_by_index = util_by_index or {}
         self.count = count
+        self.require_initialized = require_initialized
+        self.initialized = False
+        self.init_calls = 0
+        self.shutdown_calls = 0
         self.queried_indexes: list[int] = []
 
+    def rsmi_init(self):
+        self.init_calls += 1
+        self.initialized = True
+
+    def rsmi_shut_down(self):
+        self.shutdown_calls += 1
+        self.initialized = False
+
+    def _require_initialized(self):
+        if self.require_initialized and not self.initialized:
+            raise RuntimeError("ROCm SMI is not initialized")
+
     def rsmi_num_monitor_devices(self):
+        self._require_initialized()
         return self.count
 
     def rsmi_dev_busy_percent_get(self, index):
+        self._require_initialized()
         self.queried_indexes.append(index)
         return self.util_by_index.get(index, 40 + index)
 
@@ -43,6 +66,20 @@ def test_rocm_utilization_defaults_visible_rank_to_smi_index(monkeypatch):
 
     assert controller._query_utilization() == 71
     assert dummy.queried_indexes == [1]
+
+
+def test_rocm_utilization_reinitializes_after_external_smi_shutdown(monkeypatch):
+    monkeypatch.delenv("ROCR_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("HIP_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    dummy = DummyRocmSMI(util_by_index={1: 71}, require_initialized=True)
+    controller = _controller_with_dummy_smi(monkeypatch, rank=1, dummy=dummy)
+
+    assert controller._query_utilization() == 71
+    dummy.rsmi_shut_down()
+    assert controller._query_utilization() == 71
+    assert dummy.init_calls == 2
+    assert dummy.queried_indexes == [1, 1]
 
 
 def test_rocm_utilization_maps_hip_visible_rank_to_smi_index(monkeypatch):

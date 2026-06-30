@@ -65,18 +65,34 @@ class NVMLMonitor:
 
     def get_gpu_utilization(self, index: int) -> Optional[int]:
         """Return utilization percentage for `index`, or None when unavailable."""
-        if not self._ensure_initialized():
-            return None
-
-        try:
-            handle = self._get_handle_for_visible_index(index)
-            if handle is None:
+        for attempt in range(2):
+            if not self._ensure_initialized():
                 return None
-            rates = self._nvml.nvmlDeviceGetUtilizationRates(handle)
-            return int(rates.gpu)
-        except self._nvml.NVMLError as exc:
-            logger.debug("NVML query failed for GPU %s: %s", index, exc)
-            return None
+
+            try:
+                handle = self._get_handle_for_visible_index(index)
+                if handle is None:
+                    return None
+                rates = self._nvml.nvmlDeviceGetUtilizationRates(handle)
+                return int(rates.gpu)
+            except self._nvml.NVMLError as exc:
+                logger.debug("NVML query failed for GPU %s: %s", index, exc)
+                if attempt == 0 and self._is_uninitialized_error(exc):
+                    self._mark_uninitialized()
+                    continue
+                return None
+        return None
+
+    def _mark_uninitialized(self) -> None:
+        with self._lock:
+            self._initialized = False
+
+    def _is_uninitialized_error(self, exc: Exception) -> bool:
+        if exc.__class__.__name__ == "NVMLError_Uninitialized":
+            return True
+        return (
+            "uninitialized" in str(exc).lower() or "not initialized" in str(exc).lower()
+        )
 
     def _get_handle_for_visible_index(self, index: int):
         visible_mask = cuda_visible_mask()
@@ -115,7 +131,12 @@ class NVMLMonitor:
             return True
         try:
             count = int(count_lookup())
-        except (self._nvml.NVMLError, TypeError, ValueError) as exc:
+        except self._nvml.NVMLError as exc:
+            if self._is_uninitialized_error(exc):
+                raise
+            logger.debug("NVML device count query failed: %s", exc)
+            return False
+        except (TypeError, ValueError) as exc:
             logger.debug("NVML device count query failed: %s", exc)
             return False
         return all(token < count for token in numeric_tokens)
@@ -148,7 +169,11 @@ class NVMLMonitor:
         if index_lookup is not None:
             try:
                 return ("index", int(index_lookup(handle)))
-            except (self._nvml.NVMLError, TypeError, ValueError) as exc:
+            except self._nvml.NVMLError as exc:
+                if self._is_uninitialized_error(exc):
+                    raise
+                logger.debug("NVML handle index query failed: %s", exc)
+            except (TypeError, ValueError) as exc:
                 logger.debug("NVML handle index query failed: %s", exc)
 
         return ("handle", id(handle))
@@ -161,7 +186,9 @@ class NVMLMonitor:
         if index_value is not None:
             try:
                 return self._nvml.nvmlDeviceGetHandleByIndex(index_value)
-            except self._nvml.NVMLError:
+            except self._nvml.NVMLError as exc:
+                if self._is_uninitialized_error(exc):
+                    raise
                 return None
         if is_cuda_visible_index_token(token):
             return None
@@ -172,7 +199,11 @@ class NVMLMonitor:
         for uuid in (token, token.encode("utf-8")):
             try:
                 return uuid_lookup(uuid)
-            except (self._nvml.NVMLError, AttributeError, TypeError):
+            except self._nvml.NVMLError as exc:
+                if self._is_uninitialized_error(exc):
+                    raise
+                continue
+            except (AttributeError, TypeError):
                 continue
         return None
 

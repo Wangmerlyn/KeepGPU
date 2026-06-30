@@ -124,6 +124,12 @@ immediately, so detection does not leave NVML or ROCm SMI handles open. A PyTorc
 build with a truthy `torch.version.hip` is treated as ROCm before any NVML-based
 CUDA fallback, even if NVML is available on the host.
 
+Runtime telemetry has its own recovery path because GPU listing can run while a
+keeper is active. If an independent listing probe shuts down NVML or ROCm SMI,
+CUDA and ROCm utilization monitors reinitialize once before reporting telemetry
+as unavailable, preserving eco-safe backoff without wedging a keeper on stale
+library state.
+
 GPU listing follows the same precedence. On HIP/ROCm torch builds, `list_gpus`
 prefers ROCm records and ROCm SMI metadata instead of returning NVML CUDA records
 first on mixed hosts. If ROCm SMI is unavailable, listing falls back to
