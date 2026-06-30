@@ -999,12 +999,35 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
     def _is_api_path(path: str) -> bool:
         return path == "/api" or path.startswith("/api/")
 
+    @staticmethod
+    def _is_noncanonical_rpc_route(parsed) -> bool:
+        route_paths = (parsed.path, unquote(parsed.path))
+        return any(
+            path.startswith(("/rpc/", "/rpc;", "/rpc?", "/rpc#"))
+            for path in route_paths
+        ) or (
+            any(path == "/rpc" for path in route_paths)
+            and bool(parsed.params or parsed.query or parsed.fragment)
+        )
+
+    def _reject_noncanonical_rpc_route(self, parsed, write_body: bool = True) -> bool:
+        if not self._is_noncanonical_rpc_route(parsed):
+            return False
+        self._json_response(
+            404,
+            {"error": {"message": "Unknown endpoint"}},
+            write_body=write_body,
+        )
+        return True
+
     def _send_api_rpc_unsupported_method_response(self) -> bool:
         if not hasattr(self, "path") or not hasattr(self, "command"):
             return False
         parsed = urlparse(self.path)
         path = parsed.path
         write_body = self.command != "HEAD"
+        if self._reject_noncanonical_rpc_route(parsed, write_body=write_body):
+            return True
         allowed_methods = self._allowed_methods_for_path(path)
         if allowed_methods is not None:
             self._json_response(
@@ -1129,6 +1152,8 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if self._reject_noncanonical_rpc_route(parsed):
+                return
             if path == "/rpc":
                 self._send_api_rpc_unsupported_method_response()
                 return
@@ -1174,6 +1199,8 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if self._reject_noncanonical_rpc_route(parsed):
+                return
             if self._send_known_route_unsupported_method_response(path):
                 return
             if path not in ("/api/sessions", "/", "/rpc"):
@@ -1302,6 +1329,8 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if self._reject_noncanonical_rpc_route(parsed):
+                return
             if self._send_known_route_unsupported_method_response(path):
                 return
             server_ref = self.server.keepgpu_server  # type: ignore[attr-defined]

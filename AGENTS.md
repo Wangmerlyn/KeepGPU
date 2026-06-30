@@ -91,8 +91,10 @@ This file defines how coding agents should work in this repository.
   must call the shared unsupported-method helper before local unknown-endpoint
   404 branches, so known paths never regress to 404 or body-parse errors solely
   because the wrong implemented verb was used.
-- `/rpc` is a POST-only JSON-RPC endpoint; `GET /rpc` must return structured
-  JSON `405 Method Not Allowed` with `Allow: POST` and must never serve the
+- `/rpc` is an exact POST-only JSON-RPC endpoint; `GET /rpc` must return
+  structured JSON `405 Method Not Allowed` with `Allow: POST`, while
+  noncanonical spellings such as `/rpc/`, `/rpc;...`, and `/rpc?...` return
+  structured JSON `404 Unknown endpoint` without JSON-RPC dispatch or
   dashboard/static fallback.
 - Missing dashboard asset URLs, including `/assets/*` and extension-bearing
   static paths, must return structured JSON `404` errors instead of the
