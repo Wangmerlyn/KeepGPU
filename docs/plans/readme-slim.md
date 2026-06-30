@@ -2,33 +2,35 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn `README.md` into a clean front door while keeping detailed CLI, Python, MCP, platform, and development guidance in published docs.
+**Goal:** Keep `README.md` as a clean front door while detailed CLI, Python, MCP, platform, and development guidance live in focused docs pages.
 
-**Architecture:** Keep README as a compact product overview with links to existing docs. Move no behavior into new code paths and avoid creating a new docs page unless an existing destination is missing. Add a tiny metadata test so the README does not quietly grow back into a reference manual.
+**Architecture:** README should provide a short pitch, one quick-start command, and links to existing docs. Existing docs already cover service mode, Python controllers, dashboard, MCP, references, contributing, and citation, so this change does not add a new page. A metadata test prevents README from drifting back into a reference manual.
 
 **Tech Stack:** Markdown, MkDocs, pytest, pre-commit.
 
 ---
 
-### Task 1: Add README Shape Guard
+### Task 1: Tighten README Shape Guard
 
 **Files:**
 - Modify: `tests/test_package_metadata.py`
 
-- [x] **Step 1: Add a failing test**
+- [x] **Step 1: Add the stricter failing test**
 
-Add this test after `test_readme_markdown_code_fences_are_balanced`:
+`test_readme_stays_a_compact_front_door` must enforce:
 
 ```python
-def test_readme_stays_a_compact_front_door():
-    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-    lines = [line for line in readme.splitlines() if line.strip()]
-
-    assert len(lines) <= 130
-    assert "### MCP and service API" not in readme
-    assert "Platform installs at a glance" not in readme
-    assert "docs/guides/mcp.md" in readme
-    assert "docs/reference/cli.md" in readme
+assert len(lines) <= 60
+assert "## python" not in normalized_readme
+assert "## service, dashboard, and mcp" not in normalized_readme
+assert "### mcp and service api" not in normalized_readme
+assert "platform installs at a glance" not in normalized_readme
+assert "```bibtex" not in normalized_readme
+assert "skillcheck" not in normalized_readme
+assert not re.search(r"\]\(\.?\.?/?docs/", readme)
+assert "https://keepgpu.readthedocs.io/en/latest/guides/mcp/" in readme
+assert "https://keepgpu.readthedocs.io/en/latest/reference/cli/" in readme
+assert "https://keepgpu.readthedocs.io/en/latest/citation/" in readme
 ```
 
 - [x] **Step 2: Verify RED**
@@ -39,73 +41,70 @@ Run:
 PYTHONPATH=$PWD/src pytest tests/test_package_metadata.py::test_readme_stays_a_compact_front_door -q
 ```
 
-Expected: FAIL because the current README has more than 130 nonblank lines.
+Expected: FAIL because the previous README still had standalone Python and
+service/dashboard/MCP sections.
 
-### Task 2: Slim README and Keep Links
+### Task 2: Slim README to a Front Door
 
 **Files:**
 - Modify: `README.md`
 
-- [x] **Step 1: Replace README with a compact front door**
+- [x] **Step 1: Keep only front-door content**
 
-Keep these sections only:
+README keeps:
 
-- `# Keep GPU`
-- badges and one-sentence product pitch
-- `## Why KeepGPU`
-- `## Quick Start`
-- `## Python`
-- `## Service, Dashboard, and MCP`
-- `## Documentation`
-- `## Contributing`
-- `## Citation`
+- title and badges
+- one-sentence product pitch
+- three `Why KeepGPU` bullets
+- one install/start command block
+- a compact interface table linking to existing docs
+- short documentation, contributing, and citation links
+- package-renderer-safe absolute links for docs, contributing, and citation
+- only badges with live image URLs
 
-The README must include:
+README does not keep:
 
-- one blocking CLI example
-- one service-mode example
-- one Python snippet
-- dashboard URL
-- links to `docs/getting-started.md`, `docs/guides/cli.md`, `docs/guides/python.md`, `docs/guides/mcp.md`, `docs/reference/cli.md`, `docs/reference/api.md`, `docs/concepts/architecture.md`, and `docs/contributing.md`
-- the existing BibTeX citation
+- standalone Python section
+- standalone service/dashboard/MCP section
+- service-mode command sequence
+- Python controller snippet
+- dashboard URL block
+- full citation metadata
+- platform install matrix
+- CLI/API/MCP contract detail
+- repository-relative `docs/...` links in README
+- broken badges
 
-The README must not include:
-
-- full platform install matrix
-- CLI flag reference tables or long validation rules
-- JSON-RPC/REST protocol details
-- dashboard lifecycle edge cases
-- developer test matrices
-
-- [x] **Step 2: Verify README size**
+- [x] **Step 2: Verify GREEN**
 
 Run:
 
 ```bash
+PYTHONPATH=$PWD/src pytest tests/test_package_metadata.py::test_readme_stays_a_compact_front_door -q
 python - <<'PY'
 from pathlib import Path
-lines = [line for line in Path("README.md").read_text(encoding="utf-8").splitlines() if line.strip()]
+lines = [
+    line
+    for line in Path("README.md").read_text(encoding="utf-8").splitlines()
+    if line.strip()
+]
 print(len(lines))
-assert len(lines) <= 130
+assert len(lines) <= 60
 PY
 ```
 
-Expected: prints a number no greater than `130`.
+Expected: pytest passes and the line counter prints no more than `60`.
 
-### Task 3: Update Agent Guidance
+### Task 3: Align Contributor and Agent Guidance
 
 **Files:**
 - Modify: `AGENTS.md`
+- Modify: `docs/contributing.md`
 
-- [x] **Step 1: Add README guardrail**
+- [x] **Step 1: Update guidance**
 
-Under Documentation Updates, add a bullet with this meaning:
-
-```markdown
-- Keep `README.md` as a concise front door. Put detailed CLI/API/MCP/platform
-  contracts in `docs/` pages and link to them from README instead of repeating
-  reference material.
-```
+Both docs should say README is a concise front door and detailed interface
+examples/contracts belong in focused docs pages, not repeated in README.
 
 ### Task 4: Verify and Review
 
@@ -124,15 +123,41 @@ Expected: all tests in the file pass.
 
 ```bash
 pre-commit run --all-files --show-diff-on-failure
-mkdocs build --strict
+PYTHONPATH=$PWD/src mkdocs build --strict
 ```
 
-Expected: both commands exit `0`. The existing upstream Material for MkDocs warning may appear.
+Expected: both commands exit `0`. The existing upstream Material for MkDocs
+warning may appear.
 
-- [x] **Step 3: Mark this plan complete**
+- [x] **Step 3: Request local subagent code review**
 
-Check off completed plan items in `docs/plans/readme-slim.md`.
+Dispatch a local reviewer before opening the PR. Resolve any Critical or
+Important findings before pushing.
 
-- [x] **Step 4: Request local subagent code review**
+## Verification
 
-Dispatch a local reviewer before opening the PR. Resolve any Critical or Important findings before pushing.
+- RED:
+  `PYTHONPATH=$PWD/src pytest tests/test_package_metadata.py::test_readme_stays_a_compact_front_door -q`,
+  `1 failed` because the previous README still had a standalone Python section.
+- GREEN:
+  `PYTHONPATH=$PWD/src pytest tests/test_package_metadata.py::test_readme_stays_a_compact_front_door -q`,
+  `1 passed`; the README nonblank line counter printed `44` after package-safe
+  links were added.
+- Targeted metadata tests:
+  `PYTHONPATH=$PWD/src pytest tests/test_package_metadata.py -q`, `8 passed`.
+- Docs and formatting:
+  `PYTHONPATH=$PWD/src mkdocs build --strict` passed with the known Material
+  warning; `pre-commit run --all-files --show-diff-on-failure` passed; `git diff
+  --check` passed.
+- Local review follow-up:
+  the first local review found that repository-relative README links were unsafe for
+  package renderers because README is the PyPI long description. README links now
+  use absolute ReadTheDocs/GitHub URLs, and the metadata guard rejects
+  repository-relative `](docs/` links.
+- Second local review follow-up:
+  the reviewer found the pre-existing SkillCheck badge image returned `404`.
+  The broken badge was removed, and the README guard now rejects `skillcheck`.
+  Remaining README badge images returned `200` with a `GET` request.
+- Hosted review follow-up:
+  Gemini noted that a plain `](docs/` check would miss `./docs/` and `../docs/`
+  links. The guard now uses a regex for relative docs links.

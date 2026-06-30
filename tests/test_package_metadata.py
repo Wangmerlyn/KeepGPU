@@ -99,13 +99,17 @@ def test_readme_stays_a_compact_front_door():
     normalized_readme = readme.lower()
     lines = [line for line in readme.splitlines() if line.strip()]
 
-    assert len(lines) <= 130
+    assert len(lines) <= 60
+    assert "## python" not in normalized_readme
+    assert "## service, dashboard, and mcp" not in normalized_readme
     assert "### mcp and service api" not in normalized_readme
     assert "platform installs at a glance" not in normalized_readme
     assert "```bibtex" not in normalized_readme
-    assert "docs/guides/mcp.md" in readme
-    assert "docs/reference/cli.md" in readme
-    assert "docs/citation.md" in readme
+    assert "skillcheck" not in normalized_readme
+    assert not re.search(r"\]\(\.?\.?/?docs/", readme)
+    assert "https://keepgpu.readthedocs.io/en/latest/guides/mcp/" in readme
+    assert "https://keepgpu.readthedocs.io/en/latest/reference/cli/" in readme
+    assert "https://keepgpu.readthedocs.io/en/latest/citation/" in readme
 
 
 def test_sdist_manifest_does_not_package_test_suite():
