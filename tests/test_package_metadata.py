@@ -87,6 +87,15 @@ def test_license_metadata_uses_spdx_string_supported_by_python_floor():
     assert "setuptools>=77.0.1" in _build_system_requires()
 
 
+def test_project_description_no_longer_describes_cli_only_app():
+    description = _project_config()["description"].lower()
+
+    assert "simple cli app" not in description
+    assert "gpu keeper" in description
+    assert "service" in description
+    assert "mcp" in description
+
+
 def test_readme_markdown_code_fences_are_balanced():
     readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
     fences = [line for line in readme.splitlines() if line.strip().startswith("```")]
@@ -132,6 +141,8 @@ def test_public_docs_do_not_regress_to_cuda_only_or_experimental_mcp():
         "getting_started": (PROJECT_ROOT / "docs/getting-started.md").read_text(
             encoding="utf-8"
         ),
+        "citation": (PROJECT_ROOT / "docs/citation.md").read_text(encoding="utf-8"),
+        "mcp": (PROJECT_ROOT / "docs/guides/mcp.md").read_text(encoding="utf-8"),
         "architecture": (PROJECT_ROOT / "docs/concepts/architecture.md").read_text(
             encoding="utf-8"
         ),
@@ -149,6 +160,10 @@ def test_public_docs_do_not_regress_to_cuda_only_or_experimental_mcp():
         "A non-zero integer indicates CUDA is available."
         not in public_docs["getting_started"]
     )
+    assert "powers three interfaces" not in public_docs["mcp"]
+    assert "powers four local surfaces" in public_docs["mcp"]
+    assert "simple CLI app" not in public_docs["citation"]
+    assert "polite GPU keeper" in public_docs["citation"]
     assert "burst of CUDA ops" not in public_docs["architecture"]
     assert "[CudaGPUController rank=0]" not in public_docs["architecture"]
     assert "MCP server (experimental)" not in public_docs["contributing"]

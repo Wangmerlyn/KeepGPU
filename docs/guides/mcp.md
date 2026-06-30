@@ -1,6 +1,6 @@
 # MCP and Service API
 
-KeepGPU ships a local service that powers three interfaces:
+KeepGPU ships a local service that powers four local surfaces:
 
 - MCP over stdio (`keep-gpu-mcp-server`)
 - JSON-RPC over HTTP (`/rpc`)
