@@ -295,7 +295,10 @@ This file defines how coding agents should work in this repository.
 ### Platform and Dependency Rules
 
 - CUDA telemetry should rely on `nvidia-ml-py` (imported as `pynvml` module), not the deprecated standalone `pynvml` package.
-- ROCm support is optional and should remain guarded (`rocm-smi` in extras). Imports must fail gracefully on non-ROCm machines.
+- ROCm support is optional and should remain guarded. Do not depend on a
+  non-PyPI `rocm-smi` distribution in package extras; treat `rocm_smi` as
+  system-provided by the ROCm stack, and imports must fail gracefully on
+  non-ROCm machines.
 - Apple Silicon/MPS telemetry is best-effort; return a guarded MACM record with nullable memory/utilization fields rather than hiding the device.
 - CI runners generally do not have GPUs. GPU-dependent logic must have safe fallbacks and tests must avoid hard-failing in no-GPU environments.
 

@@ -9,10 +9,12 @@ expectations so you can get productive quickly and avoid surprises in CI.
   ```bash
   git clone https://github.com/Wangmerlyn/KeepGPU.git
   cd KeepGPU
-  pip install -e ".[dev]"       # add .[rocm] if you need ROCm SMI
+  pip install -e ".[dev]"
   ```
 - Ensure you have the right torch build for your platform (CUDA/ROCm/CPU).
-- Optional: install `nvidia-ml-py` (CUDA) or `rocm-smi` (ROCm) for telemetry.
+- Telemetry note: CUDA uses the base `nvidia-ml-py` dependency. ROCm SMI comes
+  from the ROCm/system stack as `rocm_smi`; KeepGPU handles it gracefully when
+  unavailable.
 
 ## Tests
 

@@ -47,9 +47,7 @@ dev = [
   "pre-commit",    # Git hooks
   "bump-my-version",   # Version management
 ]
-rocm = [
-  "rocm-smi",
-]
+rocm = []
 macm = [
   "psutil",  # For system memory query on Apple Silicon
 ]
