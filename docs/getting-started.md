@@ -7,7 +7,9 @@ understand the minimum knobs you need to keep a GPU occupied.
 
 - NVIDIA drivers + CUDA runtime visible to PyTorch.
 - Python 3.8+ (matching the version in your environment/cluster image).
-- Optional but recommended: `nvidia-smi` in `PATH` for utilization monitoring (CUDA) or `rocm-smi` if you install the `rocm` extra.
+- CUDA utilization monitoring uses NVML by way of `nvidia-ml-py` (the `pynvml` module);
+  `nvidia-smi` is useful only as an external driver sanity check. For ROCm
+  telemetry, install the `rocm` extra so `rocm-smi` is available.
 
 !!! info "Platforms"
     CUDA is the primary path; ROCm is supported by way of the `rocm` extra
