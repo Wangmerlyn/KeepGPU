@@ -14,20 +14,34 @@ def pytest_addoption(parser):
         default=False,
         help="run tests marked as macm (require Apple Silicon MPS)",
     )
+    parser.addoption(
+        "--run-large-memory",
+        action="store_true",
+        default=False,
+        help="run tests marked as large_memory (may allocate large VRAM)",
+    )
+
+
+def _skip_marked(items, marker_name, reason):
+    skip_marker = pytest.mark.skip(reason=reason)
+    for item in items:
+        if item.get_closest_marker(marker_name) is not None:
+            item.add_marker(skip_marker)
 
 
 def pytest_collection_modifyitems(config, items):
     if not config.getoption("--run-rocm"):
-        skip_rocm = pytest.mark.skip(reason="need --run-rocm option to run")
-        for item in items:
-            if "rocm" in item.keywords:
-                item.add_marker(skip_rocm)
+        _skip_marked(items, "rocm", "need --run-rocm option to run")
 
     if not config.getoption("--run-macm"):
-        skip_macm = pytest.mark.skip(reason="need --run-macm option to run")
-        for item in items:
-            if "macm" in item.keywords:
-                item.add_marker(skip_macm)
+        _skip_marked(items, "macm", "need --run-macm option to run")
+
+    if not config.getoption("--run-large-memory"):
+        _skip_marked(
+            items,
+            "large_memory",
+            "need --run-large-memory option to run",
+        )
 
 
 @pytest.fixture

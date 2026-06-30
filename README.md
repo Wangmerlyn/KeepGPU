@@ -150,7 +150,8 @@ to zero devices.
   for install compatibility; ROCm SMI comes from the ROCm/system stack.
 - Fast CUDA checks: `pytest tests/cuda_controller tests/global_controller tests/utilities/test_platform_manager.py tests/test_cli_thresholds.py`
 - ROCm visibility tests use mocks and run without hardware; ROCm-only hardware tests carry `@pytest.mark.rocm` and run with `pytest --run-rocm tests/rocm_controller`.
-- Markers: `rocm` (needs ROCm stack) and `large_memory` (opt-in locally).
+- Large VRAM tests carry `@pytest.mark.large_memory` and are skipped unless
+  explicitly run with `pytest --run-large-memory -m large_memory`.
 
 ### MCP and service API
 

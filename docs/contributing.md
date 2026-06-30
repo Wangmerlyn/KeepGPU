@@ -27,12 +27,16 @@ expectations so you can get productive quickly and avoid surprises in CI.
   ```bash
   pytest --run-rocm tests/rocm_controller
   ```
+- Heavy VRAM tests are marked `large_memory` and skipped by default; run only
+  on a machine where the allocation is acceptable:
+  ```bash
+  pytest --run-large-memory -m large_memory
+  ```
 - MCP + utilities:
   ```bash
   pytest tests/mcp tests/utilities/test_gpu_info.py
   ```
-- All tests honor markers `rocm` and `large_memory`; avoid enabling
-  `large_memory` in CI.
+- Avoid enabling `large_memory` in CI.
 
 ## Lint/format
 
