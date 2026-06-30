@@ -1862,6 +1862,58 @@ def test_service_stop_rejects_malformed_stop_keep_before_stopping_daemon(
     assert "Traceback" not in result.output
 
 
+@pytest.mark.parametrize(
+    ("payload", "job_id"),
+    [
+        (
+            {
+                "stopped": [],
+                "timed_out": ["slow-job"],
+                "failed": [],
+                "errors": {},
+            },
+            "slow-job",
+        ),
+        (
+            {
+                "stopped": [],
+                "timed_out": [],
+                "failed": ["bad-job"],
+                "errors": {"bad-job": "release failed"},
+            },
+            "bad-job",
+        ),
+    ],
+)
+def test_service_stop_rejects_incomplete_stop_keep_before_stopping_daemon(
+    monkeypatch, payload, job_id
+):
+    calls = {"stop_process": 0}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        if method == "status":
+            return {"active_jobs": []}
+        if method == "stop_keep":
+            return payload
+        raise AssertionError(f"unexpected method {method}")
+
+    def fake_stop_process(host, port):
+        calls["stop_process"] += 1
+        return True
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["service-stop"])
+
+    assert result.exit_code == 1
+    assert job_id in result.output
+    assert "keep-gpu" in result.output
+    assert "service-stop --force" in result.output
+    assert calls["stop_process"] == 0
+    assert "Traceback" not in result.output
+
+
 def test_service_stop_requires_live_status_without_force(monkeypatch):
     called = {"stop_process": False}
 

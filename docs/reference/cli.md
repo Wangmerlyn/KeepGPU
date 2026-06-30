@@ -123,12 +123,13 @@ non-integer or out-of-range ports, are reported as JSON errors before RPC.
 
 Stops the ownership-verified local daemon process created by auto-start logic.
 Invalid endpoint values are rejected locally before service checks or
-ownership-verified stop operations.
+ownership-verified stop operations. Non-force shutdown requires session checks
+to finish cleanly with no timed-out or failed stops.
 
 | Option | Description |
 | --- | --- |
 | `--host`, `--port` | Service host/port. `--host` must be a DNS hostname or IPv4 address, and `--port` must be an integer in `1..65535`. |
-| `--force` | Skip active-session RPC checks and stop the daemon only if the auto-start ownership record verifies the process. |
+| `--force` | Skip session RPC checks and stop the daemon only if the auto-start ownership record verifies the process. |
 
 ## Service HTTP endpoints
 

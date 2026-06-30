@@ -773,6 +773,20 @@ def _validate_stop_keep_result(result: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+def _require_clean_stop_keep_for_service_stop(result: Dict[str, Any]) -> None:
+    incomplete = []
+    if result["timed_out"]:
+        incomplete.append(f"timed out: {', '.join(result['timed_out'])}")
+    if result["failed"]:
+        incomplete.append(f"failed: {', '.join(result['failed'])}")
+    if incomplete:
+        raise RuntimeError(
+            "Stop sessions before stopping the service daemon. Incomplete stop_keep result "
+            f"({'; '.join(incomplete)}). Resolve those sessions first, or use "
+            "`keep-gpu service-stop --force` for an unresponsive auto-started daemon."
+        )
+
+
 def _validate_list_gpus_result(result: Dict[str, Any]) -> Dict[str, Any]:
     gpus = _require_list_field(result, "gpus", "list_gpus")
     visible_ids = set()
@@ -1228,7 +1242,8 @@ def service_stop(
                 "Tracked keep sessions detected. Stop sessions first (`keep-gpu stop --all`) or re-run with --force."
             )
         stop_result = _rpc_call("stop_keep", {}, host, port, timeout=45.0)
-        _validate_stop_keep_result(stop_result)
+        stop_result = _validate_stop_keep_result(stop_result)
+        _require_clean_stop_keep_for_service_stop(stop_result)
 
         stopped = _stop_service_process(host, port)
         if not stopped:

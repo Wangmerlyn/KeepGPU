@@ -214,7 +214,7 @@ This file defines how coding agents should work in this repository.
   has succeeded. CUDA/ROCm worker startup failures such as `set_device` errors
   must propagate synchronously so services cannot register false active sessions.
 - Keep service daemon ownership safe: no stop, force-stop, or fallback path may signal a PID unless the auto-start ownership record verifies the running process.
-- Non-force `keep-gpu service-stop` must require a reachable service and a successful status/RPC check before signaling; use `--force` for unresponsive auto-started daemons.
+- Non-force `keep-gpu service-stop` must require a reachable service, successful status/RPC checks, and a clean `stop_keep` result with no timed-out or failed sessions before signaling; use `--force` for unresponsive auto-started daemons.
 - Treat custom `job_id` values as reserved from the moment startup begins; duplicate starts must fail before another controller can begin keep-alive work.
 - Keep custom `job_id` validation centralized in `session_config.py`: only `None` means omitted/all-sessions, and custom IDs must be non-empty URL-path-safe strings before any session state changes.
 - Stop requests must not miss starting sessions. Targeted stops wait for the
