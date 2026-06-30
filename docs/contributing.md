@@ -37,6 +37,9 @@ expectations so you can get productive quickly and avoid surprises in CI.
   pytest tests/mcp tests/utilities/test_gpu_info.py
   ```
 - Avoid enabling `large_memory` in CI.
+- Keep broad validation matrices with the utility or controller that owns the
+  contract; interface tests should use representative smoke cases plus
+  side-effect guards instead of repeating every edge case.
 
 ## Lint/format
 

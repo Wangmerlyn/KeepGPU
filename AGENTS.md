@@ -323,6 +323,10 @@ This file defines how coding agents should work in this repository.
 - Respect existing pytest markers:
   - `rocm` for ROCm-only tests
   - `large_memory` for opt-in heavy VRAM tests; these are skipped unless `--run-large-memory` is supplied
+- Keep broad validation matrices in the utility or controller test that owns
+  the contract; CLI, REST, JSON-RPC, and MCP wrapper tests should use
+  representative smoke cases plus side-effect guards instead of repeating every
+  edge case.
 - Run `pre-commit run --all-files` before final push.
 
 ### Documentation and Build Expectations

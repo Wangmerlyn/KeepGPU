@@ -396,49 +396,14 @@ def test_start_command_rejects_invalid_port_before_auto_start(monkeypatch):
     assert called == {"ensure": False, "rpc": False}
 
 
-@pytest.mark.parametrize(
-    "host",
-    [
-        "localhost",
-        "gpu-box",
-        "gpu-box.local",
-        "node-01.cluster.local",
-        "127.0.0.1",
-        "0.0.0.0",
-    ],
-)
-def test_validate_cli_service_host_accepts_dns_names_and_ipv4_literals(host):
-    assert cli._validate_cli_service_host(host) == host
+def test_validate_cli_service_host_delegates_to_shared_validator():
+    assert cli._validate_cli_service_host("localhost") == "localhost"
 
-
-@pytest.mark.parametrize(
-    "host",
-    [
-        "",
-        " ",
-        "bad host",
-        "%",
-        "%zz",
-        "\\host",
-        "host\\path",
-        "*",
-        "-bad",
-        "bad-",
-        "bad..host",
-        "999.999.999.999",
-        "256.0.0.1",
-        "123",
-        "foo.123",
-        "http://localhost",
-        "localhost:8765",
-    ],
-)
-def test_validate_cli_service_host_rejects_malformed_values(host):
     with pytest.raises(
         cli.typer.BadParameter,
         match="host must be a DNS hostname or IPv4 address",
     ):
-        cli._validate_cli_service_host(host)
+        cli._validate_cli_service_host("bad host")
 
 
 def test_start_command_rejects_non_whitespace_malformed_host_before_auto_start(
