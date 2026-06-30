@@ -44,6 +44,9 @@ Open the dashboard while service mode is running:
 http://127.0.0.1:8765/
 ```
 
+Telemetry refresh is manual by default; use the dashboard controls for
+on-demand or opt-in auto-refresh.
+
 ### Platform installs at a glance
 
 - **CUDA (example: cu121)**
@@ -176,6 +179,8 @@ to zero devices.
   same JSON-RPC messages at the exact `/rpc` endpoint, but it is not a
   Streamable HTTP MCP endpoint. Noncanonical `/rpc` URLs return structured
   `404` errors.
+- The dashboard loads once and refreshes telemetry on demand by default; its
+  opt-in auto-refresh polls every 10 seconds only while the tab is visible.
 - Successful legacy direct JSON-RPC responses use a KeepGPU direct-method
   envelope with `jsonrpc: "2.0"`, the matching request `id`, and an object
   `result`.

@@ -222,6 +222,8 @@ http://127.0.0.1:8765/
 The dashboard provides live telemetry, tracked session state, and start/stop controls.
 Its packaged static assets are self-contained and do not fetch remote fonts,
 CDN scripts, or other runtime network assets.
+Telemetry refresh is manual by default. The **Auto refresh** toggle enables
+10-second polling while the tab is visible and pauses when the tab is hidden.
 Telemetry cards show the visible ordinal to type into the start form before any
 physical/vendor metadata.
 CUDA and ROCm devices include memory and utilization when the platform APIs are
