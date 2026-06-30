@@ -55,7 +55,6 @@ class CudaGPUController(BaseGPUController):
         rank: int,
         interval: float = 1.0,
         relu_iterations: int = 5000,
-        matmul_iterations: Optional[int] = None,
         vram_to_keep: str | int = "1GiB",
         busy_threshold: int = DEFAULT_BUSY_THRESHOLD,
     ):
@@ -66,8 +65,6 @@ class CudaGPUController(BaseGPUController):
                 batches. Defaults to 1.0.
             relu_iterations (int, optional): Number of in-place ReLU ops per
                 batch.
-            matmul_iterations (int, optional): Legacy alias for
-                `relu_iterations`. When set, it overrides `relu_iterations`.
             vram_to_keep (int or str, optional): Amount of VRAM to keep busy,
                 e.g. `"1GiB"`, `"20 GB"`, or an integer like `1000 * 1000`.
                 This represents the total size of the matrix allocated to
@@ -79,8 +76,6 @@ class CudaGPUController(BaseGPUController):
 
         """
         super().__init__(vram_to_keep=vram_to_keep, interval=interval)
-        if matmul_iterations is not None:
-            relu_iterations = matmul_iterations
         self.relu_iterations = validate_positive_integer(
             relu_iterations, "relu_iterations"
         )

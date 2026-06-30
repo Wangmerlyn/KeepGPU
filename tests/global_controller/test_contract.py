@@ -6,6 +6,7 @@ import torch
 
 from keep_gpu.global_gpu_controller import global_gpu_controller as global_module
 from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
+from keep_gpu.single_gpu_controller import cuda_gpu_controller as cuda_module
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController
 from keep_gpu.single_gpu_controller.macm_gpu_controller import MacMGPUController
 from keep_gpu.single_gpu_controller.rocm_gpu_controller import RocmGPUController
@@ -108,15 +109,16 @@ def test_direct_cuda_rocm_controllers_reject_invalid_visible_ranks(
         controller(rank=rank, vram_to_keep=4)
 
 
-@pytest.mark.parametrize("matmul_iterations", [1.5, True, "5000"])
-def test_cuda_controller_rejects_non_integer_matmul_iteration_alias(
-    matmul_iterations,
-):
-    with pytest.raises(TypeError, match="relu_iterations must be an integer"):
+def test_cuda_controller_rejects_matmul_iteration_alias_keyword(monkeypatch):
+    monkeypatch.setattr(cuda_module, "visible_torch_device_count", lambda: 1)
+
+    with pytest.raises(
+        TypeError, match="unexpected keyword argument 'matmul_iterations'"
+    ):
         CudaGPUController(
             rank=0,
             vram_to_keep=4,
-            matmul_iterations=matmul_iterations,
+            matmul_iterations=1,
         )
 
 

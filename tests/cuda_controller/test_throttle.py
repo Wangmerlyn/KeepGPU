@@ -398,5 +398,5 @@ def test_controller_respects_busy_threshold(monkeypatch):
     time.sleep(0.2)
     ctrl.release()
 
-    # When utilization is always high, no matmul batches should run
+    # When utilization is always high, no ReLU keep-alive batches should run.
     assert calls["run"] == 0
