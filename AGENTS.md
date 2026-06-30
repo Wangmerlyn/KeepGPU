@@ -42,8 +42,9 @@ This file defines how coding agents should work in this repository.
   reference material. Prefer one quick-start command plus guide links over
   standalone Python, service, dashboard, or MCP sections. Use `docs/index.md`
   as the detailed routing hub; README may keep only a high-level platform
-  sentence and should use the canonical `KeepGPU` product title. Keep long
-  citation metadata in `docs/citation.md`, not in README.
+  sentence and should use the canonical `KeepGPU` product title. Keep platform
+  caveats, sentinel-value explanations, and long citation metadata in `docs/`,
+  not in README. Avoid badge clutter; PyPI and docs status are enough.
 - Avoid placing new project-specific documentation in the root directory; keep only canonical top-level docs (for example, `AGENTS.md`, `README.md`) at root.
 
 ### Quality Bar
