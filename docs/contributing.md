@@ -74,6 +74,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
 - Keep package metadata such as `requires-python` aligned with the documented
   supported Python versions.
 - Keep project URLs in package metadata pointing to live repository pages.
+- Keep metadata tests self-contained for simple checks; avoid importing parser
+  libraries that are only available through transitive test dependencies.
 
 ## Docs
 

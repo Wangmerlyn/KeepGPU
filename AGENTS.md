@@ -69,6 +69,8 @@ This file defines how coding agents should work in this repository.
   locations; avoid stale branch names or missing files.
 - Remove placeholder tests that assert no behavior instead of preserving
   count-only coverage.
+- Keep metadata tests self-contained for simple checks; avoid importing parser
+  libraries that are only available through transitive test dependencies.
 - Python files that use PEP 604 annotations such as `X | Y` must include
   `from __future__ import annotations` while the project tooling targets
   Python 3.9.
