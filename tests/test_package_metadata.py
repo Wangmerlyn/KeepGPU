@@ -99,7 +99,18 @@ def test_readme_stays_a_compact_front_door():
     normalized_readme = readme.lower()
     lines = [line for line in readme.splitlines() if line.strip()]
 
-    assert len(lines) <= 60
+    assert len(lines) <= 38
+    assert readme.count("[![") <= 3
+    assert "## choose an interface" not in normalized_readme
+    assert "| need | start here |" not in normalized_readme
+    assert "cuda" in normalized_readme
+    assert "rocm/hip" in normalized_readme
+    assert "mps" in normalized_readme
+    assert "small, polite gpu keeper" in normalized_readme
+    assert "## quick start" in normalized_readme
+    assert "pip install keep-gpu" in normalized_readme
+    assert re.search(r"^keep-gpu\s+--gpu-ids\s+0\b", readme, re.MULTILINE)
+    assert "ctrl+c" in normalized_readme
     assert "## python" not in normalized_readme
     assert "## service, dashboard, and mcp" not in normalized_readme
     assert "### mcp and service api" not in normalized_readme
@@ -107,8 +118,8 @@ def test_readme_stays_a_compact_front_door():
     assert "```bibtex" not in normalized_readme
     assert "skillcheck" not in normalized_readme
     assert not re.search(r"\]\(\.?\.?/?docs/", readme)
-    assert "https://keepgpu.readthedocs.io/en/latest/guides/mcp/" in readme
-    assert "https://keepgpu.readthedocs.io/en/latest/reference/cli/" in readme
+    assert "https://keepgpu.readthedocs.io/en/latest/" in readme
+    assert "https://keepgpu.readthedocs.io/en/latest/getting-started/" in readme
     assert "https://keepgpu.readthedocs.io/en/latest/citation/" in readme
 
 

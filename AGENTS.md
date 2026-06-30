@@ -40,8 +40,9 @@ This file defines how coding agents should work in this repository.
 - Keep `README.md` as a concise front door. Put detailed CLI/API/MCP/platform
   contracts in `docs/` pages and link to them from README instead of repeating
   reference material. Prefer one quick-start command plus guide links over
-  standalone Python, service, dashboard, or MCP sections. Keep long citation
-  metadata in `docs/citation.md`, not in README.
+  standalone Python, service, dashboard, or MCP sections. Use `docs/index.md`
+  as the detailed routing hub; README may keep only a high-level platform
+  sentence. Keep long citation metadata in `docs/citation.md`, not in README.
 - Avoid placing new project-specific documentation in the root directory; keep only canonical top-level docs (for example, `AGENTS.md`, `README.md`) at root.
 
 ### Quality Bar

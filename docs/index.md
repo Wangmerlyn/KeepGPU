@@ -19,10 +19,13 @@ in Python to guard resources during longer CPU-bound sections of your workflow.
 
 ## What’s inside
 
-- Rich CLI based on Typer + Rich (blocking and non-blocking session workflows).
-- `GlobalGPUController` that spins up a keep-alive worker per GPU.
+- Rich CLI based on Typer + Rich for blocking and non-blocking session
+  workflows.
+- `GlobalGPUController` that spins up a keep-alive worker per selected GPU.
 - `CudaGPUController`, `RocmGPUController`, and `MacMGPUController` context
   managers for fine-grained orchestration inside scripts.
+- Service dashboard, REST endpoints, JSON-RPC methods, and MCP server for
+  browser controls, scripts, and agent integrations.
 - Helpers for parsing human VRAM sizes (`1GiB`, `850MB`, etc.) and platform detection.
 - Power-aware keep-alive loop: periodic elementwise ops to signal “busy” without flooding matmuls or spiking thermals.
 
@@ -34,8 +37,9 @@ in Python to guard resources during longer CPU-bound sections of your workflow.
   for pinning cards on clusters, workstations, or Jupyter.
 - :material-code-tags: **[Python API Recipes](guides/python.md)** – Drop-in snippets
   for wrapping preprocessing stages or orchestration scripts.
-- :material-monitor-dashboard: **Dashboard + API** – Run `keep-gpu serve` and open
-  `http://127.0.0.1:8765/` for session controls and telemetry.
+- :material-monitor-dashboard: **[Dashboard + API](guides/mcp.md)** – Run
+  `keep-gpu serve` and open `http://127.0.0.1:8765/` for session controls and
+  telemetry.
 - :material-lan: **[MCP and Service API](guides/mcp.md)** – JSON-RPC + REST endpoints
   for agents and remote orchestration.
 - :material-diagram-project: **[How KeepGPU Works](concepts/architecture.md)** –
