@@ -45,6 +45,8 @@ This file defines how coding agents should work in this repository.
 - Keep it "Linus" simple - concise, readable, and robust; avoid bloat/over-engineering.
 - Run the smallest relevant checks first (unit tests, targeted scripts), then broader checks when needed.
 - Add tests when there is an existing test pattern; do not introduce a brand-new testing framework unless requested.
+- Build metadata should list external packages only; do not add Python stdlib
+  modules such as `argparse` as build/runtime dependencies.
 - Remove placeholder tests that assert no behavior instead of preserving
   count-only coverage.
 - Python files that use PEP 604 annotations such as `X | Y` must include
