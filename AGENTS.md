@@ -105,7 +105,10 @@ This file defines how coding agents should work in this repository.
   - MCP server: `keep-gpu-mcp-server` (`src/keep_gpu/mcp/server.py`)
 - If behavior changes in one interface, update related docs/tests for that interface and check if parity is required in the others.
 - Public overview docs should describe CUDA, ROCm, and Mac M/MPS support without
-  making KeepGPU sound CUDA-only or treating MCP as experimental.
+  making KeepGPU sound CUDA-only or treating MCP as experimental. Mac M/MPS docs
+  must also explain that utilization telemetry is unavailable, so users need
+  `busy_threshold=-1` only when they intentionally want unconditional MPS
+  keepalive work.
 - Keep the MCP server compatible with standard MCP lifecycle/tool methods
   (`initialize`, `notifications/initialized`, `tools/list`, `tools/call`) while
   preserving legacy direct JSON-RPC method calls for local scripts.
@@ -369,7 +372,9 @@ This file defines how coding agents should work in this repository.
   non-PyPI `rocm-smi` distribution in package extras; treat `rocm_smi` as
   system-provided by the ROCm stack, and imports must fail gracefully on
   non-ROCm machines.
-- Apple Silicon/MPS telemetry is best-effort; return a guarded MACM record with nullable memory/utilization fields rather than hiding the device.
+- Apple Silicon/MPS memory telemetry is best-effort, and MPS utilization is
+  unavailable/null; return a guarded MACM record with nullable fields rather
+  than hiding the device.
 - CI runners generally do not have GPUs. GPU-dependent logic must have safe fallbacks and tests must avoid hard-failing in no-GPU environments.
 
 ### Testing Expectations in This Repository

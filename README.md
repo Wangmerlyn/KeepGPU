@@ -19,6 +19,8 @@ keep-gpu --gpu-ids 0 --vram 1GiB --busy-threshold 25 --interval 60
 ```
 
 The command blocks until you press `Ctrl+C`, then releases the reserved memory.
+MPS utilization telemetry is unavailable; use `--busy-threshold -1` only
+when you intentionally want unconditional keepalive compute.
 
 ## Learn More
 
