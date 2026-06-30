@@ -78,6 +78,18 @@ def test_readme_markdown_code_fences_are_balanced():
     assert len(fences) % 2 == 0
 
 
+def test_readme_stays_a_compact_front_door():
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    normalized_readme = readme.lower()
+    lines = [line for line in readme.splitlines() if line.strip()]
+
+    assert len(lines) <= 130
+    assert "### mcp and service api" not in normalized_readme
+    assert "platform installs at a glance" not in normalized_readme
+    assert "docs/guides/mcp.md" in readme
+    assert "docs/reference/cli.md" in readme
+
+
 def test_sdist_manifest_does_not_package_test_suite():
     manifest_path = PROJECT_ROOT / "MANIFEST.in"
     assert manifest_path.exists()
