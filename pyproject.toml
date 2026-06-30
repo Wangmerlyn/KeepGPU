@@ -28,6 +28,7 @@ license = {text = "MIT license"}
 dependencies = [
   "nvidia-ml-py",
   "typer",
+  "rich>=13.8.0",
   "torch",
   "colorlog",
 ]
