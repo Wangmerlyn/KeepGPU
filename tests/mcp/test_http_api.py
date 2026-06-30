@@ -292,12 +292,18 @@ def test_http_rpc_head_rejects_with_json_405_and_empty_body():
     assert body == b""
 
 
-def test_http_rpc_trailing_slash_returns_json_404_without_static_fallback():
+@pytest.mark.parametrize(
+    "rpc_path",
+    ["/rpc/", "/rpc%2F", "/rpc%3Bdebug", "/rpc%3Fdebug=1"],
+)
+def test_http_rpc_noncanonical_get_returns_json_404_without_static_fallback(
+    rpc_path,
+):
     server = make_server()
     httpd, thread, base = _start_http_server(server)
 
     try:
-        status, headers, body = _request_http_response("GET", f"{base}/rpc/")
+        status, headers, body = _request_http_response("GET", f"{base}{rpc_path}")
     finally:
         httpd.shutdown()
         httpd.server_close()

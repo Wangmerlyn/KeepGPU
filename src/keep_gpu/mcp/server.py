@@ -1001,8 +1001,12 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _is_noncanonical_rpc_route(parsed) -> bool:
-        return parsed.path.startswith("/rpc/") or (
-            parsed.path == "/rpc"
+        route_paths = (parsed.path, unquote(parsed.path))
+        return any(
+            path.startswith(("/rpc/", "/rpc;", "/rpc?", "/rpc#"))
+            for path in route_paths
+        ) or (
+            any(path == "/rpc" for path in route_paths)
             and bool(parsed.params or parsed.query or parsed.fragment)
         )
 
