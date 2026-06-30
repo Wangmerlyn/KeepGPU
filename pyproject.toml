@@ -9,6 +9,7 @@ name = "keep_gpu"
 dynamic = ["version"]  # Let setuptools read the version dynamically
 description = "Keep GPU is a simple CLI app that keeps your GPUs running"
 readme = {file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.8"
 
 authors = [
   {name = "Siyuan Wang", email = "sywang0227@gmail.com"},

@@ -47,6 +47,8 @@ This file defines how coding agents should work in this repository.
 - Add tests when there is an existing test pattern; do not introduce a brand-new testing framework unless requested.
 - Build metadata should list external packages only; do not add Python stdlib
   modules such as `argparse` as build/runtime dependencies.
+- Keep `project.requires-python` aligned with the documented Python support
+  floor and py38-targeted tooling.
 - Remove placeholder tests that assert no behavior instead of preserving
   count-only coverage.
 - Python files that use PEP 604 annotations such as `X | Y` must include

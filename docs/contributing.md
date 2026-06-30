@@ -43,6 +43,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
   intentionally not part of the repository.
 - Keep build metadata lean: list external build/runtime packages only, not
   Python standard library modules such as `argparse`.
+- Keep package metadata such as `requires-python` aligned with the documented
+  supported Python versions.
 
 ## Docs
 
