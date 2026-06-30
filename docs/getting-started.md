@@ -88,7 +88,11 @@ understand the minimum knobs you need to keep a GPU occupied.
    ```bash
    keep-gpu --interval 30 --vram 512MB
    ```
-   You should see Rich logs showing the GPUs being kept awake.
+   On CUDA or ROCm, you should see Rich logs showing the GPUs being kept awake.
+   Mac M series utilization telemetry is unavailable, so the default
+   non-negative `busy_threshold` backs off instead of allocating keep tensors or
+   running MPS compute. Use `--busy-threshold -1` only when you intentionally
+   want unconditional Mac M keepalive work.
 
 !!! tip "Lower-power keep-alive"
     KeepGPU uses intervalled elementwise ops (not big matmul floods) so you can
@@ -115,6 +119,8 @@ keep-gpu --interval 120 --gpu-ids 0 --vram 1GiB
 
 Leave the command running while you prepare data or review notebooks. When you are
 ready to hand the GPU back, hit `Ctrl+C`—controllers will release VRAM and exit.
+On Mac M series, add `--busy-threshold -1` only when you intentionally want
+unconditional MPS keepalive work despite unavailable utilization telemetry.
 
 ## Non-blocking workflow for agents
 

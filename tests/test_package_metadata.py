@@ -107,10 +107,12 @@ def test_readme_stays_a_compact_front_door():
     assert "cuda" in normalized_readme
     assert "rocm/hip" in normalized_readme
     assert "mps" in normalized_readme
+    assert "mps utilization telemetry is unavailable" in normalized_readme
     assert "small, polite gpu keeper" in normalized_readme
     assert "## quick start" in normalized_readme
     assert "pip install keep-gpu" in normalized_readme
     assert re.search(r"^keep-gpu\s+--gpu-ids\s+0\b", readme, re.MULTILINE)
+    assert "--busy-threshold -1" in normalized_readme
     assert "ctrl+c" in normalized_readme
     assert "## python" not in normalized_readme
     assert "## service, dashboard, and mcp" not in normalized_readme
@@ -152,6 +154,12 @@ def test_public_docs_do_not_regress_to_cuda_only_or_experimental_mcp():
     assert "MCP server (experimental)" not in public_docs["contributing"]
     assert "RocmGPUController" in public_docs["index"]
     assert "MacMGPUController" in public_docs["index"]
+    assert re.search(
+        r"Mac M series.*utilization telemetry.*unavailable",
+        public_docs["getting_started"],
+        re.IGNORECASE | re.DOTALL,
+    )
+    assert "--busy-threshold -1" in public_docs["getting_started"]
 
 
 def test_sdist_manifest_does_not_package_test_suite():
