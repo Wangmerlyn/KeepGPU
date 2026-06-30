@@ -14,6 +14,20 @@ def _installs_root_requirements_file(workflow: str) -> bool:
     return bool(ROOT_REQUIREMENTS_INSTALL_RE.search("\n".join(executable_lines)))
 
 
+def _active_requirement_names(requirements: str) -> list[str]:
+    return [
+        re.split(r"\s*(?:[<>=!~;\\[]|$)", line.split("#", 1)[0].strip(), maxsplit=1)[0]
+        for line in requirements.splitlines()
+        if line.split("#", 1)[0].strip()
+    ]
+
+
+def _has_active_pymdown_extension(mkdocs_config: str) -> bool:
+    return any(
+        "pymdownx." in line.split("#", 1)[0] for line in mkdocs_config.splitlines()
+    )
+
+
 def test_precommit_workflow_does_not_install_runtime_package():
     workflow_path = PROJECT_ROOT / ".github/workflows/pre-commit.yaml"
     if not workflow_path.exists():
@@ -56,10 +70,20 @@ def test_docs_requirements_include_direct_mkdocs_dependency():
     docs_requirements = (PROJECT_ROOT / "docs/requirements.txt").read_text(
         encoding="utf-8"
     )
-    active_requirement_names = [
-        re.split(r"\s*(?:[<>=!~;\\[]|$)", line.strip(), maxsplit=1)[0]
-        for line in docs_requirements.splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    ]
 
-    assert "mkdocs" in active_requirement_names
+    assert "mkdocs" in _active_requirement_names(docs_requirements)
+
+
+def test_docs_requirements_include_configured_pymdown_extensions():
+    mkdocs_config = (PROJECT_ROOT / "mkdocs.yml").read_text(encoding="utf-8")
+    docs_requirements = (PROJECT_ROOT / "docs/requirements.txt").read_text(
+        encoding="utf-8"
+    )
+
+    if _has_active_pymdown_extension(mkdocs_config):
+        assert "pymdown-extensions" in _active_requirement_names(docs_requirements)
+
+
+def test_docs_requirements_guard_ignores_commented_pymdown_extensions():
+    assert not _has_active_pymdown_extension("# - pymdownx.tabbed\n")
+    assert not _has_active_pymdown_extension("  - admonition # - pymdownx.tabbed\n")
