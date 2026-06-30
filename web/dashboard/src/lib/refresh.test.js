@@ -4,6 +4,7 @@ import {
   AUTO_REFRESH_INTERVAL_MS,
   canRunAutoRefresh,
   canReuseInFlightRefresh,
+  formatRefreshWarningMessage,
   formatRefreshMode
 } from "./refresh"
 
@@ -27,5 +28,15 @@ describe("dashboard refresh helpers", () => {
     expect(canReuseInFlightRefresh(null, false)).toBe(false)
     expect(canReuseInFlightRefresh(inFlightRefresh, false)).toBe(true)
     expect(canReuseInFlightRefresh(inFlightRefresh, true)).toBe(false)
+  })
+
+  it("formats refresh failures from non-Error rejections", () => {
+    expect(formatRefreshWarningMessage(new Error("service unavailable"))).toBe(
+      "Refresh warning: service unavailable"
+    )
+    expect(formatRefreshWarningMessage("network offline")).toBe(
+      "Refresh warning: network offline"
+    )
+    expect(formatRefreshWarningMessage(null)).toBe("Refresh warning: unknown error")
   })
 })

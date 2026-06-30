@@ -4,6 +4,7 @@ import {
   AUTO_REFRESH_INTERVAL_MS,
   canRunAutoRefresh,
   canReuseInFlightRefresh,
+  formatRefreshWarningMessage,
   formatRefreshMode
 } from "./lib/refresh"
 
@@ -121,7 +122,7 @@ export default function App() {
           setMessage("Dashboard refreshed.")
         }
       } catch (error) {
-        setMessage(`Refresh warning: ${error.message}`)
+        setMessage(formatRefreshWarningMessage(error))
       } finally {
         setRefreshing(false)
         refreshPromiseRef.current = null

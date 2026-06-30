@@ -8,6 +8,12 @@ export function canReuseInFlightRefresh(inFlightRefresh, afterMutation = false) 
   return Boolean(inFlightRefresh) && !afterMutation
 }
 
+export function formatRefreshWarningMessage(error) {
+  const message =
+    error instanceof Error ? error.message : String(error ?? "unknown error")
+  return `Refresh warning: ${message || "unknown error"}`
+}
+
 export function formatRefreshMode(autoRefresh, visibilityState = "visible") {
   if (!autoRefresh) {
     return "manual refresh"
