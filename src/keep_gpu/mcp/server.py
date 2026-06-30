@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import atexit
-import ipaddress
 import json
 import math
 import mimetypes
@@ -49,6 +48,11 @@ from keep_gpu.global_gpu_controller.global_gpu_controller import (
     ControllerStartupUnavailable,
     GlobalGPUController,
     InvalidVisibleGPUSelectionError,
+)
+from keep_gpu.utilities.endpoint_validation import (
+    validate_endpoint,
+    validate_endpoint_host,
+    validate_endpoint_port,
 )
 from keep_gpu.utilities.gpu_info import get_gpu_info
 from keep_gpu.utilities.humanized_input import (
@@ -76,8 +80,6 @@ JSONRPC_METHOD_NOT_FOUND = -32601
 JSONRPC_INVALID_PARAMS = -32602
 JSONRPC_INTERNAL_ERROR = -32603
 JSONRPC_STARTUP_UNAVAILABLE = -32000
-MCP_ENDPOINT_HOST_ERROR = "host must be a DNS hostname or IPv4 address"
-MCP_ENDPOINT_PORT_ERROR = "port must be an integer between 1 and 65535"
 STARTUP_STOP_WAIT_TIMEOUT_SECONDS = 10.0
 
 MCP_TOOLS: List[Dict[str, Any]] = [
@@ -1407,44 +1409,15 @@ def run_http(server: KeepGPUServer, host: str = "127.0.0.1", port: int = 8765) -
 
 
 def _validate_mcp_http_host(host: str) -> str:
-    def _is_dns_hostname(value: str) -> bool:
-        if len(value) > 253 or value.endswith("."):
-            return False
-        labels = value.split(".")
-        if labels[-1].isdigit():
-            return False
-        for label in labels:
-            if not 1 <= len(label) <= 63:
-                return False
-            if label.startswith("-") or label.endswith("-"):
-                return False
-            if not all(
-                char.isascii() and (char.isalnum() or char == "-") for char in label
-            ):
-                return False
-        return True
-
-    if not isinstance(host, str) or host.strip() != host or not host:
-        raise ValueError(MCP_ENDPOINT_HOST_ERROR)
-    try:
-        parsed_ip = ipaddress.ip_address(host)
-    except ValueError:
-        if not _is_dns_hostname(host):
-            raise ValueError(MCP_ENDPOINT_HOST_ERROR) from None
-    else:
-        if parsed_ip.version != 4:
-            raise ValueError(MCP_ENDPOINT_HOST_ERROR)
-    return host
+    return validate_endpoint_host(host)
 
 
 def _validate_mcp_http_port(port: int) -> int:
-    if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
-        raise ValueError(MCP_ENDPOINT_PORT_ERROR)
-    return port
+    return validate_endpoint_port(port)
 
 
 def _validate_mcp_http_endpoint(host: str, port: int) -> tuple[str, int]:
-    return _validate_mcp_http_host(host), _validate_mcp_http_port(port)
+    return validate_endpoint(host, port)
 
 
 def main() -> None:
