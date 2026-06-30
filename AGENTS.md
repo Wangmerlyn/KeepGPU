@@ -162,7 +162,8 @@ This file defines how coding agents should work in this repository.
 - CLI method-specific result validation must include nested records consumed by
   downstream tools: `status.active_jobs` entries, disjoint `stop_keep` job-id
   outcome lists whose `errors` keys exactly match `failed`, and `list_gpus` GPU
-  records with visible ordinal metadata. Known nested `status.params` fields
+  records with visible ordinal metadata. Service-returned job IDs must satisfy
+  the shared URL-path-safe job-id contract. Known nested `status.params` fields
   must match the public session contract while extra fields remain
   forward-compatible.
 - CLI service endpoint inputs (`--host`, `--port`) must be validated locally

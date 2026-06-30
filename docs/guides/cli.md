@@ -96,6 +96,8 @@ including `{"error": "..."}` for service/runtime errors after CLI parsing
 succeeds, that can be parsed directly with `jq` or a single `json.loads()` call.
 Malformed JSON-RPC service envelopes and malformed method-specific result
 records are reported as JSON error objects instead of empty success results.
+Service-returned job IDs in `status` and `stop` results are validated with the
+same URL-path-safe rules as user-supplied `--job-id` values.
 Invalid service endpoints, including non-integer ports, are also reported as
 JSON errors before any RPC or stop-all fallback runs.
 When KeepGPU can identify the underlying device, it reports `physical_id` or

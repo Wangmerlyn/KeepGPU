@@ -717,6 +717,16 @@ def test_status_rejects_malformed_all_session_payloads(monkeypatch, payload):
         {
             "active_jobs": [
                 {
+                    "job_id": "bad/id",
+                    "params": {},
+                    "state": "active",
+                    "last_error": None,
+                }
+            ]
+        },
+        {
+            "active_jobs": [
+                {
                     "params": {},
                     "state": "active",
                     "last_error": None,
@@ -811,6 +821,14 @@ def test_status_rejects_malformed_known_session_params(monkeypatch, session_para
         {},
         {"active": "yes", "job_id": "job-1"},
         {"active": True, "job_id": 1},
+        {"active": False, "job_id": "bad/id"},
+        {
+            "active": True,
+            "job_id": "bad/id",
+            "params": {},
+            "state": "active",
+            "last_error": None,
+        },
     ],
 )
 def test_status_job_rejects_malformed_payloads(monkeypatch, payload):
@@ -947,8 +965,21 @@ def test_stop_job_rejects_malformed_payloads(monkeypatch, payload):
     "payload",
     [
         {"stopped": [1], "timed_out": [], "failed": [], "errors": {}},
+        {"stopped": ["bad/id"], "timed_out": [], "failed": [], "errors": {}},
         {"stopped": [], "timed_out": [None], "failed": [], "errors": {}},
         {"stopped": [], "timed_out": [], "failed": [False], "errors": {}},
+        {
+            "stopped": [],
+            "timed_out": [],
+            "failed": ["bad/id"],
+            "errors": {"bad/id": "boom"},
+        },
+        {
+            "stopped": [],
+            "timed_out": [],
+            "failed": [],
+            "errors": {"bad/id": "boom"},
+        },
         {"stopped": [], "timed_out": [], "failed": [], "errors": {"job-1": 1}},
     ],
 )

@@ -626,6 +626,13 @@ def _require_nullable_string_field(
     return value
 
 
+def _validate_result_job_id(job_id: str, method: str, prefix: str) -> str:
+    try:
+        return validate_job_id(job_id) or job_id
+    except ValueError as exc:
+        raise _malformed_method_result(method, f"{prefix}: {exc}") from exc
+
+
 def _require_plain_int_field(result: Dict[str, Any], field: str, method: str) -> int:
     value = result.get(field)
     if isinstance(value, bool) or not isinstance(value, int):
@@ -664,13 +671,14 @@ def _validate_status_session_record(
     record: Dict[str, Any], method: str, prefix: str
 ) -> None:
     try:
-        _require_string_field(record, "job_id", method)
+        job_id = _require_string_field(record, "job_id", method)
         params = _require_dict_field(record, "params", method)
         _require_string_field(record, "state", method)
         _require_nullable_string_field(record, "last_error", method)
     except ServiceResponseError as exc:
         detail = str(exc).split(": ", 1)[-1]
         raise _malformed_method_result(method, f"{prefix}.{detail}") from exc
+    _validate_result_job_id(job_id, method, f"{prefix}.job_id")
     _validate_status_params(params, method, f"{prefix}.params")
 
 
@@ -682,6 +690,7 @@ def _validate_status_result(
             raise _malformed_method_result("status", "active must be a bool")
         if not isinstance(result.get("job_id"), str):
             raise _malformed_method_result("status", "job_id must be a string")
+        _validate_result_job_id(result["job_id"], "status", "job_id")
         if result["active"]:
             _validate_status_session_record(result, "status", "result")
     else:
@@ -709,6 +718,7 @@ def _validate_stop_keep_result(result: Dict[str, Any]) -> Dict[str, Any]:
                 raise _malformed_method_result(
                     "stop_keep", f"{field}[{index}] must be a string"
                 )
+            _validate_result_job_id(job_id, "stop_keep", f"{field}[{index}]")
             if job_id in field_jobs:
                 raise _malformed_method_result(
                     "stop_keep", f"{field}[{index}] duplicates job id"
@@ -724,6 +734,7 @@ def _validate_stop_keep_result(result: Dict[str, Any]) -> Dict[str, Any]:
     for job_id, error in errors.items():
         if not isinstance(job_id, str):
             raise _malformed_method_result("stop_keep", "errors keys must be strings")
+        _validate_result_job_id(job_id, "stop_keep", f"errors[{job_id!r}]")
         if not isinstance(error, str):
             raise _malformed_method_result(
                 "stop_keep", f"errors[{job_id!r}] must be a string"
