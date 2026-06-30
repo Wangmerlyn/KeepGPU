@@ -628,7 +628,8 @@ def _require_nullable_string_field(
 
 def _validate_result_job_id(job_id: str, method: str, prefix: str) -> str:
     try:
-        return validate_job_id(job_id) or job_id
+        validate_job_id(job_id)
+        return job_id
     except ValueError as exc:
         raise _malformed_method_result(method, f"{prefix}: {exc}") from exc
 
@@ -690,9 +691,10 @@ def _validate_status_result(
             raise _malformed_method_result("status", "active must be a bool")
         if not isinstance(result.get("job_id"), str):
             raise _malformed_method_result("status", "job_id must be a string")
-        _validate_result_job_id(result["job_id"], "status", "job_id")
         if result["active"]:
             _validate_status_session_record(result, "status", "result")
+        else:
+            _validate_result_job_id(result["job_id"], "status", "job_id")
     else:
         active_jobs = _require_list_field(result, "active_jobs", "status")
         for index, active_job in enumerate(active_jobs):
