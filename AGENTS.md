@@ -45,8 +45,8 @@ This file defines how coding agents should work in this repository.
 - Keep it "Linus" simple - concise, readable, and robust; avoid bloat/over-engineering.
 - Run the smallest relevant checks first (unit tests, targeted scripts), then broader checks when needed.
 - Add tests when there is an existing test pattern; do not introduce a brand-new testing framework unless requested.
-- Build metadata should list directly imported third-party packages; do not rely
-  on transitive dependencies, and do not add Python stdlib modules such as
+- Build metadata should list directly used third-party distributions; do not
+  rely on transitive dependencies, and do not add Python stdlib modules such as
   `argparse` as build/runtime dependencies.
 - Keep `project.requires-python` aligned with the documented Python support
   floor and py38-targeted tooling.
