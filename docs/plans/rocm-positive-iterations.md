@@ -24,8 +24,10 @@ start.
 - Add a no-GPU regression test for `iterations=0` and `iterations=-1`.
 - Validate positive integer workload iteration counts before constructors start
   keep workers.
-- Apply the shared validation helper to CUDA `relu_iterations`, CUDA's legacy
-  `matmul_iterations` alias, ROCm `iterations`, and Mac M `iterations`.
+- Apply the shared validation helper to CUDA `relu_iterations`, ROCm
+  `iterations`, and Mac M `iterations`. The historical CUDA
+  `matmul_iterations` alias has since been removed; do not reintroduce it as
+  part of iteration validation work.
 - Document that keep workload iteration counts must be positive integers, and
   preserve the eco-safe expectation that KeepGPU should never silently run
   no-op sessions.

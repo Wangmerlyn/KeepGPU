@@ -250,6 +250,9 @@ This file defines how coding agents should work in this repository.
   no Google Fonts, CDN, remote CSS/JS/font/image imports, or other runtime
   network assets. Rebuild `src/keep_gpu/mcp/static/` after dashboard changes.
 - Single-GPU keep workload iteration counts must be positive integers (`relu_iterations` for CUDA, `iterations` for ROCm/Mac M); reject invalid values before keep loops so no public path can create a silent no-op keeper or late background thread crash.
+- CUDA workload tuning must use the `relu_iterations` public keyword. Do not
+  reintroduce the legacy `matmul_iterations` alias without an intentional,
+  documented API decision.
 - ROCm optional allocation retry counts must be `None` or positive plain
   integers; reject invalid values before worker startup so background retry
   loops cannot crash with type errors after `keep()` returns.
