@@ -6,7 +6,7 @@ understand the minimum knobs you need to keep a GPU occupied.
 ## Requirements
 
 - NVIDIA drivers + CUDA runtime visible to PyTorch.
-- Python 3.9+ (matching the version in your environment/cluster image).
+- Python 3.8+ (matching the version in your environment/cluster image).
 - Optional but recommended: `nvidia-smi` in `PATH` for utilization monitoring (CUDA) or `rocm-smi` if you install the `rocm` extra.
 
 !!! info "Platforms"
