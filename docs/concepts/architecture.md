@@ -1,8 +1,9 @@
 # How KeepGPU Works
 
 At runtime, KeepGPU spins up one lightweight worker per GPU. Each worker keeps a
-tensor allocated and runs a burst of CUDA ops, then sleeps. This convinces most
-schedulers that the GPU is still busy, without burning a full training workload.
+tensor allocated and runs a short backend-specific keepalive burst, then sleeps.
+This convinces most schedulers that the GPU is still busy, without burning a
+full training workload.
 
 ## Components
 
@@ -30,8 +31,8 @@ schedulers that the GPU is still busy, without burning a full training workload.
    and file logging with optional colors.
 
 ```text
-CLI args ──▶ GlobalGPUController ──▶ [CudaGPUController rank=0]
-                                      [CudaGPUController rank=1]
+CLI args ──▶ GlobalGPUController ──▶ [backend controller rank=0]
+                                      [backend controller rank=1]
                                       [...]
 ```
 
