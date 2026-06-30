@@ -289,6 +289,24 @@ def test_get_gpu_info_nvml(monkeypatch):
     assert dummy_nvml.shutdown_calls == 1
 
 
+@pytest.mark.parametrize("gpu_util", [-1, 101])
+def test_get_gpu_info_nvml_normalizes_out_of_range_utilization(monkeypatch, gpu_util):
+    dummy_nvml = MultiGPUDummyNVML(count=1)
+
+    def get_utilization_rates(_handle):
+        return DummyNVMLUtil(gpu=gpu_util)
+
+    dummy_nvml.nvmlDeviceGetUtilizationRates = get_utilization_rates
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=1)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["utilization"] is None
+    assert dummy_nvml.shutdown_calls == 1
+
+
 def test_get_gpu_info_nvml_maps_cuda_visible_devices_to_visible_ordinals(
     monkeypatch,
 ):
@@ -506,6 +524,25 @@ def test_get_gpu_info_rocm_maps_visible_ids_to_physical_smi_indexes(monkeypatch)
     assert [info["name"] for info in infos] == ["ROCm 0", "ROCm 1"]
     assert [info["utilization"] for info in infos] == [82, 84]
     assert dummy_rocm.queried_indexes == [2, 4]
+    assert dummy_rocm.shutdown_calls == 1
+
+
+@pytest.mark.parametrize("gpu_util", [-1, 101])
+def test_get_gpu_info_rocm_normalizes_out_of_range_utilization(monkeypatch, gpu_util):
+    monkeypatch.delenv("ROCR_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("HIP_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    dummy_rocm, _ = _install_rocm_gpu_info_mocks(
+        monkeypatch,
+        count=1,
+        util_by_index={0: gpu_util},
+    )
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["utilization"] is None
+    assert dummy_rocm.queried_indexes == [0]
     assert dummy_rocm.shutdown_calls == 1
 
 

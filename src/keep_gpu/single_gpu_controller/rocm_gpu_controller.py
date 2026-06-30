@@ -12,6 +12,7 @@ from keep_gpu.utilities.platform_manager import visible_torch_device_count
 from keep_gpu.utilities.rocm_visibility import resolve_rocm_visible_rank_to_smi_index
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
+    normalize_utilization_percent,
     validate_busy_threshold,
     validate_positive_integer,
     validate_rank_type,
@@ -202,7 +203,8 @@ class RocmGPUController(BaseGPUController):
                 if smi_index is None:
                     return None
                 util = self._rocm_smi.rsmi_dev_busy_percent_get(smi_index)
-                return int(util)
+                utilization = normalize_utilization_percent(util)
+                return int(utilization) if utilization is not None else None
             except Exception as exc:  # noqa: BLE001  # pragma: no cover - env-specific
                 logger.debug("ROCm utilization query failed: %s", exc)
                 if attempt == 0:

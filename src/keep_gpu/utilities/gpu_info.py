@@ -13,6 +13,7 @@ from keep_gpu.utilities.rocm_visibility import (
     resolve_rocm_visible_rank_to_smi_index,
     rocm_monitor_device_count,
 )
+from keep_gpu.utilities.session_config import normalize_utilization_percent
 
 logger = setup_logger(__name__)
 
@@ -109,6 +110,7 @@ def _nvml_info_for_handle(
 ) -> Dict[str, Any]:
     mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
     util = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
+    utilization = normalize_utilization_percent(util)
     name = _decode_nvml_text(pynvml.nvmlDeviceGetName(handle))
     info: Dict[str, Any] = {
         "id": visible_id,
@@ -117,7 +119,7 @@ def _nvml_info_for_handle(
         "name": name,
         "memory_total": int(mem.total),
         "memory_used": int(mem.used),
-        "utilization": int(util),
+        "utilization": int(utilization) if utilization is not None else None,
     }
     if physical_id is not None:
         info["physical_id"] = physical_id
@@ -259,7 +261,9 @@ def _query_rocm() -> List[Dict[str, Any]]:
             if physical_id is not None:
                 # ROCm SMI utilization probes are best effort.
                 try:
-                    util = int(rocm_smi.rsmi_dev_busy_percent_get(physical_id))
+                    util = normalize_utilization_percent(
+                        rocm_smi.rsmi_dev_busy_percent_get(physical_id)
+                    )
                 except Exception as exc:  # noqa: BLE001
                     logger.debug("ROCm util query failed for %s: %s", physical_id, exc)
 
@@ -281,7 +285,7 @@ def _query_rocm() -> List[Dict[str, Any]]:
                 "name": name,
                 "memory_total": int(total) if total is not None else None,
                 "memory_used": int(used) if used is not None else None,
-                "utilization": util,
+                "utilization": int(util) if util is not None else None,
             }
             if physical_id is not None:
                 info["physical_id"] = physical_id

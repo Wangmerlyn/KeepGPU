@@ -973,6 +973,30 @@ def test_list_gpus_rejects_invalid_visible_ordinals(
             },
             "finite number",
         ),
+        (
+            {
+                "id": 0,
+                "visible_id": 0,
+                "platform": "CUDA",
+                "name": "GPU 0",
+                "memory_total": None,
+                "memory_used": None,
+                "utilization": -1,
+            },
+            "between 0 and 100",
+        ),
+        (
+            {
+                "id": 0,
+                "visible_id": 0,
+                "platform": "CUDA",
+                "name": "GPU 0",
+                "memory_total": None,
+                "memory_used": None,
+                "utilization": 101,
+            },
+            "between 0 and 100",
+        ),
     ],
 )
 def test_jsonrpc_list_gpus_rejects_malformed_gpu_record(

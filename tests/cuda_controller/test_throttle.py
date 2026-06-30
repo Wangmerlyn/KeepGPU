@@ -56,6 +56,13 @@ def test_non_negative_busy_threshold_backs_off_above_limit_without_gpu():
     assert CudaGPUController._should_run_batch(None, 10) is False
 
 
+@pytest.mark.parametrize("utilization", [-1, 101, False])
+def test_non_negative_busy_threshold_treats_invalid_utilization_as_unknown(
+    utilization,
+):
+    assert CudaGPUController._should_run_batch(utilization, 10) is False
+
+
 def test_cuda_monitor_preserves_unknown_utilization(monkeypatch):
     monkeypatch.setattr(
         "keep_gpu.single_gpu_controller.cuda_gpu_controller.get_gpu_utilization",

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import types
 
+import pytest
+
 from keep_gpu.utilities.gpu_monitor import NVMLMonitor
 
 OVERSIZED_NUMERIC_TOKEN = "9" * 100
@@ -120,6 +122,16 @@ def test_monitor_reads_gpu_utilization(monkeypatch):
     assert monitor.get_gpu_utilization(2) == 73
     assert dummy.init_calls == 1
     assert dummy.queried_indexes == [1, 2]
+
+
+@pytest.mark.parametrize("gpu_util", [-1, 101])
+def test_monitor_treats_out_of_range_gpu_utilization_as_unknown(monkeypatch, gpu_util):
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    dummy = DummyNVML(gpu_util=gpu_util)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == [0]
 
 
 def test_monitor_reinitializes_after_external_nvml_shutdown(monkeypatch):

@@ -20,6 +20,22 @@ def _is_plain_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def normalize_utilization_percent(value: Any) -> Optional[Union[int, float]]:
+    """Return a valid utilization percentage, or None when unavailable/invalid."""
+    if not _is_plain_number(value):
+        return None
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if not 0 <= value <= 100:
+        return None
+    return value
+
+
+def is_utilization_percent_or_none(value: Any) -> bool:
+    """Return whether a public utilization field is null or 0..100 finite numeric."""
+    return value is None or normalize_utilization_percent(value) is not None
+
+
 def validate_gpu_ids(gpu_ids: Any) -> Optional[List[int]]:
     """Validate public GPU id input and return a normalized list."""
     if gpu_ids is None:

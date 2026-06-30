@@ -1369,6 +1369,34 @@ def test_http_get_api_gpus_runtime_error_returns_json_500(monkeypatch):
             ],
             "duplicate",
         ),
+        (
+            [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "CUDA",
+                    "name": "GPU 0",
+                    "memory_total": None,
+                    "memory_used": None,
+                    "utilization": -1,
+                }
+            ],
+            "between 0 and 100",
+        ),
+        (
+            [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "CUDA",
+                    "name": "GPU 0",
+                    "memory_total": None,
+                    "memory_used": None,
+                    "utilization": 101,
+                }
+            ],
+            "between 0 and 100",
+        ),
     ],
 )
 def test_http_get_api_gpus_malformed_record_returns_json_500(

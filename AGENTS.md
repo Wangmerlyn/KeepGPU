@@ -286,7 +286,7 @@ This file defines how coding agents should work in this repository.
   with a timeout `last_error`, and release a later successful startup in the
   background instead of exposing it as a surprise active keeper.
 - Stop-all may release independent sessions concurrently, but must not duplicate release work for `stopping` sessions and must keep deterministic additive result fields.
-- Keep utilization backoff eco-safe: valid `busy_threshold` values are `-1` or `0..100`; public defaults must use the shared `DEFAULT_BUSY_THRESHOLD` (`25`), and when telemetry is unavailable with `busy_threshold >= 0`, controllers should sleep instead of allocating keep tensors or running keepalive compute. Only `busy_threshold=-1` is the explicit unconditional mode.
+- Keep utilization backoff eco-safe: valid `busy_threshold` values are `-1` or `0..100`; public defaults must use the shared `DEFAULT_BUSY_THRESHOLD` (`25`), and when telemetry is unavailable with `busy_threshold >= 0`, controllers should sleep instead of allocating keep tensors or running keepalive compute. Vendor utilization readings outside finite `0..100`, including boolean-like values, must normalize to unavailable telemetry before controller decisions or GPU listings. Only `busy_threshold=-1` is the explicit unconditional mode.
 - Dashboard telemetry must display unavailable utilization as unknown/`n/a`, not
   as `0%` idle; aggregate utilization summaries must ignore unavailable readings
   and show `n/a` when no finite readings exist, and per-GPU utilization bars
@@ -341,8 +341,8 @@ This file defines how coding agents should work in this repository.
   direct JSON-RPC, or MCP response advertises them: required `id`/`visible_id`
   fields are matching plain non-negative integers, visible ordinals are unique,
   `platform`/`name` are strings, `memory_total` and `memory_used` are integers
-  or null, and `utilization` is finite numeric or null. Malformed records from
-  telemetry helpers are internal server failures.
+  or null, and `utilization` is finite numeric `0..100` or null. Malformed
+  records from telemetry helpers are internal server failures.
 - REST session creation with explicit `gpu_ids` must validate the whole
   `list_gpus()` response envelope and records before deriving allowed visible
   IDs. Malformed listing payloads are structured JSON `500` internal failures,

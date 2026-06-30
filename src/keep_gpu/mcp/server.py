@@ -30,7 +30,6 @@ from __future__ import annotations
 import argparse
 import atexit
 import json
-import math
 import mimetypes
 import sys
 import threading
@@ -60,6 +59,7 @@ from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableErro
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     PUBLIC_INTERVAL_MAX_SECONDS,
+    is_utilization_percent_or_none,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
@@ -192,16 +192,6 @@ def _plain_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _finite_number_or_none(value: Any) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, bool):
-        return False
-    if isinstance(value, int):
-        return True
-    return isinstance(value, float) and math.isfinite(value)
-
-
 def _int_or_none(value: Any) -> bool:
     return value is None or _plain_int(value)
 
@@ -245,9 +235,9 @@ def _validate_list_gpus_records(infos: Any) -> None:
                 )
         if "utilization" not in record:
             _raise_malformed_gpu_record(index, "missing 'utilization'")
-        if not _finite_number_or_none(record["utilization"]):
+        if not is_utilization_percent_or_none(record["utilization"]):
             _raise_malformed_gpu_record(
-                index, "'utilization' must be a finite number or null"
+                index, "'utilization' must be a finite number between 0 and 100 or null"
             )
 
 
