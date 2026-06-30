@@ -99,6 +99,7 @@ def test_readme_stays_a_compact_front_door():
     normalized_readme = readme.lower()
     lines = [line for line in readme.splitlines() if line.strip()]
 
+    assert readme.startswith("# KeepGPU\n")
     assert len(lines) <= 38
     assert readme.count("[![") <= 3
     assert "## choose an interface" not in normalized_readme
