@@ -10,7 +10,7 @@ nearby as a manual console.
 ## Goal
 
 Keep the dashboard useful while matching KeepGPU's low-power posture: one load
-on open, manual refresh by default, and optional auto refresh that pauses when
+on open, manual refresh by default, and optional auto-refresh that pauses when
 the tab is hidden.
 
 ## Solution

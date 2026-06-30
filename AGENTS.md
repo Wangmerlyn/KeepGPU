@@ -250,7 +250,7 @@ This file defines how coding agents should work in this repository.
   no Google Fonts, CDN, remote CSS/JS/font/image imports, or other runtime
   network assets. Rebuild `src/keep_gpu/mcp/static/` after dashboard changes.
 - Dashboard telemetry refresh must stay low-power: manual refresh by default,
-  auto refresh only after explicit user opt-in, and polling paused while the
+  auto-refresh only after explicit user opt-in, and polling paused while the
   browser tab is hidden. Keep labels, cadence, tests, and packaged static assets
   in sync when changing refresh behavior.
 - Single-GPU keep workload iteration counts must be positive integers (`relu_iterations` for CUDA, `iterations` for ROCm/Mac M); reject invalid values before keep loops so no public path can create a silent no-op keeper or late background thread crash.
