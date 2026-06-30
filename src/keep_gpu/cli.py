@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import math
 import os
@@ -20,6 +19,11 @@ from urllib.request import Request, urlopen
 import typer
 from rich.console import Console
 
+from keep_gpu.utilities.endpoint_validation import (
+    validate_endpoint,
+    validate_endpoint_host,
+    validate_endpoint_port,
+)
 from keep_gpu.utilities.humanized_input import parse_vram_to_elements
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
@@ -33,8 +37,6 @@ from keep_gpu.utilities.session_config import (
 DEFAULT_SERVICE_HOST = "127.0.0.1"
 DEFAULT_SERVICE_PORT = 8765
 JSONRPC_STARTUP_UNAVAILABLE = -32000
-SERVICE_HOST_ERROR = "host must be a DNS hostname or IPv4 address"
-SERVICE_PORT_ERROR = "port must be an integer between 1 and 65535"
 ROOT_BLOCKING_OPTION_LABELS = {
     "gpu_ids": "--gpu-ids",
     "vram": "--vram",
@@ -304,59 +306,24 @@ def _validate_cli_job_id(job_id: Optional[str]) -> Optional[str]:
 
 
 def _validate_cli_service_host(host: str) -> str:
-    def _is_dns_hostname(value: str) -> bool:
-        if len(value) > 253 or value.endswith("."):
-            return False
-        labels = value.split(".")
-        if labels[-1].isdigit():
-            return False
-        for label in labels:
-            if not 1 <= len(label) <= 63:
-                return False
-            if label.startswith("-") or label.endswith("-"):
-                return False
-            if not all(
-                char.isascii() and (char.isalnum() or char == "-") for char in label
-            ):
-                return False
-        return True
-
-    if not isinstance(host, str) or host.strip() != host or not host:
-        raise typer.BadParameter(SERVICE_HOST_ERROR)
     try:
-        parsed_ip = ipaddress.ip_address(host)
-    except ValueError:
-        if not _is_dns_hostname(host):
-            raise typer.BadParameter(SERVICE_HOST_ERROR) from None
-    else:
-        if parsed_ip.version != 4:
-            raise typer.BadParameter(SERVICE_HOST_ERROR)
-    return host
+        return validate_endpoint_host(host)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 def _validate_cli_service_port(port: Any) -> int:
-    if isinstance(port, bool):
-        raise typer.BadParameter(SERVICE_PORT_ERROR)
-
-    if isinstance(port, int):
-        parsed_port = port
-    elif isinstance(port, str):
-        if not port or port.strip() != port:
-            raise typer.BadParameter(SERVICE_PORT_ERROR)
-        try:
-            parsed_port = int(port)
-        except ValueError:
-            raise typer.BadParameter(SERVICE_PORT_ERROR) from None
-    else:
-        raise typer.BadParameter(SERVICE_PORT_ERROR)
-
-    if not 1 <= parsed_port <= 65535:
-        raise typer.BadParameter(SERVICE_PORT_ERROR)
-    return parsed_port
+    try:
+        return validate_endpoint_port(port)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 def _validate_cli_service_endpoint(host: str, port: Any) -> Tuple[str, int]:
-    return _validate_cli_service_host(host), _validate_cli_service_port(port)
+    try:
+        return validate_endpoint(host, port)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 def _is_commandline_parameter_source(source: Any) -> bool:

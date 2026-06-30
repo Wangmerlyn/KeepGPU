@@ -140,6 +140,10 @@ This file defines how coding agents should work in this repository.
   before service RPC, daemon auto-start, stop-all fallback, or daemon ownership
   operations. JSON-output commands must return structured `{"error": "..."}`
   objects for invalid endpoints, not tracebacks.
+- Shared public endpoint validation belongs in
+  `src/keep_gpu/utilities/endpoint_validation.py`; CLI and MCP entry points
+  should only translate those `ValueError`s into their interface-specific error
+  shape.
 - JSON-output service commands (`status`, `stop`, `list-gpus`) must parse
   `--port` through command-level validation so non-integer values return the
   shared structured `{"error": "port must be an integer between 1 and 65535"}`
