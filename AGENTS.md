@@ -74,6 +74,9 @@ This file defines how coding agents should work in this repository.
   Python 3.9.
 - MkDocs/mkdocstrings must resolve API references from the checkout's `src/`
   tree so docs-only builds work with `docs/requirements.txt` alone.
+- `docs/requirements.txt` must list docs tools invoked directly by CI or
+  contributors, including `mkdocs`; do not rely on theme/plugin transitive
+  dependencies for documented commands.
 
 ### Git Hygiene & Security
 

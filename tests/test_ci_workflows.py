@@ -50,3 +50,16 @@ def test_root_requirements_guard_allows_harmless_references():
         "# historical note: pip install -r requirements.txt is forbidden"
     )
     assert not _installs_root_requirements_file("pip install -r docs/requirements.txt")
+
+
+def test_docs_requirements_include_direct_mkdocs_dependency():
+    docs_requirements = (PROJECT_ROOT / "docs/requirements.txt").read_text(
+        encoding="utf-8"
+    )
+    active_requirement_names = [
+        re.split(r"\s*(?:[<>=!~;\\[]|$)", line.strip(), maxsplit=1)[0]
+        for line in docs_requirements.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+
+    assert "mkdocs" in active_requirement_names
