@@ -38,9 +38,21 @@ def dummy_factory(**kwargs):
     return DummyController(**kwargs)
 
 
+def _gpu_record(gpu_id: int, *, name=None):
+    return {
+        "id": gpu_id,
+        "visible_id": gpu_id,
+        "platform": "CUDA",
+        "name": name or f"GPU {gpu_id}",
+        "memory_total": None,
+        "memory_used": None,
+        "utilization": None,
+    }
+
+
 class DummyKeepGPUServer(KeepGPUServer):
     def list_gpus(self):
-        return {"gpus": [{"id": 0, "name": "GPU 0"}]}
+        return {"gpus": [_gpu_record(0)]}
 
 
 def make_server() -> KeepGPUServer:
@@ -761,7 +773,7 @@ def test_http_start_validates_gpu_ids_against_listed_visible_ids(monkeypatch):
     monkeypatch.setattr(
         server,
         "list_gpus",
-        lambda: {"gpus": [{"id": 0, "name": "GPU 0"}, {"id": 2, "name": "GPU 2"}]},
+        lambda: {"gpus": [_gpu_record(0), _gpu_record(2)]},
     )
     httpd, thread, base = _start_http_server(server)
 
@@ -784,6 +796,53 @@ def test_http_start_validates_gpu_ids_against_listed_visible_ids(monkeypatch):
 
     assert status == 400
     assert "listed visible GPU IDs" in payload["error"]["message"]
+    assert controllers == []
+
+
+@pytest.mark.parametrize(
+    ("list_gpus_result", "message_fragment"),
+    [
+        ({"gpus": [{"id": 0, "name": "GPU 0"}]}, "missing 'visible_id'"),
+        ({}, "expected an object with a 'gpus' record list"),
+    ],
+)
+def test_http_start_rejects_malformed_gpu_listing_before_startup(
+    monkeypatch, list_gpus_result, message_fragment
+):
+    controllers = []
+
+    class TrackingController(DummyController):
+        def __init__(self, **kwargs):
+            controllers.append(self)
+            super().__init__(**kwargs)
+
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: TrackingController(**kwargs))
+    )
+    monkeypatch.setattr(server, "list_gpus", lambda: list_gpus_result)
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "gpu_ids": [0],
+                "vram": "256MB",
+                "interval": 20,
+                "busy_threshold": 5,
+            },
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 500
+    assert "Malformed list_gpus response" in payload["error"]["message"]
+    assert message_fragment in payload["error"]["message"]
+    assert payload["error"]["type"] == "RuntimeError"
     assert controllers == []
 
 

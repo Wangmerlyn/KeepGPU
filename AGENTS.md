@@ -343,6 +343,10 @@ This file defines how coding agents should work in this repository.
   `platform`/`name` are strings, `memory_total` and `memory_used` are integers
   or null, and `utilization` is finite numeric or null. Malformed records from
   telemetry helpers are internal server failures.
+- REST session creation with explicit `gpu_ids` must validate the whole
+  `list_gpus()` response envelope and records before deriving allowed visible
+  IDs. Malformed listing payloads are structured JSON `500` internal failures,
+  not `503` startup-unavailable responses or permission to start a session.
 - Keep GPU listing platform precedence aligned with controller platform
   detection: HIP/ROCm torch builds must prefer ROCm listing over NVML CUDA
   listing, and must not fall back to NVML CUDA records when torch's active
