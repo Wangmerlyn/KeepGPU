@@ -172,9 +172,7 @@ class NVMLMonitor:
         for uuid in (token, token.encode("utf-8")):
             try:
                 return uuid_lookup(uuid)
-            except self._nvml.NVMLError:
-                return None
-            except (AttributeError, TypeError):
+            except (self._nvml.NVMLError, AttributeError, TypeError):
                 continue
         return None
 

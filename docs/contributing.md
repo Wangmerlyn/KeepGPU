@@ -40,6 +40,9 @@ expectations so you can get productive quickly and avoid surprises in CI.
 - Keep broad validation matrices with the utility or controller that owns the
   contract; interface tests should use representative smoke cases plus
   side-effect guards instead of repeating every edge case.
+- When changing CUDA visibility telemetry, cover numeric and UUID
+  `CUDA_VISIBLE_DEVICES` masks, including NVML UUID string/bytes lookup
+  differences.
 
 ## Lint/format
 
