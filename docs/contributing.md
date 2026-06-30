@@ -55,6 +55,9 @@ expectations so you can get productive quickly and avoid surprises in CI.
   intentionally not part of the repository.
 - Keep Ruff settings in `pyproject.toml`; do not add a standalone `ruff.toml`
   unless the full configuration is intentionally migrated there.
+- Keep pre-commit CI lean: install the `pre-commit` runner only, and let hooks
+  provision their own tool environments instead of installing KeepGPU runtime
+  dependencies.
 - Keep build metadata lean: list directly used third-party build/runtime
   distributions, do not rely on transitive dependencies, and do not list
   Python standard library modules such as `argparse`.
