@@ -42,4 +42,6 @@ jobs:
         run: npm --prefix web/dashboard run build
 
       - name: Check packaged dashboard is current
-        run: git diff --exit-code -- src/keep_gpu/mcp/static
+        run: |
+          git diff -- src/keep_gpu/mcp/static
+          test -z "$(git status --porcelain -- src/keep_gpu/mcp/static)"
