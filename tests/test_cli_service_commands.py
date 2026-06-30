@@ -1453,6 +1453,28 @@ def test_rpc_call_rejects_error_envelope_with_null_id(monkeypatch):
         cli._rpc_call("status", {}, "127.0.0.1", 8765)
 
 
+@pytest.mark.parametrize("body", [{"result": {}}, {"error": {"message": "boom"}}])
+@pytest.mark.parametrize(
+    ("request_time", "response_id"),
+    [
+        (1.0, 1000.0),
+        (0.001, True),
+    ],
+)
+def test_rpc_call_rejects_envelope_with_invalid_id_type(
+    monkeypatch, body, request_time, response_id
+):
+    monkeypatch.setattr(cli.time, "time", lambda: request_time)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {"jsonrpc": "2.0", "id": response_id, **body},
+    )
+
+    with pytest.raises(cli.ServiceResponseError, match="mismatched id"):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
 def test_rpc_call_rejects_error_envelope_without_id_member(monkeypatch):
     monkeypatch.setattr(cli.time, "time", lambda: 1.0)
     monkeypatch.setattr(
