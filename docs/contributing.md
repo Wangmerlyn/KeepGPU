@@ -98,9 +98,10 @@ expectations so you can get productive quickly and avoid surprises in CI.
   builds do not need `pip install .`.
 - Internal agent plans and skill reports under `docs/plans/` and `docs/skills/`
   stay in the repository but are excluded from the published MkDocs site.
-- Keep README as a concise front door. Put detailed interface examples and
-  contracts in the focused docs pages, use `docs/index.md` for detailed
-  navigation, and keep full citation metadata in `docs/citation.md`.
+- Keep README as a concise front door. Put detailed interface examples,
+  platform caveats, sentinel-value explanations, and contracts in the focused
+  docs pages. Use `docs/index.md` for detailed navigation, keep full citation
+  metadata in `docs/citation.md`, and avoid badge clutter beyond PyPI/docs.
 
 ## MCP server
 

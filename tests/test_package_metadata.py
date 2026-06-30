@@ -109,26 +109,33 @@ def test_readme_stays_a_compact_front_door():
     lines = [line for line in readme.splitlines() if line.strip()]
 
     assert readme.startswith("# KeepGPU\n")
-    assert len(lines) <= 38
-    assert readme.count("[![") <= 3
+    assert len(lines) <= 20
+    assert readme.count("[![") <= 2
     assert "## choose an interface" not in normalized_readme
     assert "| need | start here |" not in normalized_readme
     assert "cuda" in normalized_readme
     assert "rocm/hip" in normalized_readme
     assert "mps" in normalized_readme
-    assert "mps utilization telemetry is unavailable" in normalized_readme
+    assert "mps utilization telemetry is unavailable" not in normalized_readme
     assert "small, polite gpu keeper" in normalized_readme
     assert "## quick start" in normalized_readme
+    assert "## documentation" in normalized_readme
     assert "pip install keep-gpu" in normalized_readme
     assert re.search(r"^keep-gpu\s+--gpu-ids\s+0\b", readme, re.MULTILINE)
-    assert "--busy-threshold -1" in normalized_readme
+    assert "--busy-threshold -1" not in normalized_readme
     assert "ctrl+c" in normalized_readme
     assert "## python" not in normalized_readme
     assert "## service, dashboard, and mcp" not in normalized_readme
     assert "### mcp and service api" not in normalized_readme
     assert "platform installs at a glance" not in normalized_readme
+    assert "service dashboard" not in normalized_readme
+    assert "mcp server" not in normalized_readme
+    assert "json-rpc" not in normalized_readme
+    assert "rest api" not in normalized_readme
+    assert "rest endpoint" not in normalized_readme
     assert "```bibtex" not in normalized_readme
     assert "skillcheck" not in normalized_readme
+    assert "zenodo.org/badge" not in normalized_readme
     assert not re.search(r"\]\(\.?\.?/?docs/", readme)
     assert "https://keepgpu.readthedocs.io/en/latest/" in readme
     assert "https://keepgpu.readthedocs.io/en/latest/getting-started/" in readme
