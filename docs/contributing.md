@@ -83,9 +83,9 @@ expectations so you can get productive quickly and avoid surprises in CI.
   ```bash
   pip install -r docs/requirements.txt
   ```
-- Keep directly invoked documentation tools in `docs/requirements.txt`; for
-  example, `mkdocs build` should not depend on the theme package to install the
-  `mkdocs` CLI transitively.
+- Keep directly invoked documentation tools and configured MkDocs extensions in
+  `docs/requirements.txt`; for example, `mkdocs build` and configured
+  `pymdownx.*` extensions should not depend on theme packages transitively.
 - Live preview:
   ```bash
   mkdocs serve
