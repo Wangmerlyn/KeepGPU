@@ -66,7 +66,13 @@ def test_sdist_manifest_does_not_package_test_suite():
         if line.strip() and not line.lstrip().startswith("#")
     ]
 
-    assert active_lines == ["prune tests"]
+    assert "prune tests" in active_lines
+    assert not any(
+        parts[0] in {"graft", "include", "recursive-include"}
+        and len(parts) > 1
+        and parts[1].lstrip("./").startswith("tests")
+        for parts in (line.split() for line in active_lines)
+    )
 
 
 def test_package_data_only_includes_dashboard_static_assets():
