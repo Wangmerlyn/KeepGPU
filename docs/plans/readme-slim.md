@@ -27,7 +27,7 @@ assert "### mcp and service api" not in normalized_readme
 assert "platform installs at a glance" not in normalized_readme
 assert "```bibtex" not in normalized_readme
 assert "skillcheck" not in normalized_readme
-assert "](docs/" not in readme
+assert not re.search(r"\]\(\.?\.?/?docs/", readme)
 assert "https://keepgpu.readthedocs.io/en/latest/guides/mcp/" in readme
 assert "https://keepgpu.readthedocs.io/en/latest/reference/cli/" in readme
 assert "https://keepgpu.readthedocs.io/en/latest/citation/" in readme
@@ -158,3 +158,6 @@ Important findings before pushing.
   the reviewer found the pre-existing SkillCheck badge image returned `404`.
   The broken badge was removed, and the README guard now rejects `skillcheck`.
   Remaining README badge images returned `200` with a `GET` request.
+- Hosted review follow-up:
+  Gemini noted that a plain `](docs/` check would miss `./docs/` and `../docs/`
+  links. The guard now uses a regex for relative docs links.

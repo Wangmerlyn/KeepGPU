@@ -106,7 +106,7 @@ def test_readme_stays_a_compact_front_door():
     assert "platform installs at a glance" not in normalized_readme
     assert "```bibtex" not in normalized_readme
     assert "skillcheck" not in normalized_readme
-    assert "](docs/" not in readme
+    assert not re.search(r"\]\(\.?\.?/?docs/", readme)
     assert "https://keepgpu.readthedocs.io/en/latest/guides/mcp/" in readme
     assert "https://keepgpu.readthedocs.io/en/latest/reference/cli/" in readme
     assert "https://keepgpu.readthedocs.io/en/latest/citation/" in readme
