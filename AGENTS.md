@@ -48,6 +48,8 @@ This file defines how coding agents should work in this repository.
 - Build metadata should list directly used third-party distributions; do not
   rely on transitive dependencies, and do not add Python stdlib modules such as
   `argparse` as build/runtime dependencies.
+- Cosmetic logging helpers must stay optional; stdlib logging fallback is part
+  of the supported runtime path.
 - Keep `project.requires-python` aligned with the documented Python support
   floor and py38-targeted tooling.
 - Keep `project.urls` entries live and aligned with current repository

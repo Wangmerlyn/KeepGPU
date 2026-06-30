@@ -30,7 +30,6 @@ dependencies = [
   "typer",
   "rich>=13.8.0",
   "torch",
-  "colorlog",
 ]
 
 [project.scripts]

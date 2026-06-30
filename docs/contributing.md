@@ -58,6 +58,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
 - Keep build metadata lean: list directly used third-party build/runtime
   distributions, do not rely on transitive dependencies, and do not list
   Python standard library modules such as `argparse`.
+- Keep cosmetic logging helpers optional. Console logging must work through the
+  Python standard library when packages such as `colorlog` are absent.
 - Keep package metadata such as `requires-python` aligned with the documented
   supported Python versions.
 - Keep project URLs in package metadata pointing to live repository pages.
@@ -101,8 +103,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
 - Update docs/README when behavior or interfaces change.
 - Run a local code review pass before merging; squash merge only after all
   review comments are resolved.
-- Stick to the existing style (Typer CLI, Rich logging) and keep code paths
-  simple—avoid over-engineering.
+- Stick to the existing style (Typer CLI, stdlib logging with optional color
+  helpers) and keep code paths simple—avoid over-engineering.
 
 ## Support
 
