@@ -1,0 +1,45 @@
+name: Dashboard
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/dashboard.yml"
+      - "web/dashboard/**"
+      - "src/keep_gpu/mcp/static/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/dashboard.yml"
+      - "web/dashboard/**"
+      - "src/keep_gpu/mcp/static/**"
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard:
+    name: Test and verify packaged dashboard
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/dashboard/package-lock.json
+
+      - name: Install dashboard dependencies
+        run: npm ci --prefix web/dashboard
+
+      - name: Test dashboard
+        run: npm --prefix web/dashboard test
+
+      - name: Build packaged dashboard
+        run: npm --prefix web/dashboard run build
+
+      - name: Check packaged dashboard is current
+        run: git diff --exit-code -- src/keep_gpu/mcp/static
