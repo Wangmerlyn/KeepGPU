@@ -50,6 +50,10 @@ class MacMGPUController(BaseGPUController):
 
     def keep(self) -> None:
         if self._thread and self._thread.is_alive():
+            if self._stop_evt is not None and self._stop_evt.is_set():
+                raise RuntimeError(
+                    f"rank {self.rank}: previous keep thread is still stopping"
+                )
             logger.warning("rank %s: keep thread already running", self.rank)
             return
 
