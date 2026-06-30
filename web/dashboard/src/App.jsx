@@ -1,5 +1,11 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { requestJson as api } from "./lib/api"
+import {
+  AUTO_REFRESH_INTERVAL_MS,
+  canRunAutoRefresh,
+  canReuseInFlightRefresh,
+  formatRefreshMode
+} from "./lib/refresh"
 
 import {
   buildSessionPayload,
@@ -57,6 +63,13 @@ function statusTone(utilization) {
   return "text-emerald-300"
 }
 
+function getVisibilityState() {
+  if (typeof document === "undefined") {
+    return "visible"
+  }
+  return document.visibilityState
+}
+
 export default function App() {
   const [gpus, setGpus] = useState([])
   const [sessions, setSessions] = useState([])
@@ -64,7 +77,11 @@ export default function App() {
   const [startingSession, setStartingSession] = useState(false)
   const [stoppingAll, setStoppingAll] = useState(false)
   const [stoppingIds, setStoppingIds] = useState(() => new Set())
+  const [refreshing, setRefreshing] = useState(false)
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  const [visibilityState, setVisibilityState] = useState(getVisibilityState)
   const [message, setMessage] = useState("Connected to KeepGPU service.")
+  const refreshPromiseRef = useRef(null)
 
   const serviceUrl = window.location.origin
 
@@ -74,26 +91,75 @@ export default function App() {
     [renderableGpus, sessions]
   )
   const canReleaseAny = hasReleasableSessions(sessions, stoppingIds, stoppingAll)
+  const refreshMode = formatRefreshMode(autoRefresh, visibilityState)
 
-  async function refresh() {
-    try {
-      const [gpuPayload, sessionPayload] = await Promise.all([
-        api("GET", "/api/gpus"),
-        api("GET", "/api/sessions")
-      ])
-
-      setGpus(gpuPayload.gpus ?? [])
-      setSessions(sessionPayload.active_jobs ?? [])
-    } catch (error) {
-      setMessage(`Refresh warning: ${error.message}`)
+  const refresh = useCallback(async ({
+    userInitiated = false,
+    afterMutation = false
+  } = {}) => {
+    if (canReuseInFlightRefresh(refreshPromiseRef.current, afterMutation)) {
+      return refreshPromiseRef.current
     }
-  }
+    if (refreshPromiseRef.current) {
+      await refreshPromiseRef.current
+      if (refreshPromiseRef.current) {
+        return refreshPromiseRef.current
+      }
+    }
+
+    const refreshPromise = (async () => {
+      setRefreshing(true)
+      try {
+        const [gpuPayload, sessionPayload] = await Promise.all([
+          api("GET", "/api/gpus"),
+          api("GET", "/api/sessions")
+        ])
+
+        setGpus(gpuPayload.gpus ?? [])
+        setSessions(sessionPayload.active_jobs ?? [])
+        if (userInitiated) {
+          setMessage("Dashboard refreshed.")
+        }
+      } catch (error) {
+        setMessage(`Refresh warning: ${error.message}`)
+      } finally {
+        setRefreshing(false)
+        refreshPromiseRef.current = null
+      }
+    })()
+
+    refreshPromiseRef.current = refreshPromise
+    return refreshPromise
+  }, [])
 
   useEffect(() => {
     refresh()
-    const timer = window.setInterval(refresh, 3000)
-    return () => window.clearInterval(timer)
+  }, [refresh])
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return undefined
+    }
+
+    function updateVisibilityState() {
+      setVisibilityState(document.visibilityState)
+    }
+
+    updateVisibilityState()
+    document.addEventListener("visibilitychange", updateVisibilityState)
+    return () => {
+      document.removeEventListener("visibilitychange", updateVisibilityState)
+    }
   }, [])
+
+  useEffect(() => {
+    if (!canRunAutoRefresh(autoRefresh, visibilityState)) {
+      return undefined
+    }
+
+    const timer = window.setInterval(refresh, AUTO_REFRESH_INTERVAL_MS)
+    return () => window.clearInterval(timer)
+  }, [autoRefresh, visibilityState, refresh])
 
   async function onStartSession(event) {
     event.preventDefault()
@@ -104,7 +170,7 @@ export default function App() {
       const result = await api("POST", "/api/sessions", payload)
       setForm(defaultForm)
       setMessage(`Session started: ${result.job_id}`)
-      await refresh()
+      await refresh({ afterMutation: true })
     } catch (error) {
       setMessage(`Start failed: ${error.message}`)
     } finally {
@@ -122,7 +188,7 @@ export default function App() {
     try {
       const result = await api("DELETE", `/api/sessions/${jobId}`)
       setMessage(formatStopResultMessage(result))
-      await refresh()
+      await refresh({ afterMutation: true })
     } catch (error) {
       setMessage(`Release failed (${jobId}): ${error.message}`)
     } finally {
@@ -140,7 +206,7 @@ export default function App() {
     try {
       const result = await api("DELETE", "/api/sessions")
       setMessage(formatStopResultMessage(result))
-      await refresh()
+      await refresh({ afterMutation: true })
     } catch (error) {
       setMessage(`Stop-all failed: ${error.message}`)
     } finally {
@@ -348,11 +414,30 @@ export default function App() {
           </section>
 
           <section className="rounded-2xl border border-white/10 bg-panel p-5 shadow-soft lg:col-span-12">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="font-serif text-xl font-medium text-shell-50">GPU Telemetry</h2>
-              <span className="font-mono text-xs uppercase tracking-[0.1em] text-shell-500">
-                refresh 3s
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-muted"
+                  disabled={refreshing}
+                  onClick={() => refresh({ userInitiated: true })}
+                >
+                  {refreshing ? "Refreshing..." : "Refresh Now"}
+                </button>
+                <label className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 text-xs text-shell-300">
+                  <input
+                    type="checkbox"
+                    aria-label="Auto refresh"
+                    checked={autoRefresh}
+                    onChange={(event) => setAutoRefresh(event.target.checked)}
+                  />
+                  <span>Auto refresh</span>
+                </label>
+                <span className="font-mono text-xs uppercase tracking-[0.1em] text-shell-500">
+                  {refreshMode}
+                </span>
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -123,6 +123,10 @@ The dashboard provides:
 - session creation form,
 - single-session and stop-all controls.
 
+Telemetry refresh is manual by default so an idle browser tab does not keep
+probing GPU backends. Use **Refresh Now** for a one-shot update, or enable
+**Auto refresh** for 10-second polling while the tab is visible.
+
 Unavailable utilization readings are shown as `n/a`; they are excluded from
 summary averages and do not draw an idle-looking utilization fill.
 

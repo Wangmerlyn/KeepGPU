@@ -26,4 +26,22 @@ describe("App", () => {
       globalThis.window = previousWindow
     }
   })
+
+  it("renders manual refresh with opt-in auto refresh controls", () => {
+    const previousWindow = globalThis.window
+    globalThis.window = { location: { origin: "http://127.0.0.1:8765" } }
+
+    try {
+      const markup = renderToStaticMarkup(<App />)
+
+      expect(markup).toContain("Refresh Now")
+      expect(markup).toMatch(
+        /<input(?=[^>]*type="checkbox")(?=[^>]*aria-label="Auto refresh")[^>]*>/s
+      )
+      expect(markup).toContain("manual refresh")
+      expect(markup).not.toContain("refresh 3s")
+    } finally {
+      globalThis.window = previousWindow
+    }
+  })
 })
