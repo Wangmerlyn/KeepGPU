@@ -226,6 +226,9 @@ This file defines how coding agents should work in this repository.
 - Single-GPU `keep()` must not report success until fatal backend startup setup
   has succeeded. CUDA/ROCm worker startup failures such as `set_device` errors
   must propagate synchronously so services cannot register false active sessions.
+- Single-GPU `keep()` must reject a restart while a previous worker thread is
+  still alive with its stop event already set; returning success in that state
+  hides a stopping keeper as if a fresh keep succeeded.
 - Keep service daemon ownership safe: no stop, force-stop, or fallback path may signal a PID unless the auto-start ownership record verifies the running process.
 - Non-force `keep-gpu service-stop` must require a reachable service, successful status/RPC checks, and a clean `stop_keep` result with no timed-out or failed sessions before signaling; use `--force` for unresponsive auto-started daemons.
 - Treat custom `job_id` values as reserved from the moment startup begins; duplicate starts must fail before another controller can begin keep-alive work.
