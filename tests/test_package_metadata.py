@@ -102,8 +102,10 @@ def test_readme_stays_a_compact_front_door():
     assert len(lines) <= 130
     assert "### mcp and service api" not in normalized_readme
     assert "platform installs at a glance" not in normalized_readme
+    assert "```bibtex" not in normalized_readme
     assert "docs/guides/mcp.md" in readme
     assert "docs/reference/cli.md" in readme
+    assert "docs/citation.md" in readme
 
 
 def test_sdist_manifest_does_not_package_test_suite():

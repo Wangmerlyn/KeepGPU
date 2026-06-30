@@ -98,6 +98,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
   builds do not need `pip install .`.
 - Internal agent plans and skill reports under `docs/plans/` and `docs/skills/`
   stay in the repository but are excluded from the published MkDocs site.
+- Keep README as a concise front door. Put full citation metadata in
+  `docs/citation.md` and link to it from README.
 
 ## MCP server (experimental)
 

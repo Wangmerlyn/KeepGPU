@@ -30,6 +30,7 @@ nav:
       - API Reference: reference/api.md
   - Project:
       - Contributing: contributing.md
+      - Citation: citation.md
 
 plugins:
   - search
