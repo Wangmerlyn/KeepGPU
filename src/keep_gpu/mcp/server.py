@@ -251,6 +251,17 @@ def _validate_list_gpus_records(infos: Any) -> None:
             )
 
 
+def _validate_list_gpus_payload(payload: Any) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict) or not isinstance(payload.get("gpus"), list):
+        raise RuntimeError(
+            "Malformed list_gpus response: expected an object with a 'gpus' "
+            "record list"
+        )
+    infos = payload["gpus"]
+    _validate_list_gpus_records(infos)
+    return infos
+
+
 def _validate_public_session_input(validator: Callable[..., Any], *args: Any) -> Any:
     try:
         return validator(*args)
@@ -1241,7 +1252,9 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
 
                 if gpu_ids is not None:
                     try:
-                        visible_gpus = server_ref.list_gpus().get("gpus", [])
+                        visible_gpus = _validate_list_gpus_payload(
+                            server_ref.list_gpus()
+                        )
                     except DeviceEnumerationUnavailableError as exc:
                         self._json_response(
                             503,

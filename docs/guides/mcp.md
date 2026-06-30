@@ -128,6 +128,10 @@ above 1 PiB are rejected as public validation errors.
 Cheap local fields (`vram`, `interval`, `busy_threshold`, `job_id`, duplicate
 custom `job_id`, and `gpu_ids` shape) are rejected before `/api/sessions` asks
 the service to list visible GPUs, so bad requests do not spend telemetry work.
+When `gpu_ids` is explicit, `/api/sessions` validates the full `list_gpus()`
+response before deriving the allowed visible IDs. A valid empty GPU list is an
+expected startup-unavailable `503`; malformed listing payloads or records are
+unexpected internal `500` errors and no session is created.
 CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` for the service process and
 treats malformed, duplicate/equivalent, ambiguous, or out-of-range masks as
 unavailable utilization rather than partially querying or guessing a physical
