@@ -2,19 +2,19 @@ import json
 import math
 import socket
 import threading
+from socketserver import TCPServer, ThreadingMixIn
 from typing import Any, cast
 from urllib.error import HTTPError
-from socketserver import TCPServer, ThreadingMixIn
 from urllib.request import Request, urlopen
 
 import pytest
 
+from keep_gpu.mcp import server as server_module
 from keep_gpu.mcp.server import (
     KeepGPUServer,
     SessionStartupUnavailable,
     _JSONRPCHandler,
 )
-from keep_gpu.mcp import server as server_module
 from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableError
 
 

@@ -10,18 +10,18 @@ from typing import Any, cast
 
 import pytest
 
+from keep_gpu.mcp import server as server_module
 from keep_gpu.mcp.server import (
     JSONRPC_INTERNAL_ERROR,
-    JSONRPC_INVALID_REQUEST,
     JSONRPC_INVALID_PARAMS,
+    JSONRPC_INVALID_REQUEST,
     JSONRPC_STARTUP_UNAVAILABLE,
     KeepGPUServer,
     SessionStartupUnavailable,
     _handle_request,
 )
-from keep_gpu.mcp import server as server_module
-from keep_gpu.utilities.humanized_input import PUBLIC_VRAM_MAX_BYTES
 from keep_gpu.utilities import platform_manager as pm
+from keep_gpu.utilities.humanized_input import PUBLIC_VRAM_MAX_BYTES
 
 
 class DummyController:

@@ -4,7 +4,6 @@ import types
 
 from keep_gpu.utilities.gpu_monitor import NVMLMonitor
 
-
 OVERSIZED_NUMERIC_TOKEN = "9" * 100
 
 

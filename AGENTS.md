@@ -318,6 +318,8 @@ This file defines how coding agents should work in this repository.
   do not reintroduce legacy root `Makefile` or `requirements_dev.txt`
   scaffolding for removed `setup.py`/Sphinx flows. Keep `MANIFEST.in` limited
   to source-distribution inclusions that `pyproject.toml` cannot express.
+- Keep Ruff settings canonical in `pyproject.toml`; do not add a standalone
+  `ruff.toml` unless the full configuration is intentionally migrated there.
 - Validate docs with:
   - `mkdocs build` for static build verification
   - `mkdocs serve` for local preview when editing rendered content

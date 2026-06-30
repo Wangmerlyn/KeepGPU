@@ -7,7 +7,6 @@ import torch
 from keep_gpu.single_gpu_controller.macm_gpu_controller import MacMGPUController
 from keep_gpu.utilities.platform_manager import ComputingPlatform
 
-
 pytestmark = [
     pytest.mark.skipif(
         not (sys.platform == "darwin" and torch.backends.mps.is_available()),
