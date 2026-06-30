@@ -58,6 +58,9 @@ expectations so you can get productive quickly and avoid surprises in CI.
 - Keep pre-commit CI lean: install the `pre-commit` runner only, and let hooks
   provision their own tool environments instead of installing KeepGPU runtime
   dependencies.
+- Keep Python CI installs explicit: do not add a root `requirements.txt`
+  fallback. Use `pyproject.toml` for runtime/test dependencies and
+  `docs/requirements.txt` for documentation builds.
 - Keep build metadata lean: list directly used third-party build/runtime
   distributions, do not rely on transitive dependencies, and do not list
   Python standard library modules such as `argparse`.
