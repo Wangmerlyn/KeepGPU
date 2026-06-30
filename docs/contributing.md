@@ -61,6 +61,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
 - Keep release artifacts lean: avoid shipping the test suite in sdists by
   default, and enumerate required runtime assets instead of using broad package
   data wildcards.
+- Keep package metadata warning-free with modern SPDX license strings and keep
+  the supported Python version floor aligned with build-backend requirements.
 - Keep cosmetic logging helpers optional. Console logging must work through the
   Python standard library when packages such as `colorlog` are absent.
 - Keep package metadata such as `requires-python` aligned with the documented

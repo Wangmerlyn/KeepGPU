@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-  "setuptools>=61.0",
+  "setuptools>=77.0.1",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -9,7 +9,7 @@ name = "keep_gpu"
 dynamic = ["version"]  # Let setuptools read the version dynamically
 description = "Keep GPU is a simple CLI app that keeps your GPUs running"
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 authors = [
   {name = "Siyuan Wang", email = "sywang0227@gmail.com"},
@@ -24,7 +24,7 @@ maintainers = [
 classifiers = [
 
 ]
-license = {text = "MIT license"}
+license = "MIT"
 dependencies = [
   "nvidia-ml-py",
   "typer",
@@ -128,13 +128,13 @@ disable_error_code = "attr-defined"
 # Black formatter
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py39']
 skip-string-normalization = false
 
 # Ruff linter
 [tool.ruff]
 line-length = 88
-target-version = "py38"
+target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]

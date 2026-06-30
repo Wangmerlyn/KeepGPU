@@ -158,7 +158,7 @@ def test_pep604_detector_counts_annotated_type_union():
     assert _uses_pep604_annotation(tree)
 
 
-def test_pep604_annotations_are_postponed_for_py38_target():
+def test_pep604_annotations_are_postponed_for_pre_py310_target():
     offenders = []
     for path in _python_files():
         text = path.read_text(encoding="utf-8")

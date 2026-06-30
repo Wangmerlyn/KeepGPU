@@ -1,23 +1,23 @@
-# Python 3.8 Annotation Compatibility Plan
+# Pre-Python 3.10 Annotation Compatibility Plan
 
 ## Background
 
-Project formatting/linting targets Python 3.8, but a few modules use PEP 604
-union annotations without `from __future__ import annotations`. On Python
-3.8/3.9 those annotations can be evaluated at import time and fail before users
-reach KeepGPU's platform detection, controllers, or tests.
+Project formatting/linting now targets Python 3.9, but a few modules use
+PEP 604 union annotations without `from __future__ import annotations`. On
+Python 3.9 those annotations can be evaluated at import time and fail before
+users reach KeepGPU's platform detection, controllers, or tests.
 
 ## Goal
 
 Keep modules with PEP 604 annotations import-compatible with the configured
-Python 3.8 target by requiring postponed annotations where that syntax appears.
+Python 3.9 target by requiring postponed annotations where that syntax appears.
 
 ## Solution
 
 - Add a static regression test that finds Python files containing PEP 604 union
   annotations without `from __future__ import annotations`.
 - Add the future import to the small set of affected source/test modules.
-- Update `AGENTS.md` so future edits keep Python 3.8-targeted annotations safe.
+- Update `AGENTS.md` so future edits keep Python 3.9-targeted annotations safe.
 
 ## Tasks
 

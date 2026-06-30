@@ -23,6 +23,22 @@ def _setuptools_config():
     return config["tool"]["setuptools"]
 
 
+def _project_config():
+    config = read_configuration(
+        str(PROJECT_ROOT / "pyproject.toml"),
+        expand=False,
+    )
+    return config["project"]
+
+
+def _build_system_requires():
+    config = read_configuration(
+        str(PROJECT_ROOT / "pyproject.toml"),
+        expand=False,
+    )
+    return config["build-system"]["requires"]
+
+
 def _runtime_dependencies():
     config = read_configuration(
         str(PROJECT_ROOT / "pyproject.toml"),
@@ -47,6 +63,12 @@ def test_rocm_extra_is_declared_without_non_pypi_rocm_smi_dependency():
 
 def test_colorlog_is_not_a_required_runtime_dependency():
     assert "colorlog" not in _runtime_dependency_names()
+
+
+def test_license_metadata_uses_spdx_string_supported_by_python_floor():
+    assert _project_config()["requires-python"] == ">=3.9"
+    assert _project_config()["license"] == "MIT"
+    assert "setuptools>=77.0.1" in _build_system_requires()
 
 
 def test_readme_markdown_code_fences_are_balanced():
