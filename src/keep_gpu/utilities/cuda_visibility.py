@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-
 _MAX_DEVICE_ORDINAL_DIGITS = len(str(2**63 - 1))
 
 

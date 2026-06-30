@@ -9,6 +9,7 @@ import torch
 from keep_gpu.single_gpu_controller.base_gpu_controller import BaseGPUController
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.platform_manager import visible_torch_device_count
+from keep_gpu.utilities.rocm_visibility import resolve_rocm_visible_rank_to_smi_index
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     validate_busy_threshold,
@@ -16,7 +17,6 @@ from keep_gpu.utilities.session_config import (
     validate_rank_type,
     validate_visible_rank,
 )
-from keep_gpu.utilities.rocm_visibility import resolve_rocm_visible_rank_to_smi_index
 
 logger = setup_logger(__name__)
 

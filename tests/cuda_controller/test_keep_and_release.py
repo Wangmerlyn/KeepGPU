@@ -1,6 +1,7 @@
-import pytest
 import threading
 import time
+
+import pytest
 import torch
 
 from keep_gpu.single_gpu_controller.cuda_gpu_controller import CudaGPUController

@@ -27,20 +27,20 @@ HTTP endpoints:
 
 from __future__ import annotations
 
+import argparse
 import atexit
 import ipaddress
 import json
 import math
+import mimetypes
 import sys
-import uuid
-import argparse
 import threading
 import time
-import mimetypes
-from http.server import BaseHTTPRequestHandler
-from socketserver import TCPServer, ThreadingMixIn
+import uuid
 from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
+from socketserver import TCPServer, ThreadingMixIn
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import unquote, urlparse
 
@@ -50,11 +50,11 @@ from keep_gpu.global_gpu_controller.global_gpu_controller import (
     GlobalGPUController,
     InvalidVisibleGPUSelectionError,
 )
+from keep_gpu.utilities.gpu_info import get_gpu_info
 from keep_gpu.utilities.humanized_input import (
     PUBLIC_VRAM_MAX_BYTES,
     parse_vram_to_elements,
 )
-from keep_gpu.utilities.gpu_info import get_gpu_info
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableError
 from keep_gpu.utilities.session_config import (

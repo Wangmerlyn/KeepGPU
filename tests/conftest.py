@@ -46,6 +46,7 @@ def rocm_available():
 def macm_available():
     try:
         import sys
+
         import torch
 
         return bool(sys.platform == "darwin" and torch.backends.mps.is_available())

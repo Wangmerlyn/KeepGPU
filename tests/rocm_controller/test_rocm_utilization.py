@@ -7,7 +7,6 @@ import pytest
 from keep_gpu.single_gpu_controller import rocm_gpu_controller as rocm_module
 from keep_gpu.single_gpu_controller.rocm_gpu_controller import RocmGPUController
 
-
 OVERSIZED_NUMERIC_TOKEN = "9" * 100
 
 

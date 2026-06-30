@@ -3,18 +3,18 @@ from typing import List, Optional, Union
 
 from keep_gpu.utilities.humanized_input import parse_size, parse_vram_to_elements
 from keep_gpu.utilities.logger import setup_logger
+from keep_gpu.utilities.platform_manager import (
+    ComputingPlatform,
+    DeviceEnumerationUnavailableError,
+    get_platform,
+    visible_torch_device_count,
+)
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     VisibleRankValidationError,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
-)
-from keep_gpu.utilities.platform_manager import (
-    ComputingPlatform,
-    DeviceEnumerationUnavailableError,
-    get_platform,
-    visible_torch_device_count,
 )
 
 logger = setup_logger(__name__)

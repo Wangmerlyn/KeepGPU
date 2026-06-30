@@ -6,7 +6,6 @@ import pytest
 
 from keep_gpu.utilities import gpu_info
 
-
 OVERSIZED_NUMERIC_TOKEN = "9" * 100
 
 

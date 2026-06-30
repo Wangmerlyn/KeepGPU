@@ -41,6 +41,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
 - Use the documented `pyproject.toml`, CI, MkDocs, and dashboard package
   commands as the source of truth; the old `setup.py`/Sphinx command scaffold is
   intentionally not part of the repository.
+- Keep Ruff settings in `pyproject.toml`; do not add a standalone `ruff.toml`
+  unless the full configuration is intentionally migrated there.
 - Keep build metadata lean: list external build/runtime packages only, not
   Python standard library modules such as `argparse`.
 - Keep package metadata such as `requires-python` aligned with the documented
