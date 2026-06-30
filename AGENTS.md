@@ -49,6 +49,8 @@ This file defines how coding agents should work in this repository.
   modules such as `argparse` as build/runtime dependencies.
 - Keep `project.requires-python` aligned with the documented Python support
   floor and py38-targeted tooling.
+- Keep `project.urls` entries live and aligned with current repository
+  locations; avoid stale branch names or missing files.
 - Remove placeholder tests that assert no behavior instead of preserving
   count-only coverage.
 - Python files that use PEP 604 annotations such as `X | Y` must include
