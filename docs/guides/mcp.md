@@ -57,8 +57,9 @@ envelopes.
 ## HTTP JSON-RPC quick example
 
 HTTP mode is KeepGPU's local JSON-RPC/REST/dashboard service. It accepts the
-same JSON-RPC message shapes at `/rpc`, but it is not a Streamable HTTP MCP
-endpoint.
+same JSON-RPC message shapes at the exact `/rpc` endpoint, but it is not a
+Streamable HTTP MCP endpoint. Noncanonical `/rpc` URLs, including trailing
+slashes or query strings, return structured `404 Unknown endpoint` errors.
 
 Malformed HTTP JSON-RPC bodies return a JSON-RPC `-32700 Parse error` envelope
 with `id: null`; REST routes keep REST-shaped JSON errors.

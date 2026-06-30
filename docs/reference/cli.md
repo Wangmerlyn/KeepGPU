@@ -156,7 +156,7 @@ enumeration, with error code `-32000`; arbitrary runtime failures remain
 | `/api/sessions` | POST | Start session with a JSON object body (`gpu_ids`, `vram`, finite positive bounded `interval`, `busy_threshold`, `job_id`); `vram` accepts human sizes or bytes up to 1 PiB byte-equivalent, omitted `gpu_ids` means all GPUs visible to the service process, omitted `busy_threshold` uses `25`, and empty, duplicate, or out-of-range selections are invalid. |
 | `/api/sessions` | DELETE | Stop all sessions; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/api/sessions/{job_id}` | DELETE | Stop one session; returns `stopped`, `timed_out`, `failed`, and `errors`. |
-| `/rpc` | POST | JSON-RPC compatibility endpoint. |
+| `/rpc` | POST | Exact JSON-RPC compatibility endpoint; noncanonical `/rpc` URLs return structured `404` errors. |
 | `/` | GET | Dashboard UI. |
 
 ## Environment variables

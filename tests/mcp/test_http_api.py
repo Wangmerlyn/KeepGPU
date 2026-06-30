@@ -292,6 +292,43 @@ def test_http_rpc_head_rejects_with_json_405_and_empty_body():
     assert body == b""
 
 
+def test_http_rpc_trailing_slash_returns_json_404_without_static_fallback():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("GET", f"{base}/rpc/")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get("content-type") == "application/json"
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Unknown endpoint"}
+    }
+
+
+@pytest.mark.parametrize("rpc_path", ["/rpc/", "/rpc;debug", "/rpc?debug=1"])
+def test_http_rpc_noncanonical_path_rejects_before_jsonrpc_parse(rpc_path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, payload = _request_raw("POST", f"{base}{rpc_path}", b"{bad json")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert payload["error"]["message"] == "Unknown endpoint"
+
+
 @pytest.mark.parametrize(
     ("method", "path"),
     [

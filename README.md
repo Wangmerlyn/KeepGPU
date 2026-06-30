@@ -168,8 +168,8 @@ to zero devices.
 - Stdio stdout is reserved for JSON protocol messages; diagnostics and logs are
   written to stderr.
 - HTTP mode is KeepGPU's local JSON-RPC/REST/dashboard service. It accepts the
-  same JSON-RPC messages at `/rpc`, but it is not a Streamable HTTP MCP
-  endpoint.
+  same JSON-RPC messages at the exact `/rpc` endpoint, but it is not a
+  Streamable HTTP MCP endpoint.
 - Successful legacy direct JSON-RPC responses use a KeepGPU direct-method
   envelope with `jsonrpc: "2.0"`, the matching request `id`, and an object
   `result`.
