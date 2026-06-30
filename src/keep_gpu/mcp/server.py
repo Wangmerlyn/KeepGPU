@@ -49,11 +49,7 @@ from keep_gpu.global_gpu_controller.global_gpu_controller import (
     GlobalGPUController,
     InvalidVisibleGPUSelectionError,
 )
-from keep_gpu.utilities.endpoint_validation import (
-    validate_endpoint,
-    validate_endpoint_host,
-    validate_endpoint_port,
-)
+from keep_gpu.utilities.endpoint_validation import validate_endpoint
 from keep_gpu.utilities.gpu_info import get_gpu_info
 from keep_gpu.utilities.humanized_input import (
     PUBLIC_VRAM_MAX_BYTES,
@@ -1406,14 +1402,6 @@ def run_http(server: KeepGPUServer, host: str = "127.0.0.1", port: int = 8765) -
         httpd.shutdown()
         httpd.server_close()
         server.shutdown()
-
-
-def _validate_mcp_http_host(host: str) -> str:
-    return validate_endpoint_host(host)
-
-
-def _validate_mcp_http_port(port: int) -> int:
-    return validate_endpoint_port(port)
 
 
 def _validate_mcp_http_endpoint(host: str, port: int) -> tuple[str, int]:

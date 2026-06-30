@@ -3,6 +3,7 @@ import pytest
 from keep_gpu.utilities.endpoint_validation import (
     ENDPOINT_HOST_ERROR,
     ENDPOINT_PORT_ERROR,
+    validate_endpoint,
     validate_endpoint_host,
     validate_endpoint_port,
 )
@@ -63,3 +64,14 @@ def test_validate_endpoint_port_accepts_ints_and_clean_digit_strings(port):
 def test_validate_endpoint_port_rejects_invalid_values(port):
     with pytest.raises(ValueError, match=ENDPOINT_PORT_ERROR):
         validate_endpoint_port(port)
+
+
+def test_validate_endpoint_returns_normalized_host_and_port_pair():
+    assert validate_endpoint("localhost", "8765") == ("localhost", 8765)
+
+
+def test_validate_endpoint_rejects_invalid_host_or_port():
+    with pytest.raises(ValueError, match=ENDPOINT_HOST_ERROR):
+        validate_endpoint("bad host", "8765")
+    with pytest.raises(ValueError, match=ENDPOINT_PORT_ERROR):
+        validate_endpoint("localhost", "70000")
