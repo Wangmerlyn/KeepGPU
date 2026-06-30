@@ -25,7 +25,8 @@ full training workload.
    telemetry resolves `ROCR_VISIBLE_DEVICES` plus one matching
    `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm
    SMI. Utilization can be unavailable on some platforms and is reported as
-   `null`.
+   `null`; vendor readings outside finite `0..100` are treated as unavailable
+   instead of idle.
 5. **Utilities** – `parse_size` turns strings like `1GiB` or bare byte values into
    internal float32 tensor element counts, while `setup_logger` wires both console
    and file logging with optional colors.
@@ -68,10 +69,11 @@ CLI args ──▶ GlobalGPUController ──▶ [backend controller rank=0]
    unavailable for that cycle.
 5. If utilization exceeds `busy_threshold`, or if utilization is unavailable
    while `busy_threshold` is non-negative, the worker just sleeps for one more
-   `interval` before allocating or running ops. Otherwise it allocates the keep
-   tensor when needed and runs a batch. Public intervals must be finite positive
-   seconds within the Python runtime wait limit, and public VRAM
-   byte-equivalent inputs are capped at 1 PiB before conversion to tensor
+   `interval` before allocating or running ops. Unavailable includes malformed,
+   boolean, non-finite, or out-of-range vendor utilization readings. Otherwise
+   it allocates the keep tensor when needed and runs a batch. Public intervals
+   must be finite positive seconds within the Python runtime wait limit. Public
+   VRAM byte-equivalent inputs are capped at 1 PiB before conversion to tensor
    elements. Public defaults use `busy_threshold=25`. Valid thresholds are `-1`
    or `0..100`; `busy_threshold=-1` is the explicit unconditional mode.
 6. When you call `release()` (or exit the context), every worker sets a stop

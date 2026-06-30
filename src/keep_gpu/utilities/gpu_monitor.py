@@ -12,6 +12,7 @@ from keep_gpu.utilities.cuda_visibility import (
     is_cuda_visible_index_token,
 )
 from keep_gpu.utilities.logger import setup_logger
+from keep_gpu.utilities.session_config import normalize_utilization_percent
 
 logger = setup_logger(__name__)
 
@@ -74,7 +75,8 @@ class NVMLMonitor:
                 if handle is None:
                     return None
                 rates = self._nvml.nvmlDeviceGetUtilizationRates(handle)
-                return int(rates.gpu)
+                utilization = normalize_utilization_percent(rates.gpu)
+                return int(utilization) if utilization is not None else None
             except self._nvml.NVMLError as exc:
                 logger.debug("NVML query failed for GPU %s: %s", index, exc)
                 if attempt == 0 and self._is_uninitialized_error(exc):

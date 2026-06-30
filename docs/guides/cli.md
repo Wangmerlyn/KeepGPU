@@ -96,6 +96,8 @@ including `{"error": "..."}` for service/runtime errors after CLI parsing
 succeeds, that can be parsed directly with `jq` or a single `json.loads()` call.
 Malformed JSON-RPC service envelopes and malformed method-specific result
 records are reported as JSON error objects instead of empty success results.
+Utilization values are either `null` or finite percentages from `0` to `100`;
+out-of-range vendor readings are displayed as unavailable telemetry.
 Response IDs must echo the request ID with a valid matching JSON-RPC ID type.
 Service-returned job IDs in `status` and `stop` results are validated with the
 same URL-path-safe rules as user-supplied `--job-id` values.

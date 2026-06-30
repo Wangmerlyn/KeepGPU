@@ -164,6 +164,11 @@ def test_rocm_unknown_utilization_backs_off_when_threshold_enabled():
     assert RocmGPUController._should_run_batch(None, 10) is False
 
 
+@pytest.mark.parametrize("utilization", [-1, 101, False])
+def test_rocm_invalid_utilization_backs_off_when_threshold_enabled(utilization):
+    assert RocmGPUController._should_run_batch(utilization, 10) is False
+
+
 def test_rocm_unknown_utilization_runs_when_backoff_disabled():
     assert RocmGPUController._should_run_batch(None, -1) is True
 

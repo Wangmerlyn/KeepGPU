@@ -1,7 +1,10 @@
 from typing import Optional, Union
 
 from keep_gpu.utilities.humanized_input import parse_vram_to_elements
-from keep_gpu.utilities.session_config import validate_interval
+from keep_gpu.utilities.session_config import (
+    normalize_utilization_percent,
+    validate_interval,
+)
 
 
 class BaseGPUController:
@@ -63,6 +66,7 @@ class BaseGPUController:
         """
         if busy_threshold < 0:
             return True
-        if gpu_utilization is None:
+        utilization = normalize_utilization_percent(gpu_utilization)
+        if utilization is None:
             return False
-        return gpu_utilization <= busy_threshold
+        return utilization <= busy_threshold

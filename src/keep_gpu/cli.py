@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import shlex
 import signal
@@ -28,6 +27,7 @@ from keep_gpu.utilities.humanized_input import parse_vram_to_elements
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
+    is_utilization_percent_or_none,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
@@ -797,16 +797,14 @@ def _validate_list_gpus_result(result: Dict[str, Any]) -> Dict[str, Any]:
             _require_nullable_int_field(gpu, "memory_used", "list_gpus")
             if "utilization" not in gpu:
                 raise _malformed_method_result(
-                    "list_gpus", "utilization must be a number or null"
+                    "list_gpus",
+                    "utilization must be a finite number between 0 and 100 or null",
                 )
             utilization = gpu["utilization"]
-            if utilization is not None and (
-                isinstance(utilization, bool)
-                or not isinstance(utilization, (int, float))
-                or not math.isfinite(utilization)
-            ):
+            if not is_utilization_percent_or_none(utilization):
                 raise _malformed_method_result(
-                    "list_gpus", "utilization must be a number or null"
+                    "list_gpus",
+                    "utilization must be a finite number between 0 and 100 or null",
                 )
         except ServiceResponseError as exc:
             detail = str(exc).split(": ", 1)[-1]
