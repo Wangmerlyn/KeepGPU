@@ -55,7 +55,7 @@ macm = [
 
 [project.urls]
 bugs = "https://github.com/Wangmerlyn/KeepGPU/issues"
-changelog = "https://github.com/Wangmerlyn/KeepGPU/blob/master/changelog.md"
+changelog = "https://github.com/Wangmerlyn/KeepGPU/releases"
 homepage = "https://github.com/Wangmerlyn/KeepGPU"
 
 [tool.setuptools]

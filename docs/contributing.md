@@ -45,6 +45,7 @@ expectations so you can get productive quickly and avoid surprises in CI.
   Python standard library modules such as `argparse`.
 - Keep package metadata such as `requires-python` aligned with the documented
   supported Python versions.
+- Keep project URLs in package metadata pointing to live repository pages.
 
 ## Docs
 
