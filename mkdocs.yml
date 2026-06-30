@@ -35,6 +35,10 @@ plugins:
   - search
   - mkdocstrings:
       default_handler: python
+      handlers:
+        python:
+          paths:
+            - src
 
 markdown_extensions:
   - admonition
