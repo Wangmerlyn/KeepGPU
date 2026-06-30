@@ -570,13 +570,13 @@ def _rpc_call(
             )
         if "id" not in response:
             raise ServiceResponseError("Malformed JSON-RPC response: missing id")
-        if response["id"] != payload["id"]:
+        if not _jsonrpc_response_id_matches(response["id"], payload["id"]):
             raise ServiceResponseError("Malformed JSON-RPC response: mismatched id")
         code = error.get("code")
         if isinstance(code, bool) or not isinstance(code, int):
             code = None
         raise ServiceRPCError(error.get("message", str(error)), code=code)
-    if response.get("id") != payload["id"]:
+    if not _jsonrpc_response_id_matches(response.get("id"), payload["id"]):
         raise ServiceResponseError("Malformed JSON-RPC response: mismatched id")
     if "result" not in response:
         raise ServiceResponseError("Malformed JSON-RPC response: missing result")
@@ -586,6 +586,10 @@ def _rpc_call(
             "Malformed JSON-RPC response: result must be an object"
         )
     return result
+
+
+def _jsonrpc_response_id_matches(response_id: Any, request_id: Any) -> bool:
+    return type(response_id) is type(request_id) and response_id == request_id
 
 
 def _malformed_method_result(method: str, detail: str) -> ServiceResponseError:
