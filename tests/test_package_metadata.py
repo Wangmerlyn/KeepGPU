@@ -112,6 +112,36 @@ def test_readme_stays_a_compact_front_door():
     assert "https://keepgpu.readthedocs.io/en/latest/citation/" in readme
 
 
+def test_public_docs_do_not_regress_to_cuda_only_or_experimental_mcp():
+    public_docs = {
+        "index": (PROJECT_ROOT / "docs/index.md").read_text(encoding="utf-8"),
+        "getting_started": (PROJECT_ROOT / "docs/getting-started.md").read_text(
+            encoding="utf-8"
+        ),
+        "architecture": (PROJECT_ROOT / "docs/concepts/architecture.md").read_text(
+            encoding="utf-8"
+        ),
+        "contributing": (PROJECT_ROOT / "docs/contributing.md").read_text(
+            encoding="utf-8"
+        ),
+    }
+
+    assert "low-cost CUDA workloads" not in public_docs["index"]
+    assert (
+        "NVIDIA drivers + CUDA runtime visible to PyTorch"
+        not in public_docs["getting_started"]
+    )
+    assert (
+        "A non-zero integer indicates CUDA is available."
+        not in public_docs["getting_started"]
+    )
+    assert "burst of CUDA ops" not in public_docs["architecture"]
+    assert "[CudaGPUController rank=0]" not in public_docs["architecture"]
+    assert "MCP server (experimental)" not in public_docs["contributing"]
+    assert "RocmGPUController" in public_docs["index"]
+    assert "MacMGPUController" in public_docs["index"]
+
+
 def test_sdist_manifest_does_not_package_test_suite():
     manifest_path = PROJECT_ROOT / "MANIFEST.in"
     assert manifest_path.exists()

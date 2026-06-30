@@ -3,9 +3,9 @@
 > Keep a GPU busy so the scheduler, lab mate, or cluster watchdog does not take it away.
 
 KeepGPU is a tiny-but-focused toolkit that continuously allocates VRAM and launches
-low-cost CUDA workloads so that a GPU always looks “in use.” You can run it as a CLI
-while you prep data, or embed the controllers directly in Python to guard resources
-during longer CPU-bound sections of your workflow.
+low-cost platform-specific keep-alive work so that a GPU always looks “in use.”
+You can run it as a CLI while you prep data, or embed the controllers directly
+in Python to guard resources during longer CPU-bound sections of your workflow.
 
 ## Why it matters
 
@@ -21,7 +21,8 @@ during longer CPU-bound sections of your workflow.
 
 - Rich CLI based on Typer + Rich (blocking and non-blocking session workflows).
 - `GlobalGPUController` that spins up a keep-alive worker per GPU.
-- `CudaGPUController` context manager for fine-grained orchestration inside scripts.
+- `CudaGPUController`, `RocmGPUController`, and `MacMGPUController` context
+  managers for fine-grained orchestration inside scripts.
 - Helpers for parsing human VRAM sizes (`1GiB`, `850MB`, etc.) and platform detection.
 - Power-aware keep-alive loop: periodic elementwise ops to signal “busy” without flooding matmuls or spiking thermals.
 

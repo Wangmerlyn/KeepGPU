@@ -99,6 +99,8 @@ This file defines how coding agents should work in this repository.
   - Python API/controllers (`src/keep_gpu/single_gpu_controller/`, `src/keep_gpu/global_gpu_controller/`)
   - MCP server: `keep-gpu-mcp-server` (`src/keep_gpu/mcp/server.py`)
 - If behavior changes in one interface, update related docs/tests for that interface and check if parity is required in the others.
+- Public overview docs should describe CUDA, ROCm, and Mac M/MPS support without
+  making KeepGPU sound CUDA-only or treating MCP as experimental.
 - Keep the MCP server compatible with standard MCP lifecycle/tool methods
   (`initialize`, `notifications/initialized`, `tools/list`, `tools/call`) while
   preserving legacy direct JSON-RPC method calls for local scripts.

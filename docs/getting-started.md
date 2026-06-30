@@ -5,18 +5,19 @@ understand the minimum knobs you need to keep a GPU occupied.
 
 ## Requirements
 
-- NVIDIA drivers + CUDA runtime visible to PyTorch.
 - Python 3.9+ (matching the version in your environment/cluster image).
-- CUDA utilization monitoring uses NVML by way of `nvidia-ml-py` (the `pynvml` module);
-  `nvidia-smi` is useful only as an external driver sanity check. ROCm telemetry
-  uses `rocm_smi` when the ROCm/system stack provides it, and KeepGPU handles a
-  missing module gracefully.
+- A PyTorch build that matches your target platform: CUDA, ROCm/HIP, Mac M
+  series MPS, or CPU-only for import and docs workflows.
+- CUDA utilization monitoring uses NVML by way of `nvidia-ml-py` (the `pynvml`
+  module); `nvidia-smi` is useful only as an external driver sanity check. ROCm
+  telemetry uses `rocm_smi` when the ROCm/system stack provides it, and KeepGPU
+  handles a missing module gracefully.
 
 !!! info "Platforms"
-    CUDA is the primary path; ROCm requires a ROCm-enabled PyTorch build. The
-    `rocm` extra remains available as an install-compatible marker but does not
-    install ROCm SMI from PyPI. Mac M series (M1/M2/M3/M4) is supported by way of
-    the `macm` extra using Metal Performance Shaders (MPS).
+    CUDA is the most common path; ROCm requires a ROCm-enabled PyTorch build.
+    The `rocm` extra remains available as an install-compatible marker but does
+    not install ROCm SMI from PyPI. Mac M series (M1/M2/M3/M4) is supported by
+    way of the `macm` extra using Metal Performance Shaders (MPS).
     CPU-only environments can import the package but controllers will not start.
 
 ## Install
@@ -74,7 +75,8 @@ understand the minimum knobs you need to keep a GPU occupied.
    ```bash
    python -c "import torch; print(torch.cuda.device_count())"
    ```
-   A non-zero integer indicates CUDA is available.
+   A non-zero integer indicates at least one CUDA or ROCm/HIP device is visible
+   to PyTorch.
 
    On Mac M series:
    ```bash
