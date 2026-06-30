@@ -6,7 +6,7 @@ understand the minimum knobs you need to keep a GPU occupied.
 ## Requirements
 
 - NVIDIA drivers + CUDA runtime visible to PyTorch.
-- Python 3.8+ (matching the version in your environment/cluster image).
+- Python 3.9+ (matching the version in your environment/cluster image).
 - CUDA utilization monitoring uses NVML by way of `nvidia-ml-py` (the `pynvml` module);
   `nvidia-smi` is useful only as an external driver sanity check. ROCm telemetry
   uses `rocm_smi` when the ROCm/system stack provides it, and KeepGPU handles a

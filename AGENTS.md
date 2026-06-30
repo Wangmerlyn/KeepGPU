@@ -50,17 +50,19 @@ This file defines how coding agents should work in this repository.
   `argparse` as build/runtime dependencies.
 - Source distributions should not ship the test suite by default; package data
   should enumerate required runtime assets such as the MCP dashboard files.
+- Keep license metadata as a plain SPDX string and keep the advertised Python
+  support floor aligned with build-backend requirements.
 - Cosmetic logging helpers must stay optional; stdlib logging fallback is part
   of the supported runtime path.
 - Keep `project.requires-python` aligned with the documented Python support
-  floor and py38-targeted tooling.
+  floor and py39-targeted tooling.
 - Keep `project.urls` entries live and aligned with current repository
   locations; avoid stale branch names or missing files.
 - Remove placeholder tests that assert no behavior instead of preserving
   count-only coverage.
 - Python files that use PEP 604 annotations such as `X | Y` must include
   `from __future__ import annotations` while the project tooling targets
-  Python 3.8.
+  Python 3.9.
 - MkDocs/mkdocstrings must resolve API references from the checkout's `src/`
   tree so docs-only builds work with `docs/requirements.txt` alone.
 
