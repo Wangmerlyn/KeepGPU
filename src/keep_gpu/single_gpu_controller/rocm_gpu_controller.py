@@ -55,6 +55,7 @@ class RocmGPUController(BaseGPUController):
         self._thread: Optional[threading.Thread] = None
         self._failure_exc: Optional[Exception] = None
         self._num_elements: Optional[int] = None
+        self._rocm_smi_initialized = False
 
         # Lazy rocm_smi import; keep handle for reuse
         try:
@@ -77,11 +78,7 @@ class RocmGPUController(BaseGPUController):
         self._num_elements = int(self.vram_to_keep)
         if self._num_elements <= 0:
             raise ValueError("vram_to_keep must be positive")
-        if self._rocm_smi:
-            try:
-                self._rocm_smi.rsmi_init()
-            except Exception as exc:  # pragma: no cover - env-specific
-                logger.debug("rsmi_init failed: %s", exc)
+        self._ensure_rocm_smi_initialized()
 
         self._stop_evt = threading.Event()
         startup_evt = threading.Event()
@@ -120,11 +117,27 @@ class RocmGPUController(BaseGPUController):
         logger.info("rank %s: ROCm keep thread started", self.rank)
 
     def _shutdown_rocm_smi(self) -> None:
-        if self._rocm_smi:
-            try:
-                self._rocm_smi.rsmi_shut_down()
-            except Exception as exc:  # noqa: BLE001  # pragma: no cover - best effort
-                logger.debug("rsmi_shut_down failed: %s", exc)
+        if not self._rocm_smi:
+            return
+        try:
+            self._rocm_smi.rsmi_shut_down()
+        except Exception as exc:  # noqa: BLE001  # pragma: no cover - best effort
+            logger.debug("rsmi_shut_down failed: %s", exc)
+        finally:
+            self._rocm_smi_initialized = False
+
+    def _ensure_rocm_smi_initialized(self) -> bool:
+        if not self._rocm_smi:
+            return False
+        if self._rocm_smi_initialized:
+            return True
+        try:
+            self._rocm_smi.rsmi_init()
+        except Exception as exc:  # noqa: BLE001  # pragma: no cover - env-specific
+            logger.debug("rsmi_init failed: %s", exc)
+            return False
+        self._rocm_smi_initialized = True
+        return True
 
     def release(self) -> None:
         try:
@@ -178,17 +191,25 @@ class RocmGPUController(BaseGPUController):
         self.release()
 
     def _query_utilization(self) -> Optional[int]:
-        if not self._rocm_smi:
-            return None
-        smi_index = resolve_rocm_visible_rank_to_smi_index(self.rank, self._rocm_smi)
-        if smi_index is None:
-            return None
-        try:
-            util = self._rocm_smi.rsmi_dev_busy_percent_get(smi_index)
-            return int(util)
-        except Exception as exc:  # pragma: no cover - env-specific
-            logger.debug("ROCm utilization query failed: %s", exc)
-            return None
+        for attempt in range(2):
+            if not self._ensure_rocm_smi_initialized():
+                return None
+            try:
+                smi_index = resolve_rocm_visible_rank_to_smi_index(
+                    self.rank,
+                    self._rocm_smi,
+                )
+                if smi_index is None:
+                    return None
+                util = self._rocm_smi.rsmi_dev_busy_percent_get(smi_index)
+                return int(util)
+            except Exception as exc:  # noqa: BLE001  # pragma: no cover - env-specific
+                logger.debug("ROCm utilization query failed: %s", exc)
+                if attempt == 0:
+                    self._rocm_smi_initialized = False
+                    continue
+                return None
+        return None
 
     def _keep_loop(
         self,

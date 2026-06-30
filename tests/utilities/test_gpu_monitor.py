@@ -32,6 +32,8 @@ class DummyNVML:
         self.gpu_util = gpu_util
         self.count = count
         self.init_calls = 0
+        self.shutdown_calls = 0
+        self.initialized = False
         self.queried_indexes: list[int] = []
         self.queried_uuids: list[object] = []
         self.util_by_index = util_by_index or {}
@@ -49,14 +51,22 @@ class DummyNVML:
         self.init_calls += 1
         if self.should_fail:
             raise self.NVMLError("init failure")
+        self.initialized = True
 
     def nvmlShutdown(self):
-        pass
+        self.shutdown_calls += 1
+        self.initialized = False
+
+    def _require_initialized(self):
+        if not self.initialized:
+            raise self.NVMLError("NVML is not initialized")
 
     def nvmlDeviceGetCount(self):
+        self._require_initialized()
         return self.count
 
     def nvmlDeviceGetHandleByIndex(self, index: int):
+        self._require_initialized()
         if self.should_fail:
             raise self.NVMLError("handle failure")
         if index in self.invalid_indexes:
@@ -65,6 +75,7 @@ class DummyNVML:
         return types.SimpleNamespace(index=index)
 
     def _nvmlDeviceGetHandleByUUID(self, uuid: str):
+        self._require_initialized()
         self.queried_uuids.append(uuid)
         if self.uuid_always_type_error or (
             self.uuid_requires_bytes and isinstance(uuid, str)
@@ -77,6 +88,7 @@ class DummyNVML:
         return types.SimpleNamespace(uuid=uuid)
 
     def nvmlDeviceGetIndex(self, handle):
+        self._require_initialized()
         if hasattr(handle, "index"):
             return handle.index
         if hasattr(handle, "uuid") and handle.uuid in self.uuid_index_by_value:
@@ -84,6 +96,7 @@ class DummyNVML:
         raise self.NVMLError("index lookup failure")
 
     def nvmlDeviceGetUtilizationRates(self, handle):
+        self._require_initialized()
         if hasattr(handle, "uuid"):
             return types.SimpleNamespace(
                 gpu=self.util_by_uuid.get(handle.uuid, self.gpu_util)
@@ -107,6 +120,18 @@ def test_monitor_reads_gpu_utilization(monkeypatch):
     assert monitor.get_gpu_utilization(2) == 73
     assert dummy.init_calls == 1
     assert dummy.queried_indexes == [1, 2]
+
+
+def test_monitor_reinitializes_after_external_nvml_shutdown(monkeypatch):
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    dummy = DummyNVML(gpu_util=73)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) == 73
+    dummy.nvmlShutdown()
+    assert monitor.get_gpu_utilization(1) == 73
+    assert dummy.init_calls == 2
+    assert dummy.queried_indexes == [0, 1]
 
 
 def test_monitor_handles_nvml_errors(monkeypatch):
