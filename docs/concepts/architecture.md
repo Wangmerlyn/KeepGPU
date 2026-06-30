@@ -16,8 +16,8 @@ schedulers that the GPU is still busy, without burning a full training workload.
    CUDA/ROCm controllers validate `rank` as a visible ordinal during
    construction, before creating device handles or starting workers.
 4. **GPU monitor (NVML/ROCm/MPS)** – Wraps `nvidia-ml-py` (the `pynvml`
-   module) for CUDA telemetry, optionally `rocm-smi` when installed by way of
-   the `rocm` extra, and best-effort MPS memory counters on Mac M series.
+   module) for CUDA telemetry, system-provided ROCm SMI when `rocm_smi` is
+   importable, and best-effort MPS memory counters on Mac M series.
    CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` before querying NVML and
    treats malformed, duplicate, or ambiguous masks as unavailable telemetry.
    ROCm
