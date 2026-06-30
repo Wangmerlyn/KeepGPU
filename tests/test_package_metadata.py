@@ -1,7 +1,6 @@
+import re
 from pathlib import Path
 
-from packaging.requirements import Requirement
-from packaging.utils import canonicalize_name
 from setuptools.config.pyprojecttoml import read_configuration
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -47,11 +46,28 @@ def _runtime_dependencies():
     return config["project"]["dependencies"]
 
 
+def _runtime_dependency_name(dependency: str) -> str:
+    match = re.match(r"^([a-zA-Z0-9._-]+)", dependency.strip())
+    name = match.group(1) if match else ""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
 def _runtime_dependency_names():
     return {
-        canonicalize_name(Requirement(dependency).name)
-        for dependency in _runtime_dependencies()
+        _runtime_dependency_name(dependency) for dependency in _runtime_dependencies()
     }
+
+
+def test_runtime_dependency_name_parser_handles_common_requirement_shapes():
+    assert _runtime_dependency_name("rich>=13.8.0") == "rich"
+    assert (
+        _runtime_dependency_name("My_Package.Name[extra]>=1; python_version >= '3.9'")
+        == "my-package-name"
+    )
+    assert _runtime_dependency_name("rich (>=13.8.0)") == "rich"
+    assert (
+        _runtime_dependency_name("pip @ git+https://github.com/pypa/pip.git") == "pip"
+    )
 
 
 def test_rocm_extra_is_declared_without_non_pypi_rocm_smi_dependency():
