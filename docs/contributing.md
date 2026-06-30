@@ -58,6 +58,9 @@ expectations so you can get productive quickly and avoid surprises in CI.
 - Keep build metadata lean: list directly used third-party build/runtime
   distributions, do not rely on transitive dependencies, and do not list
   Python standard library modules such as `argparse`.
+- Keep release artifacts lean: avoid shipping the test suite in sdists by
+  default, and enumerate required runtime assets instead of using broad package
+  data wildcards.
 - Keep cosmetic logging helpers optional. Console logging must work through the
   Python standard library when packages such as `colorlog` are absent.
 - Keep package metadata such as `requires-python` aligned with the documented

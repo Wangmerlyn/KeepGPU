@@ -60,7 +60,11 @@ homepage = "https://github.com/Wangmerlyn/KeepGPU"
 package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
-"*" = ["*.*"]
+"keep_gpu.mcp" = [
+  "static/index.html",
+  "static/assets/*.css",
+  "static/assets/*.js",
+]
 
 # Dynamic version source: reads __version__ from keep_gpu package
 [tool.setuptools.dynamic]
