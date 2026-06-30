@@ -273,3 +273,4 @@ If you find **KeepGPU** useful in your research or work, please cite it as:
   note         = {GitHub repository},
   keywords     = {ai, hpc, gpu, cluster, cuda, torch, debug}
 }
+```
