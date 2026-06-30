@@ -145,7 +145,11 @@ This file defines how coding agents should work in this repository.
   REST `503`, MCP tool `isError=true`) while arbitrary unexpected
   startup/runtime failures remain internal errors.
 - CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
-- CLI service RPC clients must reject malformed JSON-RPC service envelopes (wrong `jsonrpc`, mismatched `id`, missing `result`, non-object direct-method `result`, or non-object `error`) instead of treating them as successful empty responses or leaking tracebacks.
+- CLI service RPC clients must reject malformed JSON-RPC service envelopes
+  (wrong `jsonrpc`, mismatched `id`, `id: null` responses to a request with a
+  concrete id, missing `result`, non-object direct-method `result`, or
+  non-object `error`) instead of treating them as successful empty responses or
+  leaking tracebacks.
 - CLI commands that consume service-specific JSON-RPC results must validate
   required result fields before rendering user-facing output; malformed
   method-specific payloads should become clean `ServiceResponseError` messages,

@@ -1406,7 +1406,7 @@ def test_rpc_call_rejects_error_envelope_with_non_object_error(monkeypatch):
         cli._rpc_call("status", {}, "127.0.0.1", 8765)
 
 
-def test_rpc_call_propagates_error_envelope_with_null_id(monkeypatch):
+def test_rpc_call_rejects_error_envelope_with_null_id(monkeypatch):
     monkeypatch.setattr(cli.time, "time", lambda: 1.0)
     monkeypatch.setattr(
         cli,
@@ -1418,9 +1418,8 @@ def test_rpc_call_propagates_error_envelope_with_null_id(monkeypatch):
         },
     )
 
-    with pytest.raises(cli.ServiceRPCError, match="Parse error") as exc_info:
+    with pytest.raises(cli.ServiceResponseError, match="mismatched id"):
         cli._rpc_call("status", {}, "127.0.0.1", 8765)
-    assert exc_info.value.code == -32700
 
 
 def test_rpc_call_rejects_error_envelope_without_id_member(monkeypatch):

@@ -570,7 +570,7 @@ def _rpc_call(
             )
         if "id" not in response:
             raise ServiceResponseError("Malformed JSON-RPC response: missing id")
-        if response.get("id") not in (payload["id"], None):
+        if response.get("id") != payload["id"]:
             raise ServiceResponseError("Malformed JSON-RPC response: mismatched id")
         code = error.get("code")
         if isinstance(code, bool) or not isinstance(code, int):

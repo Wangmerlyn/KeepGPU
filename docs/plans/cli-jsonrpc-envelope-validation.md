@@ -84,6 +84,16 @@ Completed so far:
 - Local review after Gemini follow-up GREEN:
   `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_rpc_call_rejects_error_envelope_without_id_member tests/test_cli_service_commands.py::test_rpc_call_propagates_error_envelope_with_null_id tests/test_cli_service_commands.py::test_rpc_call_rejects_envelope_with_both_error_and_result tests/test_cli_service_commands.py::test_rpc_call_rejects_success_envelope_with_mismatched_id -q`,
   `4 passed` after requiring the `id` member on error envelopes.
+- Audit follow-up RED:
+  `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_rpc_call_rejects_error_envelope_with_null_id -q`,
+  `1 failed` because the CLI sent a concrete JSON-RPC request id but accepted an
+  error envelope with `id: null` as a correlated service response.
+- Audit follow-up GREEN:
+  `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_rpc_call_rejects_error_envelope_with_null_id -q`,
+  `1 passed` after requiring error-envelope ids to match the CLI request id.
+- Audit follow-up malformed-envelope shard:
+  `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py::test_rpc_call_rejects_success_envelope_with_mismatched_id tests/test_cli_service_commands.py::test_rpc_call_rejects_error_envelope_with_null_id tests/test_cli_service_commands.py::test_rpc_call_rejects_error_envelope_without_id_member tests/test_cli_service_commands.py::test_rpc_call_rejects_envelope_with_both_error_and_result tests/test_cli_service_commands.py::test_rpc_call_rejects_error_envelope_with_non_object_error -q`,
+  `5 passed`.
 - GREEN CLI service-command shard:
   `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py -q`,
   `55 passed`.
@@ -97,3 +107,11 @@ Completed so far:
   warning and unnav'd plan notices.
 - Pre-commit:
   `pre-commit run --all-files`, passed.
+- Current audit follow-up full CLI shard:
+  `PYTHONPATH=$PWD/src pytest tests/test_cli_service_commands.py -q`,
+  `174 passed`.
+- Current audit follow-up full test suite:
+  `PYTHONPATH=$PWD/src pytest -q`, `770 passed, 11 skipped`.
+- Current audit follow-up docs and lint:
+  `PYTHONPATH=$PWD/src mkdocs build --strict` passed with the known Material
+  warning, and `pre-commit run --all-files --show-diff-on-failure` passed.
