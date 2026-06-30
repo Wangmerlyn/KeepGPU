@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import atexit
-import os
 import threading
 from typing import Optional
 
+from keep_gpu.utilities.cuda_visibility import (
+    cuda_visible_index_value,
+    cuda_visible_mask,
+    is_cuda_visible_index_token,
+)
 from keep_gpu.utilities.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -16,10 +20,6 @@ try:  # pragma: no cover - import guard
     import pynvml  # type: ignore
 except Exception:  # pragma: no cover - env without NVML
     pynvml = None
-
-
-def _is_ascii_digit_token(token: str) -> bool:
-    return token.isascii() and token.isdigit()
 
 
 class NVMLMonitor:
@@ -79,28 +79,13 @@ class NVMLMonitor:
             return None
 
     def _get_handle_for_visible_index(self, index: int):
-        cuda_visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
-        if cuda_visible_devices is None:
+        visible_mask = cuda_visible_mask()
+        if visible_mask.invalid:
+            return None
+        if visible_mask.tokens is None:
             return self._nvml.nvmlDeviceGetHandleByIndex(index)
 
-        tokens = [token.strip() for token in cuda_visible_devices.split(",")]
-        if cuda_visible_devices.strip() in {"", "-1"}:
-            tokens = []
-        elif any(not token or token == "-1" for token in tokens):
-            return None
-        elif any(not token.isascii() for token in tokens):
-            return None
-
-        token_keys = [
-            (
-                ("index", int(token))
-                if _is_ascii_digit_token(token)
-                else ("token", token.lower())
-            )
-            for token in tokens
-        ]
-        if len(set(token_keys)) != len(token_keys):
-            return None
+        tokens = list(visible_mask.tokens)
         if index < 0 or index >= len(tokens):
             return None
         if not self._numeric_tokens_within_device_count(tokens):
@@ -115,9 +100,13 @@ class NVMLMonitor:
         return handles[index]
 
     def _numeric_tokens_within_device_count(self, tokens: list[str]) -> bool:
-        numeric_tokens = [
-            int(token) for token in tokens if _is_ascii_digit_token(token)
-        ]
+        numeric_tokens = []
+        for token in tokens:
+            index_value = cuda_visible_index_value(token)
+            if index_value is not None:
+                numeric_tokens.append(index_value)
+            elif is_cuda_visible_index_token(token):
+                return False
         if not numeric_tokens:
             return True
 
@@ -137,7 +126,7 @@ class NVMLMonitor:
         # UUID tokens can fail independently from numeric tokens. Resolve them
         # first so an unresolved later UUID cannot permit partial numeric telemetry.
         for visible_index, token in enumerate(tokens):
-            if _is_ascii_digit_token(token):
+            if is_cuda_visible_index_token(token):
                 continue
             handle = self._get_handle_for_visible_token(token)
             if handle is None:
@@ -145,7 +134,7 @@ class NVMLMonitor:
             handles[visible_index] = handle
 
         for visible_index, token in enumerate(tokens):
-            if not _is_ascii_digit_token(token):
+            if not is_cuda_visible_index_token(token):
                 continue
             handle = self._get_handle_for_visible_token(token)
             if handle is None:
@@ -168,11 +157,14 @@ class NVMLMonitor:
         if not token:
             return None
 
-        if _is_ascii_digit_token(token):
+        index_value = cuda_visible_index_value(token)
+        if index_value is not None:
             try:
-                return self._nvml.nvmlDeviceGetHandleByIndex(int(token))
+                return self._nvml.nvmlDeviceGetHandleByIndex(index_value)
             except self._nvml.NVMLError:
                 return None
+        if is_cuda_visible_index_token(token):
+            return None
 
         uuid_lookup = getattr(self._nvml, "nvmlDeviceGetHandleByUUID", None)
         if uuid_lookup is None:

@@ -5,6 +5,9 @@ import types
 from keep_gpu.utilities.gpu_monitor import NVMLMonitor
 
 
+OVERSIZED_NUMERIC_TOKEN = "9" * 100
+
+
 class DummyNVML:
     """Minimal stand-in for the NVML module used in tests."""
 
@@ -157,6 +160,18 @@ def test_monitor_returns_none_for_equivalent_numeric_cuda_visible_devices(
 def test_monitor_returns_none_for_non_ascii_digit_cuda_visible_devices(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "\u00b2")
     dummy = DummyNVML(gpu_util=99, support_uuid_lookup=True)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == []
+    assert dummy.queried_uuids == []
+
+
+def test_monitor_returns_none_for_oversized_numeric_cuda_visible_devices(
+    monkeypatch,
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", OVERSIZED_NUMERIC_TOKEN)
+    dummy = DummyNVML(gpu_util=99)
     monitor = NVMLMonitor(dummy)
 
     assert monitor.get_gpu_utilization(0) is None

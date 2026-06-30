@@ -4,10 +4,21 @@ import os
 from typing import Optional, Tuple
 
 _UNSET = object()
+_MAX_DEVICE_ORDINAL_DIGITS = len(str(2**63 - 1))
 
 
 def _is_ascii_digit_token(token: str) -> bool:
     return token.isascii() and token.isdigit()
+
+
+def _numeric_token_value(token: str) -> Optional[int]:
+    normalized = token.lstrip("0") or "0"
+    if len(normalized) > _MAX_DEVICE_ORDINAL_DIGITS:
+        return None
+    try:
+        return int(normalized)
+    except ValueError:
+        return None
 
 
 def _parse_numeric_mask(name: str) -> Optional[Tuple[int, ...]]:
@@ -21,7 +32,13 @@ def _parse_numeric_mask(name: str) -> Optional[Tuple[int, ...]]:
     ):
         return ()
 
-    values = tuple(int(token) for token in tokens)
+    values_list = []
+    for token in tokens:
+        value = _numeric_token_value(token)
+        if value is None:
+            return ()
+        values_list.append(value)
+    values = tuple(values_list)
     if len(set(values)) != len(values):
         return ()
     return values
