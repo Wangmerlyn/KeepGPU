@@ -48,6 +48,9 @@ This file defines how coding agents should work in this repository.
 - Build metadata should list directly used third-party distributions; do not
   rely on transitive dependencies, and do not add Python stdlib modules such as
   `argparse` as build/runtime dependencies.
+- Pre-commit CI should install only the `pre-commit` runner; hooks provision
+  their own tool environments, so do not install KeepGPU runtime dependencies
+  just to lint.
 - Source distributions should not ship the test suite by default; package data
   should enumerate required runtime assets such as the MCP dashboard files.
 - Keep license metadata as a plain SPDX string and keep the advertised Python
