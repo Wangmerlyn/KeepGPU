@@ -39,3 +39,10 @@ def test_rocm_extra_is_declared_without_non_pypi_rocm_smi_dependency():
 
 def test_colorlog_is_not_a_required_runtime_dependency():
     assert "colorlog" not in _runtime_dependency_names()
+
+
+def test_readme_markdown_code_fences_are_balanced():
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    fences = [line for line in readme.splitlines() if line.strip().startswith("```")]
+
+    assert len(fences) % 2 == 0
