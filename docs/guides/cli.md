@@ -76,9 +76,9 @@ Explicit `--job-id` values use the same non-empty URL-path-safe validation as
 keep-gpu service-stop
 ```
 
-If sessions are still active, stop them first or use `--force`. Force mode skips
-the active-session RPC check, but it still stops only an ownership-verified
-daemon that KeepGPU auto-started.
+If sessions are still active, timed out, or failed to stop cleanly, resolve them
+first or use `--force`. Force mode skips the session RPC checks, but it still
+stops only an ownership-verified daemon that KeepGPU auto-started.
 
 ### List telemetry
 
