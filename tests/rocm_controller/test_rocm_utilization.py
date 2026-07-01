@@ -15,10 +15,12 @@ class DummyRocmSMI:
         self,
         util_by_index: dict[int, int] | None = None,
         count: int = 8,
+        count_error: Exception | None = None,
         require_initialized: bool = False,
     ):
         self.util_by_index = util_by_index or {}
         self.count = count
+        self.count_error = count_error
         self.require_initialized = require_initialized
         self.initialized = False
         self.init_calls = 0
@@ -39,6 +41,8 @@ class DummyRocmSMI:
 
     def rsmi_num_monitor_devices(self):
         self._require_initialized()
+        if self.count_error is not None:
+            raise self.count_error
         return self.count
 
     def rsmi_dev_busy_percent_get(self, index):
@@ -181,6 +185,19 @@ def test_rocm_utilization_treats_out_of_range_mask_as_unavailable(monkeypatch):
     monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
     dummy = DummyRocmSMI(count=4)
     controller = _controller_with_dummy_smi(monkeypatch, rank=1, dummy=dummy)
+
+    assert controller._query_utilization() is None
+    assert dummy.queried_indexes == []
+
+
+def test_rocm_utilization_treats_mask_as_unavailable_when_monitor_count_unknown(
+    monkeypatch,
+):
+    monkeypatch.setenv("HIP_VISIBLE_DEVICES", "9")
+    monkeypatch.delenv("ROCR_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    dummy = DummyRocmSMI(count_error=RuntimeError("cannot count ROCm devices"))
+    controller = _controller_with_dummy_smi(monkeypatch, rank=0, dummy=dummy)
 
     assert controller._query_utilization() is None
     assert dummy.queried_indexes == []

@@ -174,9 +174,15 @@ class DummyTorchCudaCUDA:
 
 
 class DummyROCMSMI:
-    def __init__(self, util_by_index: dict[int, int] | None = None, count: int = 8):
+    def __init__(
+        self,
+        util_by_index: dict[int, int] | None = None,
+        count: int = 8,
+        count_error: Exception | None = None,
+    ):
         self.util_by_index = util_by_index or {}
         self.count = count
+        self.count_error = count_error
         self.queried_indexes: list[int] = []
         self.init_calls = 0
         self.shutdown_calls = 0
@@ -185,6 +191,8 @@ class DummyROCMSMI:
         self.init_calls += 1
 
     def rsmi_num_monitor_devices(self):
+        if self.count_error is not None:
+            raise self.count_error
         return self.count
 
     def rsmi_dev_busy_percent_get(self, idx):
@@ -204,10 +212,15 @@ def _install_rocm_gpu_info_mocks(
     device_count_error: Exception | None = None,
     util_by_index: dict[int, int] | None = None,
     smi_count: int = 8,
+    smi_count_error: Exception | None = None,
     set_device_errors: "dict[int, Exception] | None" = None,
 ):
     monkeypatch.setitem(sys.modules, "pynvml", None)
-    dummy_rocm = DummyROCMSMI(util_by_index=util_by_index, count=smi_count)
+    dummy_rocm = DummyROCMSMI(
+        util_by_index=util_by_index,
+        count=smi_count,
+        count_error=smi_count_error,
+    )
     monkeypatch.setitem(sys.modules, "rocm_smi", dummy_rocm)
 
     dummy_cuda = DummyTorchCudaROCm(
@@ -724,6 +737,28 @@ def test_get_gpu_info_prefers_rocm_when_hip_torch_and_nvml_are_both_available(
     assert dummy_rocm.shutdown_calls == 1
     assert dummy_nvml.queried_indexes == []
     assert dummy_nvml.shutdown_calls == 0
+
+
+def test_get_gpu_info_rocm_masked_utilization_unknown_when_monitor_count_unknown(
+    monkeypatch,
+):
+    monkeypatch.setenv("HIP_VISIBLE_DEVICES", "9")
+    monkeypatch.delenv("ROCR_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    dummy_rocm, _ = _install_rocm_gpu_info_mocks(
+        monkeypatch,
+        count=1,
+        smi_count_error=RuntimeError("cannot count ROCm devices"),
+        util_by_index={9: 99},
+    )
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["platform"] == "rocm"
+    assert infos[0]["utilization"] is None
+    assert "physical_id" not in infos[0]
+    assert dummy_rocm.queried_indexes == []
 
 
 def test_get_gpu_info_hip_torch_skips_nvml_when_rocm_smi_unavailable(monkeypatch):

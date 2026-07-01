@@ -61,7 +61,7 @@ def _physical_ids_available(
     monitor_count: Optional[int],
 ) -> bool:
     if monitor_count is None:
-        return True
+        return False
     return all(physical_id < monitor_count for physical_id in physical_ids)
 
 
