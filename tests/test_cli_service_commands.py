@@ -2199,6 +2199,119 @@ def test_service_stop_rejects_incomplete_stop_keep_before_stopping_daemon(
     assert "Traceback" not in result.output
 
 
+def test_service_stop_rejects_newly_stopped_session_before_stopping_daemon(
+    monkeypatch,
+):
+    calls = {"stop_process": 0}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        if method == "status":
+            return {"active_jobs": []}
+        if method == "stop_keep":
+            return {
+                "stopped": ["late-job"],
+                "timed_out": [],
+                "failed": [],
+                "errors": {},
+            }
+        raise AssertionError(f"unexpected method {method}")
+
+    def fake_stop_process(host, port):
+        calls["stop_process"] += 1
+        return True
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["service-stop"])
+
+    assert result.exit_code == 1
+    assert "late-job" in result.output
+    assert "service-stop --force" in result.output
+    assert calls["stop_process"] == 0
+    assert "Traceback" not in result.output
+
+
+def test_service_stop_rechecks_status_after_clean_stop_keep_before_stopping_daemon(
+    monkeypatch,
+):
+    calls = {"status": 0, "stop_process": 0}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        if method == "status":
+            calls["status"] += 1
+            if calls["status"] == 1:
+                return {"active_jobs": []}
+            return {
+                "active_jobs": [
+                    {
+                        "job_id": "late-job",
+                        "params": {},
+                        "state": "active",
+                        "last_error": None,
+                    }
+                ]
+            }
+        if method == "stop_keep":
+            return {
+                "stopped": [],
+                "timed_out": [],
+                "failed": [],
+                "errors": {},
+            }
+        raise AssertionError(f"unexpected method {method}")
+
+    def fake_stop_process(host, port):
+        calls["stop_process"] += 1
+        return True
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["service-stop"])
+
+    assert result.exit_code == 1
+    assert calls == {"status": 2, "stop_process": 0}
+    assert "Tracked keep sessions detected" in result.output
+    assert "late-job" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_service_stop_rejects_malformed_final_status_before_stopping_daemon(
+    monkeypatch,
+):
+    calls = {"status": 0, "stop_process": 0}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        if method == "status":
+            calls["status"] += 1
+            if calls["status"] == 1:
+                return {"active_jobs": []}
+            return {"active_jobs": {}}
+        if method == "stop_keep":
+            return {
+                "stopped": [],
+                "timed_out": [],
+                "failed": [],
+                "errors": {},
+            }
+        raise AssertionError(f"unexpected method {method}")
+
+    def fake_stop_process(host, port):
+        calls["stop_process"] += 1
+        return True
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["service-stop"])
+
+    assert result.exit_code == 1
+    assert calls == {"status": 2, "stop_process": 0}
+    assert "active_jobs must be a list" in result.output
+    assert "Traceback" not in result.output
+
+
 def test_service_stop_requires_live_status_without_force(monkeypatch):
     called = {"stop_process": False}
 

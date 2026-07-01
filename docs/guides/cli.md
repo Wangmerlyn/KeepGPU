@@ -79,13 +79,15 @@ Explicit `--job-id` values use the same non-empty URL-path-safe validation as
 keep-gpu service-stop
 ```
 
-If sessions are still active, timed out, or failed to stop cleanly, resolve them
-first or use `--force`. Force mode skips the session RPC checks, but it still
-stops only an ownership-verified daemon that KeepGPU auto-started. Malformed PID
-records, including float or boolean numeric identity values, are ignored instead
-of being coerced into a process signal target. Auto-start also cleans up and
-fails if it cannot create a trustworthy ownership record for the daemon it just
-spawned. If auto-start finds an ownership-verified live daemon record but the
+If sessions are active, newly stopped by shutdown checks, timed out, or failed
+to stop cleanly, resolve them first or use `--force`. Non-force shutdown also
+performs a final status check before signaling the daemon. Force mode skips the
+session RPC checks, but it still stops only an ownership-verified daemon that
+KeepGPU auto-started. Malformed PID records, including float or boolean numeric
+identity values, are ignored instead of being coerced into a process signal
+target. Auto-start also cleans up and fails if it cannot create a trustworthy
+ownership record for the daemon it just spawned. If auto-start finds an
+ownership-verified live daemon record but the
 health check is unavailable, it refuses to overwrite that record; inspect the
 service log at `~/.keepgpu/service-<host-with-dots-as-underscores>-<port>.log`
 or use `keep-gpu service-stop --force` before trying again. On systems without
