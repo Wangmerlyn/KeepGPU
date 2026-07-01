@@ -8,8 +8,8 @@ def wait_until(
     interval_s: float = 0.05,
 ) -> bool:
     """Poll predicate until it returns True or timeout is reached."""
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
         if predicate():
             return True
         time.sleep(interval_s)

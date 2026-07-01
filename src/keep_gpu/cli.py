@@ -604,8 +604,8 @@ def _stop_service_process(host: str, port: int, timeout: float = 3.0) -> bool:
     except OSError:
         _clear_service_pid(host, port)
         return False
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         if not _pid_alive(pid):
             _clear_service_pid(host, port)
             return True
@@ -620,8 +620,8 @@ def _stop_service_process(host: str, port: int, timeout: float = 3.0) -> bool:
     except OSError:
         _clear_service_pid(host, port)
         return False
-    deadline = time.time() + max(0.5, min(timeout, 3.0))
-    while time.time() < deadline:
+    deadline = time.monotonic() + max(0.5, min(timeout, 3.0))
+    while time.monotonic() < deadline:
         if not _pid_alive(pid):
             _clear_service_pid(host, port)
             return True

@@ -2687,6 +2687,105 @@ def test_stop_service_process_uses_ps_start_identity_when_proc_is_unavailable(
     assert not cli._service_pid_path("127.0.0.1", 8765).exists()
 
 
+def test_stop_service_process_uses_monotonic_deadlines(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    payload = {
+        "pid": 4321,
+        "host": "127.0.0.1",
+        "port": 8765,
+        "argv": cli._service_command("127.0.0.1", 8765),
+        "uid": 1000,
+        "start_time": "12345",
+        "created_at": 1.0,
+    }
+    cli._service_pid_path("127.0.0.1", 8765).write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        cli, "_process_cmdline", lambda pid: cli._service_command("127.0.0.1", 8765)
+    )
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+
+    alive = iter([True, False])
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: next(alive, False))
+    kills = []
+    monkeypatch.setattr(cli.os, "kill", lambda pid, sig: kills.append((pid, sig)))
+    monotonic_calls = [10.0, 10.1]
+    monkeypatch.setattr(
+        cli.time,
+        "monotonic",
+        lambda: (
+            monotonic_calls.pop(0) if len(monotonic_calls) > 1 else monotonic_calls[0]
+        ),
+    )
+    monkeypatch.setattr(
+        cli.time,
+        "time",
+        lambda: (_ for _ in ()).throw(AssertionError("wall clock used")),
+    )
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0.5)
+
+    assert stopped is True
+    assert kills == [(4321, cli.signal.SIGTERM)]
+    assert not cli._service_pid_path("127.0.0.1", 8765).exists()
+
+
+def test_stop_service_process_sigkill_wait_uses_monotonic_deadline(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    payload = {
+        "pid": 4321,
+        "host": "127.0.0.1",
+        "port": 8765,
+        "argv": cli._service_command("127.0.0.1", 8765),
+        "uid": 1000,
+        "start_time": "12345",
+        "created_at": 1.0,
+    }
+    cli._service_pid_path("127.0.0.1", 8765).write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        cli, "_process_cmdline", lambda pid: cli._service_command("127.0.0.1", 8765)
+    )
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+
+    alive = {"value": True}
+    kills = []
+
+    def fake_kill(pid, sig):
+        kills.append((pid, sig))
+        if sig == cli.signal.SIGKILL:
+            alive["value"] = False
+
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: alive["value"])
+    monkeypatch.setattr(cli.os, "kill", fake_kill)
+    monotonic_calls = [10.0, 11.0, 11.0, 11.1]
+    monkeypatch.setattr(
+        cli.time,
+        "monotonic",
+        lambda: (
+            monotonic_calls.pop(0) if len(monotonic_calls) > 1 else monotonic_calls[0]
+        ),
+    )
+    monkeypatch.setattr(cli.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        cli.time,
+        "time",
+        lambda: (_ for _ in ()).throw(AssertionError("wall clock used")),
+    )
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0.5)
+
+    assert stopped is True
+    assert kills == [(4321, cli.signal.SIGTERM), (4321, cli.signal.SIGKILL)]
+    assert not cli._service_pid_path("127.0.0.1", 8765).exists()
+
+
 def test_stop_service_process_requires_structured_ownership_record(
     monkeypatch, tmp_path
 ):
