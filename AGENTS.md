@@ -128,9 +128,10 @@ This file defines how coding agents should work in this repository.
 - HTTP JSON-RPC endpoints (`/` and `/rpc`) must return JSON-RPC envelopes for
   protocol parse errors, including `jsonrpc`, `id`, and numeric `error.code`;
   REST routes keep REST-shaped structured JSON errors.
-- HTTP body readers must validate `Content-Length` as a non-negative integer
-  before reading; invalid values must fail quickly with REST JSON 400 errors or
-  JSON-RPC `-32700` parse-error envelopes.
+- HTTP body readers must validate parser-normalized `Content-Length` as exactly
+  one plain ASCII decimal non-negative integer before reading. Duplicate values,
+  signs, underscores, and other non-digit forms must fail quickly with REST JSON
+  400 errors or JSON-RPC `-32700` parse-error envelopes.
 - API/RPC unsupported HTTP methods must not fall back to
   `BaseHTTPRequestHandler` HTML errors; known API/RPC routes return structured
   JSON `405 Method Not Allowed` responses with `Allow`, and exact `/api` plus
