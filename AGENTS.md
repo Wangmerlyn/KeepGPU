@@ -195,6 +195,9 @@ This file defines how coding agents should work in this repository.
   `result`, non-object `error`, or missing/non-string `error.message`) instead
   of treating them as successful empty responses, real service errors, or
   leaking tracebacks.
+- CLI service RPC clients must send explicit JSON-RPC 2.0 request envelopes
+  (`jsonrpc: "2.0"`) instead of relying on the server's omitted-version legacy
+  direct-call compatibility path.
 - CLI commands that consume service-specific JSON-RPC results must validate
   required result fields before rendering user-facing output; malformed
   method-specific payloads should become clean `ServiceResponseError` messages,

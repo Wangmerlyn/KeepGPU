@@ -113,6 +113,9 @@ when the command runs under a pseudo-TTY or forced-color terminal.
 Malformed JSON-RPC service envelopes, including missing or non-string
 `error.message`, and malformed method-specific result records are reported as
 JSON error objects instead of empty success results.
+CLI service commands send explicit JSON-RPC 2.0 request envelopes to the local
+`/rpc` endpoint; omitted-version direct calls remain only a compatibility path
+for legacy local scripts.
 Utilization values are either `null` or finite percentages from `0` to `100`;
 out-of-range vendor readings are displayed as unavailable telemetry.
 Response IDs must echo the request ID with a valid matching JSON-RPC ID type.

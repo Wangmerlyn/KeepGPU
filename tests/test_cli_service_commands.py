@@ -1617,6 +1617,29 @@ def test_list_gpus_error_outputs_single_decoded_json_object(monkeypatch):
     assert payload["error"] == "telemetry service unavailable"
 
 
+def test_rpc_call_sends_explicit_jsonrpc_request_version(monkeypatch):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    captured = {}
+
+    def fake_http_json_request(method, url, payload, timeout=8.0):
+        captured["method"] = method
+        captured["url"] = url
+        captured["payload"] = payload
+        return {"jsonrpc": "2.0", "id": payload["id"], "result": {}}
+
+    monkeypatch.setattr(cli, "_http_json_request", fake_http_json_request)
+
+    assert cli._rpc_call("status", None, "127.0.0.1", 8765) == {}
+    assert captured["method"] == "POST"
+    assert captured["url"] == "http://127.0.0.1:8765/rpc"
+    assert captured["payload"] == {
+        "jsonrpc": "2.0",
+        "id": 1000,
+        "method": "status",
+        "params": {},
+    }
+
+
 def test_rpc_call_rejects_success_envelope_without_result(monkeypatch):
     monkeypatch.setattr(cli.time, "time", lambda: 1.0)
 
