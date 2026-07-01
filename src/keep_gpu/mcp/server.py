@@ -976,17 +976,22 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             self.wfile.write(data)
 
     @staticmethod
-    def _allowed_methods_for_path(path: str) -> Optional[Tuple[str, ...]]:
+    def _is_session_member_path(path: str) -> bool:
+        prefix = "/api/sessions/"
+        if not path.startswith(prefix):
+            return False
+        encoded_job_id = path[len(prefix) :]
+        return encoded_job_id != "" and "/" not in encoded_job_id
+
+    @classmethod
+    def _allowed_methods_for_path(cls, path: str) -> Optional[Tuple[str, ...]]:
         if path == "/health":
             return ("GET",)
         if path == "/api/gpus":
             return ("GET",)
         if path == "/api/sessions":
             return ("GET", "POST", "DELETE")
-        if path.startswith("/api/sessions/"):
-            encoded_job_id = path[len("/api/sessions/") :]
-            if encoded_job_id == "" or "/" in encoded_job_id:
-                return None
+        if cls._is_session_member_path(path):
             return ("GET", "DELETE")
         if path == "/":
             return ("GET", "POST")
@@ -1147,13 +1152,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
 
     def _job_id_from_session_path(self, path: str) -> str:
         prefix = "/api/sessions/"
-        if not path.startswith(prefix):
-            raise ValueError("Missing job_id")
         encoded_job_id = path[len(prefix) :]
-        if encoded_job_id == "" or encoded_job_id.endswith("/"):
-            raise ValueError("Missing job_id")
-        if "/" in encoded_job_id:
-            raise ValueError("Invalid job_id path")
         job_id = unquote(encoded_job_id)
         validated = validate_job_id(job_id)
         if validated is None:
@@ -1193,7 +1192,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                     return
                 self._json_response(200, server_ref.status())
                 return
-            if path.startswith("/api/sessions/"):
+            if self._is_session_member_path(path):
                 if self._reject_session_route_components(parsed):
                     return
                 try:
@@ -1368,7 +1367,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                     return
                 self._json_response(200, server_ref.stop_keep(job_id=None))
                 return
-            if path.startswith("/api/sessions/"):
+            if self._is_session_member_path(path):
                 if self._reject_session_route_components(parsed):
                     return
                 try:
