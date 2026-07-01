@@ -124,9 +124,10 @@ unexpected runtime failures return JSON `500` responses with an `error` object.
 REST session creation accepts a JSON object body, not arrays or scalar values.
 Omitting `gpu_ids` means all GPUs visible to the service process. Omitting
 `busy_threshold` uses the eco-safe default `25`. Explicit GPU values are visible
-device ordinals in that same process environment. Empty, duplicate, or
-out-of-range lists are invalid, and startup returns an error if the resolved
-selection contains zero devices. `interval` must be a finite positive number of
+device ordinals in that same process environment. Duplicate or out-of-range
+lists are invalid, an explicit empty `gpu_ids` list is invalid, and startup
+returns an error if the resolved selection contains zero devices. `interval`
+must be a finite positive number of
 seconds, including fractional seconds, within the Python runtime wait limit;
 `NaN`, infinities, and oversized values are rejected before session creation.
 `vram` accepts human-readable sizes or bytes, but byte-equivalent requests
@@ -135,8 +136,8 @@ Cheap local fields (`vram`, `interval`, `busy_threshold`, `job_id`, duplicate
 custom `job_id`, and `gpu_ids` shape) are rejected before `/api/sessions` asks
 the service to list visible GPUs, so bad requests do not spend telemetry work.
 When `gpu_ids` is explicit, `/api/sessions` validates the full `list_gpus()`
-response before deriving the allowed visible IDs. A valid empty GPU list is an
-expected startup-unavailable `503`; malformed listing payloads or records are
+response before deriving the allowed visible IDs. An empty validated GPU listing
+is `503` startup-unavailable; malformed listing payloads or records are
 unexpected internal `500` errors and no session is created.
 CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` for the service process and
 treats malformed, duplicate/equivalent, ambiguous, or out-of-range masks as
