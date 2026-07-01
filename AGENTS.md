@@ -129,7 +129,8 @@ This file defines how coding agents should work in this repository.
   `BaseHTTPRequestHandler` HTML errors; known API/RPC routes return structured
   JSON `405 Method Not Allowed` responses with `Allow`, and exact `/api` plus
   unknown `/api/*` routes return structured JSON `404 Unknown endpoint`
-  responses.
+  responses. `/api/sessions/{job_id}` accepts exactly one raw path component;
+  raw extra segments such as `/api/sessions/foo/bar` are unknown routes.
 - Encoded or otherwise noncanonical route spellings whose raw or decoded target
   is API-shaped (`/api`, `/api/...`, `/api;...`, `/api?...`, or `/api#...`)
   must return structured JSON `404 Unknown endpoint` responses instead of

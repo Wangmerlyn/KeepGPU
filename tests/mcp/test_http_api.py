@@ -511,6 +511,22 @@ def test_http_multisegment_session_route_rejects_unsupported_method_with_json_40
     }
 
 
+def test_http_get_rejects_extra_session_path_segment_with_json_404():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, payload = _request_json("GET", f"{base}/api/sessions/foo/bar")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert payload == {"error": {"message": "Unknown endpoint"}}
+
+
 def test_http_head_api_sessions_rejects_with_json_405_headers_and_empty_body():
     server = make_server()
     httpd, thread, base = _start_http_server(server)
@@ -1352,8 +1368,8 @@ def test_http_session_trailing_slash_rejected():
         status_code, error_payload = _request_json(
             "DELETE", f"{base}/api/sessions/{job_id}/"
         )
-        assert status_code == 400
-        assert "Missing job_id" in error_payload["error"]["message"]
+        assert status_code == 404
+        assert error_payload == {"error": {"message": "Unknown endpoint"}}
 
         _, status_payload = _request_json("GET", f"{base}/api/sessions")
         assert status_payload["active_jobs"]
@@ -2047,8 +2063,8 @@ def test_http_delete_rejects_extra_session_path_segment_without_stopping_session
             "DELETE", f"{base}/api/sessions/prefix/{active_job_id}"
         )
 
-        assert status_code == 400
-        assert "job_id" in payload["error"]["message"]
+        assert status_code == 404
+        assert payload == {"error": {"message": "Unknown endpoint"}}
         assert server.status(active_job_id)["active"] is True
         assert controller.released is False
     finally:
