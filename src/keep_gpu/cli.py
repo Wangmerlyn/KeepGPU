@@ -985,12 +985,7 @@ def _rollback_auto_started_service_on_startup_unavailable(
 
 
 def _is_service_unreachable_error(exc: RuntimeError) -> bool:
-    if isinstance(exc, ServiceUnreachableError):
-        return True
-    if isinstance(exc, (ServiceRPCError, ServiceResponseError)):
-        return False
-    message = str(exc).lower()
-    return "cannot reach keepgpu service" in message or "timed out" in message
+    return isinstance(exc, ServiceUnreachableError)
 
 
 def _stop_all_sessions_with_fallback(host: str, port: int) -> Dict[str, Any]:

@@ -2761,7 +2761,7 @@ def test_service_stop_refuses_active_sessions_without_force(monkeypatch):
 
 def test_stop_handles_service_timeout_without_traceback(monkeypatch):
     def fake_rpc(method, params, host, port, timeout=8.0):
-        raise RuntimeError(
+        raise cli.ServiceUnreachableError(
             "Cannot reach KeepGPU service at http://127.0.0.1:8765/rpc: timed out"
         )
 
@@ -2784,7 +2784,9 @@ def test_cli_module_avoids_eager_gpu_imports():
 
 def test_stop_all_fallback_force_stops_managed_daemon(monkeypatch):
     def fake_rpc(method, params, host, port, timeout=8.0):
-        raise RuntimeError("timed out")
+        raise cli.ServiceUnreachableError(
+            "Cannot reach KeepGPU service at http://127.0.0.1:8765/rpc: timed out"
+        )
 
     monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
     monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: 1234)
@@ -2802,11 +2804,11 @@ def test_stop_all_fallback_force_stops_managed_daemon(monkeypatch):
     assert payload["errors"] == {}
 
 
-def test_stop_all_does_not_fallback_for_rpc_application_error(monkeypatch):
+def test_stop_all_does_not_fallback_for_generic_timeout_error(monkeypatch):
     called = {"stop_process": False}
 
     def fake_rpc(method, params, host, port, timeout=8.0):
-        raise RuntimeError("validation failed")
+        raise RuntimeError("controller timed out while releasing session")
 
     def fake_stop_process(host, port):
         called["stop_process"] = True
@@ -2820,14 +2822,47 @@ def test_stop_all_does_not_fallback_for_rpc_application_error(monkeypatch):
     result = runner.invoke(cli.app, ["stop", "--all"])
 
     assert result.exit_code == 1
-    assert "validation failed" in result.output
+    assert "controller timed out while releasing session" in result.output
+    assert "force-stopped local daemon" not in result.output
+    assert called["stop_process"] is False
+
+
+@pytest.mark.parametrize(
+    ("exc", "message"),
+    [
+        (RuntimeError("validation failed"), "validation failed"),
+        (cli.ServiceRPCError("rpc failed"), "rpc failed"),
+        (cli.ServiceResponseError("malformed response"), "malformed response"),
+    ],
+)
+def test_stop_all_does_not_fallback_for_rpc_application_error(
+    monkeypatch, exc, message
+):
+    called = {"stop_process": False}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        raise exc
+
+    def fake_stop_process(host, port):
+        called["stop_process"] = True
+        return True
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: 1234)
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["stop", "--all"])
+
+    assert result.exit_code == 1
+    assert message in result.output
     assert "force-stopped local daemon" not in result.output
     assert called["stop_process"] is False
 
 
 def test_stop_all_fallback_requires_stop_process_success(monkeypatch):
     def fake_rpc(method, params, host, port, timeout=8.0):
-        raise RuntimeError(
+        raise cli.ServiceUnreachableError(
             "Cannot reach KeepGPU service at http://127.0.0.1:8765/rpc: timed out"
         )
 
