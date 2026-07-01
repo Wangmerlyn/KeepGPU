@@ -1799,6 +1799,33 @@ def test_mcp_stdio_parse_errors_are_jsonrpc_errors():
     assert "Expecting property name" in response["error"]["message"]
 
 
+def test_mcp_stdio_rejects_nonstandard_json_constants_as_parse_errors():
+    env = os.environ.copy()
+    repo_root = Path(__file__).resolve().parents[2]
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(repo_root / "src"), env.get("PYTHONPATH", "")]
+    )
+    line = '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":NaN}\n'
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "keep_gpu.mcp.server"],
+        input=line,
+        text=True,
+        capture_output=True,
+        timeout=5,
+        env=env,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    stdout_lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    assert len(stdout_lines) == 1
+    response = json.loads(stdout_lines[0])
+    assert response["jsonrpc"] == "2.0"
+    assert response["id"] is None
+    assert response["error"]["code"] == -32700
+
+
 def test_mcp_stdio_bad_version_notification_is_invalid_request_error():
     request = {"jsonrpc": "1.0", "method": "notifications/initialized"}
     env = os.environ.copy()

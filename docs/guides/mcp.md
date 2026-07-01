@@ -71,8 +71,9 @@ slashes, query strings, leading double slashes such as `//rpc`, or encoded
 aliases such as `/rp%63` and `/%2Frpc`, return structured `404 Unknown endpoint`
 errors.
 
-Malformed HTTP JSON-RPC bodies return a JSON-RPC `-32700 Parse error` envelope
-with `id: null`; REST routes keep REST-shaped JSON errors.
+Malformed HTTP JSON-RPC bodies, including non-standard constants such as `NaN`
+or `Infinity`, return a JSON-RPC `-32700 Parse error` envelope with `id: null`;
+REST routes keep REST-shaped JSON errors.
 
 ```bash
 curl -X POST http://127.0.0.1:8765/rpc \

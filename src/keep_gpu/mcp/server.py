@@ -54,6 +54,7 @@ from keep_gpu.utilities.humanized_input import (
     PUBLIC_VRAM_MAX_BYTES,
     parse_vram_to_elements,
 )
+from keep_gpu.utilities.json_protocol import strict_json_loads
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableError
 from keep_gpu.utilities.session_config import (
@@ -1199,7 +1200,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                 f"Request body too large: {length} bytes (max {MAX_JSON_BODY_BYTES})"
             )
         body = self.rfile.read(length).decode("utf-8")
-        return json.loads(body)
+        return strict_json_loads(body)
 
     def _serve_static(self, request_path: str, write_body: bool = True) -> None:
         if request_path in ("/", ""):
@@ -1536,9 +1537,9 @@ def run_stdio(server: KeepGPUServer) -> None:
         if not line:
             continue
         try:
-            payload = json.loads(line)
+            payload = strict_json_loads(line)
             response = _handle_request(server, payload)
-        except json.JSONDecodeError as exc:
+        except (json.JSONDecodeError, ValueError) as exc:
             response = _jsonrpc_error(None, JSONRPC_PARSE_ERROR, str(exc))
         except Exception as exc:
             response = _jsonrpc_error(None, JSONRPC_INTERNAL_ERROR, str(exc))
