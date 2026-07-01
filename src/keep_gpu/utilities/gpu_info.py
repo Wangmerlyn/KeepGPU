@@ -374,7 +374,7 @@ def _query_torch() -> List[Dict[str, Any]]:
 
 def _safe_mps_memory_value(method_name: str) -> Any | None:
     try:
-        mps = getattr(torch, "mps")
+        mps = torch.mps
         method = getattr(mps, method_name)
         return method()
     except Exception as exc:

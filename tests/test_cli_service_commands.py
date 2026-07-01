@@ -1381,6 +1381,73 @@ def test_list_gpus_rejects_malformed_payloads(monkeypatch, payload):
     assert "Traceback" not in result.output
 
 
+@pytest.mark.parametrize("missing_field", ["memory_total", "memory_used"])
+def test_list_gpus_reports_missing_memory_fields(monkeypatch, missing_field):
+    gpu = {
+        "id": 0,
+        "visible_id": 0,
+        "platform": "cuda",
+        "name": "GPU 0",
+        "memory_total": 1024,
+        "memory_used": 512,
+        "utilization": 12.5,
+    }
+    del gpu[missing_field]
+
+    def fake_rpc(method, params, host, port):
+        assert method == "list_gpus"
+        assert params == {}
+        return {"gpus": [gpu]}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["list-gpus"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert f"missing '{missing_field}'" in decoded["error"]
+    assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("memory_total", "memory_used", "message_fragment"),
+    [
+        ("1024", 512, "memory_total must be a non-negative integer or null"),
+        (-1, 0, "memory_total must be a non-negative integer or null"),
+        (1024, -1, "memory_used must be a non-negative integer or null"),
+        (1024, 2048, "memory_used must not exceed memory_total"),
+    ],
+)
+def test_list_gpus_reports_invalid_memory_fields(
+    monkeypatch, memory_total, memory_used, message_fragment
+):
+    def fake_rpc(method, params, host, port):
+        assert method == "list_gpus"
+        assert params == {}
+        return {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": memory_total,
+                    "memory_used": memory_used,
+                    "utilization": 12.5,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["list-gpus"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert message_fragment in decoded["error"]
+    assert "Traceback" not in result.output
+
+
 @pytest.mark.parametrize(
     "payload",
     [

@@ -1932,7 +1932,7 @@ def test_http_get_api_gpus_enumeration_unavailable_returns_json_503(monkeypatch)
                     "utilization": None,
                 }
             ],
-            "memory_total",
+            "'memory_total' must be a non-negative integer or null",
         ),
         (
             [
@@ -1946,7 +1946,7 @@ def test_http_get_api_gpus_enumeration_unavailable_returns_json_503(monkeypatch)
                     "utilization": None,
                 }
             ],
-            "memory_used",
+            "'memory_used' must be a non-negative integer or null",
         ),
         (
             [
@@ -1960,7 +1960,7 @@ def test_http_get_api_gpus_enumeration_unavailable_returns_json_503(monkeypatch)
                     "utilization": None,
                 }
             ],
-            "memory_used",
+            "'memory_used' must not exceed 'memory_total'",
         ),
         (
             [

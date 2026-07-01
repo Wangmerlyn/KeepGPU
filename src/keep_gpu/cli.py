@@ -27,6 +27,7 @@ from keep_gpu.utilities.humanized_input import parse_vram_to_elements
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
+    is_memory_byte_or_none,
     is_memory_byte_pair_or_none,
     is_utilization_percent_or_none,
     validate_busy_threshold,
@@ -900,19 +901,21 @@ def _validate_list_gpus_result(result: Dict[str, Any]) -> Dict[str, Any]:
             visible_ids.add(visible_id)
             _require_string_field(gpu, "platform", "list_gpus")
             _require_string_field(gpu, "name", "list_gpus")
-            if "memory_total" not in gpu or "memory_used" not in gpu:
-                raise _malformed_method_result(
-                    "list_gpus",
-                    "memory_total and memory_used must be non-negative integers or null",
-                )
+            for field in ("memory_total", "memory_used"):
+                if field not in gpu:
+                    raise _malformed_method_result("list_gpus", f"missing '{field}'")
+                if not is_memory_byte_or_none(gpu[field]):
+                    raise _malformed_method_result(
+                        "list_gpus",
+                        f"{field} must be a non-negative integer or null",
+                    )
             if not is_memory_byte_pair_or_none(
                 gpu["memory_total"],
                 gpu["memory_used"],
             ):
                 raise _malformed_method_result(
                     "list_gpus",
-                    "memory_total and memory_used must be non-negative integers "
-                    "or null, and memory_used must not exceed memory_total",
+                    "memory_used must not exceed memory_total",
                 )
             if "utilization" not in gpu:
                 raise _malformed_method_result(

@@ -1167,7 +1167,7 @@ def test_list_gpus_rejects_invalid_visible_ordinals(
                 "memory_used": 0,
                 "utilization": None,
             },
-            "memory_total",
+            "'memory_total' must be a non-negative integer or null",
         ),
         (
             {
@@ -1179,7 +1179,7 @@ def test_list_gpus_rejects_invalid_visible_ordinals(
                 "memory_used": -1,
                 "utilization": None,
             },
-            "memory_used",
+            "'memory_used' must be a non-negative integer or null",
         ),
         (
             {
@@ -1191,7 +1191,7 @@ def test_list_gpus_rejects_invalid_visible_ordinals(
                 "memory_used": 2048,
                 "utilization": None,
             },
-            "memory_used",
+            "'memory_used' must not exceed 'memory_total'",
         ),
         (
             {
