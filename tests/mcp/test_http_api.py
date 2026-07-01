@@ -182,6 +182,24 @@ def _raw_post_with_content_length(httpd, path: str, content_length: str):
     return _send_raw_http_json_request(httpd, request)
 
 
+def _raw_post_with_content_length_headers(
+    httpd, path: str, content_lengths: list[str], body: bytes = b"{}"
+):
+    host, port = httpd.server_address
+    headers = "".join(
+        f"Content-Length: {content_length}\r\n" for content_length in content_lengths
+    )
+    request = (
+        f"POST {path} HTTP/1.1\r\n"
+        f"Host: {host}:{port}\r\n"
+        "Content-Type: application/json\r\n"
+        f"{headers}"
+        "Connection: close\r\n"
+        "\r\n"
+    ).encode("ascii") + body
+    return _send_raw_http_json_request(httpd, request)
+
+
 def _raw_http_json_request(httpd, method: str, target: str, payload=None):
     host, port = httpd.server_address
     if payload is None:
@@ -815,10 +833,97 @@ def test_http_post_rejects_non_integer_content_length(path, expected_status):
     assert "Content-Length must be a non-negative integer" in (
         payload["error"]["message"]
     )
-    if path == "/rpc":
+    if path in ("/", "/rpc"):
         assert payload["jsonrpc"] == "2.0"
         assert payload["id"] is None
         assert payload["error"]["code"] == -32700
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_status"),
+    [
+        ("/api/sessions", 400),
+        ("/", 200),
+        ("/rpc", 200),
+    ],
+)
+def test_http_post_rejects_duplicate_content_length(path, expected_status):
+    server = make_server()
+    httpd, thread, _ = _start_threaded_http_server(server)
+
+    try:
+        status, payload = _raw_post_with_content_length_headers(
+            httpd, path, ["2", "2"], body=b"{}"
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == expected_status
+    assert "Content-Length must appear exactly once" in (payload["error"]["message"])
+    assert server.status()["active_jobs"] == []
+    if path in ("/", "/rpc"):
+        assert payload["jsonrpc"] == "2.0"
+        assert payload["id"] is None
+        assert payload["error"]["code"] == -32700
+
+
+@pytest.mark.parametrize(
+    ("path", "content_length", "expected_status"),
+    [
+        ("/api/sessions", "+2", 400),
+        ("/api/sessions", "0_2", 400),
+        ("/", "+2", 200),
+        ("/", "0_2", 200),
+        ("/rpc", "+2", 200),
+        ("/rpc", "0_2", 200),
+    ],
+)
+def test_http_post_rejects_loose_content_length_syntax(
+    path, content_length, expected_status
+):
+    server = make_server()
+    httpd, thread, _ = _start_threaded_http_server(server)
+
+    try:
+        status, payload = _raw_post_with_content_length_headers(
+            httpd, path, [content_length], body=b"{}"
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == expected_status
+    assert "Content-Length must be a non-negative integer" in (
+        payload["error"]["message"]
+    )
+    assert server.status()["active_jobs"] == []
+    if path in ("/", "/rpc"):
+        assert payload["jsonrpc"] == "2.0"
+        assert payload["id"] is None
+        assert payload["error"]["code"] == -32700
+
+
+def test_http_json_body_rejects_unicode_decimal_content_length_before_read():
+    class FakeHeaders:
+        def get_all(self, name):
+            assert name == "content-length"
+            return ["٢"]
+
+    class ReadForbidden:
+        def read(self, _length):
+            raise AssertionError("body must not be read")
+
+    handler = cast(Any, object.__new__(_JSONRPCHandler))
+    handler.headers = FakeHeaders()
+    handler.rfile = ReadForbidden()
+
+    with pytest.raises(ValueError, match="Content-Length must be a non-negative"):
+        _JSONRPCHandler._read_json_body(handler)
 
 
 def test_http_health_and_static_index():

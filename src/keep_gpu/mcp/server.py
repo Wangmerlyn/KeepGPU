@@ -1169,13 +1169,16 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         )
 
     def _read_json_body(self) -> Any:
-        raw_length = self.headers.get("content-length", "0")
-        try:
-            length = int(raw_length)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("Content-Length must be a non-negative integer") from exc
-        if length < 0:
+        raw_lengths = self.headers.get_all("content-length")
+        if raw_lengths is None:
+            raw_length = "0"
+        elif len(raw_lengths) == 1:
+            raw_length = raw_lengths[0]
+        else:
+            raise ValueError("Content-Length must appear exactly once")
+        if not (raw_length.isdecimal() and raw_length.isascii()):
             raise ValueError("Content-Length must be a non-negative integer")
+        length = int(raw_length)
         if length > MAX_JSON_BODY_BYTES:
             raise ValueError(
                 f"Request body too large: {length} bytes (max {MAX_JSON_BODY_BYTES})"
