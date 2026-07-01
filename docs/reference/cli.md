@@ -127,8 +127,10 @@ Stops the ownership-verified local daemon process created by auto-start logic.
 Invalid endpoint values are rejected locally before service checks or
 ownership-verified stop operations. Non-force shutdown requires session checks
 to finish cleanly with no timed-out or failed stops. Malformed PID records with
-float or boolean PID/port values are ignored rather than coerced before
-signaling.
+float or boolean numeric identity values are ignored rather than coerced before
+signaling. On systems without `/proc`, KeepGPU may recover daemon identity from
+platform process metadata, but it still signals only when recovered identity is
+known and exactly matches the stored ownership record.
 
 | Option | Description |
 | --- | --- |
