@@ -4,8 +4,10 @@ import {
   AUTO_REFRESH_INTERVAL_MS,
   canRunAutoRefresh,
   canReuseInFlightRefresh,
+  fetchDashboardPayloads,
   formatRefreshWarningMessage,
-  formatRefreshMode
+  formatRefreshMode,
+  nextRefreshMessage
 } from "./refresh"
 
 describe("dashboard refresh helpers", () => {
@@ -38,5 +40,55 @@ describe("dashboard refresh helpers", () => {
       "Refresh warning: network offline"
     )
     expect(formatRefreshWarningMessage(null)).toBe("Refresh warning: unknown error")
+  })
+
+  it("keeps session payloads when telemetry refresh fails", async () => {
+    const calls = []
+    const requestJson = async (method, path) => {
+      calls.push([method, path])
+      if (path === "/api/gpus") {
+        throw new Error("telemetry unavailable")
+      }
+      return { active_jobs: [{ job_id: "job-a" }] }
+    }
+
+    await expect(fetchDashboardPayloads(requestJson)).resolves.toEqual({
+      gpus: null,
+      sessions: [{ job_id: "job-a" }],
+      warning: "Refresh warning: telemetry unavailable"
+    })
+    expect(calls).toEqual([
+      ["GET", "/api/gpus"],
+      ["GET", "/api/sessions"]
+    ])
+  })
+
+  it("keeps telemetry payloads when session refresh fails", async () => {
+    const requestJson = async (_method, path) => {
+      if (path === "/api/sessions") {
+        throw new Error("sessions unavailable")
+      }
+      return { gpus: [{ id: 0, utilization: 12 }] }
+    }
+
+    await expect(fetchDashboardPayloads(requestJson)).resolves.toEqual({
+      gpus: [{ id: 0, utilization: 12 }],
+      sessions: null,
+      warning: "Refresh warning: sessions unavailable"
+    })
+  })
+
+  it("preserves mutation result messages when follow-up refresh warns", () => {
+    expect(nextRefreshMessage({ userInitiated: true })).toBe("Dashboard refreshed.")
+    expect(nextRefreshMessage({ warning: "Refresh warning: telemetry unavailable" })).toBe(
+      "Refresh warning: telemetry unavailable"
+    )
+    expect(
+      nextRefreshMessage({
+        afterMutation: true,
+        previousMessage: "Released session: job-a.",
+        warning: "Refresh warning: telemetry unavailable"
+      })
+    ).toBe("Released session: job-a.")
   })
 })

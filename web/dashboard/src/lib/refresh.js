@@ -14,6 +14,39 @@ export function formatRefreshWarningMessage(error) {
   return `Refresh warning: ${message || "unknown error"}`
 }
 
+export async function fetchDashboardPayloads(requestJson) {
+  const [gpuResult, sessionResult] = await Promise.allSettled([
+    requestJson("GET", "/api/gpus"),
+    requestJson("GET", "/api/sessions")
+  ])
+
+  return {
+    gpus: gpuResult.status === "fulfilled" ? gpuResult.value?.gpus ?? [] : null,
+    sessions:
+      sessionResult.status === "fulfilled"
+        ? sessionResult.value?.active_jobs ?? []
+        : null,
+    warning:
+      gpuResult.status === "rejected"
+        ? formatRefreshWarningMessage(gpuResult.reason)
+        : sessionResult.status === "rejected"
+          ? formatRefreshWarningMessage(sessionResult.reason)
+          : null
+  }
+}
+
+export function nextRefreshMessage({
+  afterMutation = false,
+  previousMessage = null,
+  userInitiated = false,
+  warning = null
+} = {}) {
+  if (warning) {
+    return afterMutation ? previousMessage : warning
+  }
+  return userInitiated ? "Dashboard refreshed." : previousMessage
+}
+
 export function formatRefreshMode(autoRefresh, visibilityState = "visible") {
   if (!autoRefresh) {
     return "manual refresh"
