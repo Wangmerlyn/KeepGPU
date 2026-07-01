@@ -46,6 +46,10 @@ tool names:
 - `status`
 - `list_gpus`
 
+`tools/list` responses are snapshots. Local embedding callers can inspect or
+modify the returned tool metadata without mutating the server's shared MCP tool
+registry.
+
 Minimal client config:
 
 ```yaml

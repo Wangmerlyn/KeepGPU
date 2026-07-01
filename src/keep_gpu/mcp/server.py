@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import copy
 import json
 import mimetypes
 import sys
@@ -964,7 +965,7 @@ def _handle_request(server: KeepGPUServer, payload: Any) -> Optional[Dict[str, A
         if method == "initialize":
             result = _mcp_initialize_result(params)
         elif method == "tools/list":
-            result = {"tools": MCP_TOOLS}
+            result = {"tools": copy.deepcopy(MCP_TOOLS)}
         elif method == "tools/call":
             result = _mcp_call_tool(server, params)
         else:
