@@ -27,6 +27,8 @@ from keep_gpu.utilities.humanized_input import parse_vram_to_elements
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
+    is_memory_byte_or_none,
+    is_memory_byte_pair_or_none,
     is_utilization_percent_or_none,
     validate_busy_threshold,
     validate_gpu_ids,
@@ -746,17 +748,6 @@ def _require_plain_int_field(result: Dict[str, Any], field: str, method: str) ->
     return value
 
 
-def _require_nullable_int_field(
-    result: Dict[str, Any], field: str, method: str
-) -> Optional[int]:
-    if field not in result:
-        raise _malformed_method_result(method, f"{field} must be an integer or null")
-    value = result[field]
-    if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
-        raise _malformed_method_result(method, f"{field} must be an integer or null")
-    return value
-
-
 def _validate_status_params(params: Dict[str, Any], method: str, prefix: str) -> None:
     validators = {
         "gpu_ids": validate_gpu_ids,
@@ -910,8 +901,22 @@ def _validate_list_gpus_result(result: Dict[str, Any]) -> Dict[str, Any]:
             visible_ids.add(visible_id)
             _require_string_field(gpu, "platform", "list_gpus")
             _require_string_field(gpu, "name", "list_gpus")
-            _require_nullable_int_field(gpu, "memory_total", "list_gpus")
-            _require_nullable_int_field(gpu, "memory_used", "list_gpus")
+            for field in ("memory_total", "memory_used"):
+                if field not in gpu:
+                    raise _malformed_method_result("list_gpus", f"missing '{field}'")
+                if not is_memory_byte_or_none(gpu[field]):
+                    raise _malformed_method_result(
+                        "list_gpus",
+                        f"{field} must be a non-negative integer or null",
+                    )
+            if not is_memory_byte_pair_or_none(
+                gpu["memory_total"],
+                gpu["memory_used"],
+            ):
+                raise _malformed_method_result(
+                    "list_gpus",
+                    "memory_used must not exceed memory_total",
+                )
             if "utilization" not in gpu:
                 raise _malformed_method_result(
                     "list_gpus",

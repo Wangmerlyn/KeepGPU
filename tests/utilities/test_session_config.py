@@ -6,6 +6,10 @@ import pytest
 from keep_gpu.utilities import session_config
 from keep_gpu.utilities.session_config import (
     PUBLIC_INTERVAL_MAX_SECONDS,
+    is_memory_byte_or_none,
+    is_memory_byte_pair_or_none,
+    normalize_memory_byte_pair,
+    normalize_memory_bytes,
     validate_busy_threshold,
     validate_gpu_ids,
     validate_interval,
@@ -122,6 +126,38 @@ def test_validate_busy_threshold_rejects_values_above_percent_range():
         ValueError, match="busy_threshold must be -1 or an integer between 0 and 100"
     ):
         validate_busy_threshold(101)
+
+
+@pytest.mark.parametrize("value", [None, 0, 1, 1024])
+def test_memory_byte_fields_accept_null_or_non_negative_plain_ints(value):
+    assert is_memory_byte_or_none(value) is True
+    expected = value if isinstance(value, int) else None
+    assert normalize_memory_bytes(value) == expected
+
+
+@pytest.mark.parametrize("value", [True, False, -1, 1.0, "1"])
+def test_memory_byte_fields_reject_non_plain_or_negative_values(value):
+    assert is_memory_byte_or_none(value) is False
+    assert normalize_memory_bytes(value) is None
+
+
+@pytest.mark.parametrize(
+    ("total", "used", "expected_total", "expected_used", "valid"),
+    [
+        (1024, 512, 1024, 512, True),
+        (1024, None, 1024, None, True),
+        (None, 512, None, 512, True),
+        (None, None, None, None, True),
+        (1024, 2048, 1024, None, False),
+        (-1, 0, None, 0, False),
+        (1024, -1, 1024, None, False),
+    ],
+)
+def test_memory_byte_pair_rejects_impossible_used_over_total(
+    total, used, expected_total, expected_used, valid
+):
+    assert normalize_memory_byte_pair(total, used) == (expected_total, expected_used)
+    assert is_memory_byte_pair_or_none(total, used) is valid
 
 
 @pytest.mark.parametrize("value", [True, False, 0.5, "25"])

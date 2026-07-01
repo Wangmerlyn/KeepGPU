@@ -1,7 +1,7 @@
 import math
 import re
 import threading
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
 JOB_ID_PATTERN_TEXT = r"^[A-Za-z0-9._~-]+$"
 _JOB_ID_PATTERN = re.compile(JOB_ID_PATTERN_TEXT)
@@ -35,6 +35,44 @@ def normalize_utilization_percent(value: Any) -> Optional[Union[int, float]]:
 def is_utilization_percent_or_none(value: Any) -> bool:
     """Return whether a public utilization field is null or 0..100 finite numeric."""
     return value is None or normalize_utilization_percent(value) is not None
+
+
+def normalize_memory_bytes(value: Any) -> Optional[int]:
+    """Return a valid non-negative byte count, or None when unavailable/invalid."""
+    if not _is_plain_int(value):
+        return None
+    if value < 0:
+        return None
+    return value
+
+
+def is_memory_byte_or_none(value: Any) -> bool:
+    """Return whether a public memory field is null or a non-negative integer."""
+    return value is None or normalize_memory_bytes(value) is not None
+
+
+def normalize_memory_byte_pair(
+    total: Any, used: Any
+) -> Tuple[Optional[int], Optional[int]]:
+    """Return normalized total/used byte counters without impossible pairs."""
+    normalized_total = normalize_memory_bytes(total)
+    normalized_used = normalize_memory_bytes(used)
+    if (
+        normalized_total is not None
+        and normalized_used is not None
+        and normalized_used > normalized_total
+    ):
+        normalized_used = None
+    return normalized_total, normalized_used
+
+
+def is_memory_byte_pair_or_none(total: Any, used: Any) -> bool:
+    """Return whether nullable memory counters are non-negative and consistent."""
+    if not is_memory_byte_or_none(total) or not is_memory_byte_or_none(used):
+        return False
+    if total is not None and used is not None and used > total:
+        return False
+    return True
 
 
 def validate_gpu_ids(gpu_ids: Any) -> Optional[List[int]]:

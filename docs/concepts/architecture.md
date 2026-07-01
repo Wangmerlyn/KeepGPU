@@ -151,7 +151,9 @@ torch's HIP-backed device records rather than NVML CUDA records. ROCm records
 are emitted only for visible ordinals that `torch.cuda.set_device()` can select,
 so list output does not advertise GPU IDs that controller startup cannot use.
 Memory probing remains best-effort after selection succeeds; nullable ROCm
-memory fields mean unavailable telemetry, not a startability failure.
+memory fields mean unavailable telemetry, not a startability failure. Negative
+memory counters and impossible `used > total` pairs are normalized to unavailable
+fields before records leave the telemetry helpers.
 On non-HIP CUDA builds, NVML records are returned only when Torch CUDA reports a
 matching positive visible-device count and each visible ordinal can be selected
 with `torch.cuda.set_device()`. If that NVML/Torch trust check fails, listing

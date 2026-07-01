@@ -252,7 +252,8 @@ Telemetry cards show the visible ordinal to type into the start form before any
 physical/vendor metadata.
 CUDA and ROCm devices include memory and utilization when the platform APIs are
 available. Mac M series devices report best-effort MPS memory counters and use
-`null` for unsupported fields such as utilization.
+`null` for unsupported or invalid fields such as unavailable utilization,
+negative memory counters, or impossible `used > total` memory pairs.
 Dashboard summary cards average only finite utilization readings and show `n/a`
 when every visible reading is unavailable, so unknown telemetry is not presented
 as idle. Per-GPU cards also omit the utilization fill for unavailable readings.
