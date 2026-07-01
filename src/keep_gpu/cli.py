@@ -24,6 +24,7 @@ from keep_gpu.utilities.endpoint_validation import (
     validate_endpoint_port,
 )
 from keep_gpu.utilities.humanized_input import parse_vram_to_elements
+from keep_gpu.utilities.json_protocol import strict_json_loads
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
@@ -202,7 +203,7 @@ def _read_service_pid_record(host: str, port: int) -> Optional[Dict[str, Any]]:
         return None
     try:
         raw = pid_path.read_text(encoding="utf-8").strip()
-        payload = json.loads(raw)
+        payload = strict_json_loads(raw)
     except (OSError, json.JSONDecodeError, ValueError):
         return None
     if isinstance(payload, int) and not isinstance(payload, bool) and payload > 0:
@@ -451,7 +452,7 @@ def _http_json_request(
             if not body:
                 return {}
             try:
-                return json.loads(body)
+                return strict_json_loads(body)
             except (json.JSONDecodeError, ValueError) as exc:
                 raise ServiceResponseError(
                     f"Non-JSON response from service endpoint: {url}"

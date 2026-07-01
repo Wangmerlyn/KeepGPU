@@ -778,6 +778,26 @@ def test_http_jsonrpc_parse_error_returns_jsonrpc_envelope(rpc_path):
     assert payload["error"]["code"] == -32700
 
 
+@pytest.mark.parametrize("rpc_path", ["/", "/rpc"])
+def test_http_jsonrpc_rejects_nonstandard_json_constants_as_parse_error(rpc_path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+    body = b'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":NaN}'
+
+    try:
+        status, payload = _request_raw("POST", f"{base}{rpc_path}", body)
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 200
+    assert payload["jsonrpc"] == "2.0"
+    assert payload["id"] is None
+    assert payload["error"]["code"] == -32700
+
+
 def test_http_rpc_bad_version_notification_returns_invalid_request_envelope():
     server = make_server()
     httpd, thread, base = _start_http_server(server)
@@ -2271,7 +2291,7 @@ def test_http_post_rejects_non_positive_interval():
         thread.join(timeout=2)
 
 
-def test_http_post_rejects_nan_interval_without_creating_session():
+def test_http_post_rejects_nan_interval_as_bad_json_without_creating_session():
     server = make_server()
     httpd, thread, base = _start_http_server(server)
 
@@ -2288,7 +2308,7 @@ def test_http_post_rejects_nan_interval_without_creating_session():
         )
 
         assert status_code == 400
-        assert "interval must be finite and positive" in payload["error"]["message"]
+        assert "invalid JSON constant: NaN" in payload["error"]["message"]
         assert server.status()["active_jobs"] == []
     finally:
         httpd.shutdown()

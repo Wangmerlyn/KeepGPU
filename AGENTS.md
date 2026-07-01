@@ -135,6 +135,10 @@ This file defines how coding agents should work in this repository.
 - HTTP JSON-RPC endpoints (`/` and `/rpc`) must return JSON-RPC envelopes for
   protocol parse errors, including `jsonrpc`, `id`, and numeric `error.code`;
   REST routes keep REST-shaped structured JSON errors.
+- Public protocol JSON decoders must reject non-standard JSON constants such as
+  `NaN`, `Infinity`, and `-Infinity` as parse errors. Do not use permissive
+  `json.loads` defaults at CLI service-response, HTTP request-body, or stdio
+  JSON-RPC boundaries.
 - HTTP body readers must validate parser-normalized `Content-Length` as exactly
   one plain ASCII decimal non-negative integer before reading. Duplicate values,
   signs, underscores, and other non-digit forms must fail quickly with REST JSON

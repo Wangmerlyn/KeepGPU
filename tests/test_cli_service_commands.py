@@ -720,6 +720,32 @@ def test_http_json_request_reports_invalid_utf8_as_service_response_error(monkey
         cli._http_json_request("GET", "http://127.0.0.1:8765/health")
 
 
+def test_status_outputs_json_error_for_nonstandard_json_constant_response(monkeypatch):
+    class NaNResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self):
+            return (
+                b'{"jsonrpc":"2.0","id":1000,'
+                b'"result":{"active_jobs":[],"future_extra":NaN}}'
+            )
+
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(cli, "urlopen", lambda *args, **kwargs: NaNResponse())
+
+    result = runner.invoke(cli.app, ["status"])
+
+    assert result.exit_code == 1
+    payload = _single_decoded_json_object(result.output)
+    assert "Non-JSON response from service endpoint" in payload["error"]
+    assert result.exception is not None
+    assert not isinstance(result.exception, ValueError)
+
+
 def test_ensure_service_running_stops_auto_started_process_on_health_timeout(
     monkeypatch, tmp_path
 ):
