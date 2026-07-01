@@ -1219,13 +1219,24 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             )
             return
 
-        is_asset_request = (
-            decoded_relative == "assets"
-            or decoded_relative.startswith("assets/")
-            or (
-                bool(Path(decoded_relative).suffix) and decoded_relative != "index.html"
-            )
+        is_asset_prefix_request = (
+            decoded_relative == "assets" or decoded_relative.startswith("assets/")
         )
+        is_asset_request = is_asset_prefix_request or (
+            bool(Path(decoded_relative).suffix) and decoded_relative != "index.html"
+        )
+        asset_root = static_root / "assets"
+        if (
+            is_asset_prefix_request
+            and requested != asset_root
+            and asset_root not in requested.parents
+        ):
+            self._json_response(
+                404,
+                {"error": {"message": "Static asset not found"}},
+                write_body=write_body,
+            )
+            return
         if not requested.exists() or requested.is_dir():
             if is_asset_request:
                 self._json_response(
