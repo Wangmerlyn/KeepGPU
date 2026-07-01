@@ -133,6 +133,8 @@ The dashboard provides:
 Telemetry refresh is manual by default so an idle browser tab does not keep
 probing GPU backends. Use **Refresh Now** for a one-shot update, or enable
 **Auto refresh** for 10-second polling while the tab is visible.
+If telemetry refresh fails but session status succeeds, the dashboard still
+updates tracked sessions and keeps successful start/release messages visible.
 
 Unavailable utilization readings are shown as `n/a`; they are excluded from
 summary averages and do not draw an idle-looking utilization fill.

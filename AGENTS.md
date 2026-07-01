@@ -323,6 +323,9 @@ This file defines how coding agents should work in this repository.
   auto-refresh only after explicit user opt-in, and polling paused while the
   browser tab is hidden. Keep labels, cadence, tests, and packaged static assets
   in sync when changing refresh behavior.
+- Dashboard refresh must apply `/api/gpus` and `/api/sessions` results
+  independently, so telemetry failures do not hide session state or overwrite
+  successful start/release outcome messages after mutations.
 - Single-GPU keep workload iteration counts must be positive integers (`relu_iterations` for CUDA, `iterations` for ROCm/Mac M); reject invalid values before keep loops so no public path can create a silent no-op keeper or late background thread crash.
 - CUDA workload tuning must use the `relu_iterations` public keyword. Do not
   reintroduce the legacy `matmul_iterations` alias without an intentional,

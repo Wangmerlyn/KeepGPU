@@ -4,8 +4,10 @@ import {
   AUTO_REFRESH_INTERVAL_MS,
   canRunAutoRefresh,
   canReuseInFlightRefresh,
+  fetchDashboardPayloads,
   formatRefreshWarningMessage,
-  formatRefreshMode
+  formatRefreshMode,
+  nextRefreshMessage
 } from "./lib/refresh"
 
 import {
@@ -96,7 +98,8 @@ export default function App() {
 
   const refresh = useCallback(async ({
     userInitiated = false,
-    afterMutation = false
+    afterMutation = false,
+    previousMessage = null
   } = {}) => {
     if (canReuseInFlightRefresh(refreshPromiseRef.current, afterMutation)) {
       return refreshPromiseRef.current
@@ -111,18 +114,32 @@ export default function App() {
     const refreshPromise = (async () => {
       setRefreshing(true)
       try {
-        const [gpuPayload, sessionPayload] = await Promise.all([
-          api("GET", "/api/gpus"),
-          api("GET", "/api/sessions")
-        ])
-
-        setGpus(gpuPayload.gpus ?? [])
-        setSessions(sessionPayload.active_jobs ?? [])
-        if (userInitiated) {
-          setMessage("Dashboard refreshed.")
+        const result = await fetchDashboardPayloads(api)
+        if (result.gpus !== null) {
+          setGpus(result.gpus)
+        }
+        if (result.sessions !== null) {
+          setSessions(result.sessions)
+        }
+        const nextMessage = nextRefreshMessage({
+          afterMutation,
+          previousMessage,
+          userInitiated,
+          warning: result.warning
+        })
+        if (nextMessage) {
+          setMessage(nextMessage)
         }
       } catch (error) {
-        setMessage(formatRefreshWarningMessage(error))
+        const nextMessage = nextRefreshMessage({
+          afterMutation,
+          previousMessage,
+          userInitiated,
+          warning: formatRefreshWarningMessage(error)
+        })
+        if (nextMessage) {
+          setMessage(nextMessage)
+        }
       } finally {
         setRefreshing(false)
         refreshPromiseRef.current = null
@@ -169,9 +186,10 @@ export default function App() {
     try {
       const payload = buildSessionPayload(form)
       const result = await api("POST", "/api/sessions", payload)
+      const successMessage = `Session started: ${result.job_id}`
       setForm(defaultForm)
-      setMessage(`Session started: ${result.job_id}`)
-      await refresh({ afterMutation: true })
+      setMessage(successMessage)
+      await refresh({ afterMutation: true, previousMessage: successMessage })
     } catch (error) {
       setMessage(`Start failed: ${error.message}`)
     } finally {
@@ -188,8 +206,9 @@ export default function App() {
 
     try {
       const result = await api("DELETE", `/api/sessions/${jobId}`)
-      setMessage(formatStopResultMessage(result))
-      await refresh({ afterMutation: true })
+      const successMessage = formatStopResultMessage(result)
+      setMessage(successMessage)
+      await refresh({ afterMutation: true, previousMessage: successMessage })
     } catch (error) {
       setMessage(`Release failed (${jobId}): ${error.message}`)
     } finally {
@@ -206,8 +225,9 @@ export default function App() {
 
     try {
       const result = await api("DELETE", "/api/sessions")
-      setMessage(formatStopResultMessage(result))
-      await refresh({ afterMutation: true })
+      const successMessage = formatStopResultMessage(result)
+      setMessage(successMessage)
+      await refresh({ afterMutation: true, previousMessage: successMessage })
     } catch (error) {
       setMessage(`Stop-all failed: ${error.message}`)
     } finally {
