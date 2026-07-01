@@ -1199,7 +1199,18 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                 self._json_response(200, {"ok": True})
                 return
             if path == "/api/gpus":
-                self._json_response(200, server_ref.list_gpus())
+                try:
+                    self._json_response(200, server_ref.list_gpus())
+                except DeviceEnumerationUnavailableError as exc:
+                    self._json_response(
+                        503,
+                        {
+                            "error": {
+                                "message": str(exc),
+                                "type": DeviceEnumerationUnavailableError.__name__,
+                            }
+                        },
+                    )
                 return
             if path == "/api/sessions":
                 if self._reject_session_route_components(parsed):

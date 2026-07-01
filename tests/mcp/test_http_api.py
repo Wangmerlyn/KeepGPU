@@ -1445,6 +1445,30 @@ def test_http_get_api_gpus_runtime_error_returns_json_500(monkeypatch):
     assert payload["error"]["type"] == "RuntimeError"
 
 
+def test_http_get_api_gpus_enumeration_unavailable_returns_json_503(monkeypatch):
+    server = make_server()
+    monkeypatch.setattr(
+        server,
+        "list_gpus",
+        lambda: (_ for _ in ()).throw(
+            DeviceEnumerationUnavailableError("Unable to enumerate visible GPUs")
+        ),
+    )
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("GET", f"{base}/api/gpus")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status_code == 503
+    assert payload["error"]["message"] == "Unable to enumerate visible GPUs"
+    assert payload["error"]["type"] == "DeviceEnumerationUnavailableError"
+
+
 @pytest.mark.parametrize(
     ("records", "message_fragment"),
     [

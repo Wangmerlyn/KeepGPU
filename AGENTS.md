@@ -240,6 +240,9 @@ This file defines how coding agents should work in this repository.
 - Supported REST API routes/methods must return structured JSON error objects
   for validation, unknown-endpoint, and unexpected runtime failures; do not let
   handler exceptions drop the HTTP connection.
+- `GET /api/gpus` must report expected `DeviceEnumerationUnavailableError`
+  failures as structured JSON `503` responses; arbitrary listing runtime
+  failures remain structured `500` errors.
 - The dashboard request wrapper must prefer structured REST `error.message`
   strings over raw JSON bodies so users see actionable start/refresh/release
   failures instead of protocol payloads.

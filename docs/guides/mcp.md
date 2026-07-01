@@ -199,6 +199,8 @@ curl http://127.0.0.1:8765/api/sessions
 `id`/`visible_id`. Optional `physical_id` or `uuid` fields describe the
 underlying vendor device only; clients should not send those metadata values as
 `gpu_ids`.
+If visible-device enumeration is temporarily unavailable, the route returns a
+structured JSON `503` response instead of a generic internal error.
 On CUDA, NVML records are exposed only when Torch CUDA can start the same
 visible ordinal set, so NVML-only devices are omitted instead of advertised as
 usable session targets.
