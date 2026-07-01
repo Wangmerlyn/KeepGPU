@@ -223,7 +223,11 @@ This file defines how coding agents should work in this repository.
   before socket bind, matching the CLI service endpoint contract. The MCP
   argparse layer must pass raw `--port` values to the shared validator so
   non-integer ports use the shared error message instead of argparse type errors.
-- `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, and `--port` before auto-starting the service daemon or making RPC calls.
+- `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`,
+  `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, and `--port` before
+  auto-starting the service daemon or making RPC calls. CLI numeric options that
+  use shared validators must pass raw command-line values to those validators so
+  parse failures use KeepGPU's clean project errors instead of Typer usage text.
 - If `keep-gpu start` auto-starts a service daemon and the following
   `start_keep` RPC returns expected startup-unavailable JSON-RPC code
   `-32000` before creating a session, the CLI must best-effort stop that

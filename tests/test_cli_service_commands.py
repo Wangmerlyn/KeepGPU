@@ -318,6 +318,30 @@ def test_start_command_rejects_busy_threshold_above_percent_range(monkeypatch):
     assert "busy_threshold must be -1 or an integer between 0 and 100" in result.output
 
 
+def test_start_command_rejects_non_integer_busy_threshold_before_auto_start(
+    monkeypatch,
+):
+    called = {"ensure": False, "rpc": False}
+
+    def fake_ensure(*args, **kwargs):
+        called["ensure"] = True
+        raise AssertionError("service should not be started")
+
+    def fake_rpc(*args, **kwargs):
+        called["rpc"] = True
+        raise AssertionError("RPC should not be called")
+
+    monkeypatch.setattr(cli, "_ensure_service_running", fake_ensure)
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["start", "--busy-threshold", "abc"])
+
+    assert result.exit_code == 1
+    assert "busy_threshold must be -1 or an integer between 0 and 100" in result.output
+    assert "Usage:" not in result.output
+    assert called == {"ensure": False, "rpc": False}
+
+
 @pytest.mark.parametrize(
     ("args", "message"),
     [
@@ -1705,6 +1729,22 @@ def test_blocking_mode_rejects_non_positive_interval(monkeypatch):
     assert "interval must be positive" in result.output
 
 
+def test_blocking_mode_rejects_non_integer_busy_threshold_without_usage(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "_run_blocking",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("blocking runner should not be called")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["--busy-threshold", "abc"])
+
+    assert result.exit_code == 1
+    assert "busy_threshold must be -1 or an integer between 0 and 100" in result.output
+    assert "Usage:" not in result.output
+
+
 def test_invalid_root_interval_before_subcommand_is_rejected(monkeypatch):
     monkeypatch.setattr(
         cli,
@@ -1729,6 +1769,33 @@ def test_invalid_root_interval_before_subcommand_is_rejected(monkeypatch):
     assert "Omit blocking-mode root options before service subcommands" in (
         normalized_output
     )
+
+
+def test_invalid_root_busy_threshold_before_subcommand_is_rejected(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "_ensure_service_running",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("service should not be started")
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("RPC should not be called")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["--busy-threshold", "abc", "start"])
+
+    normalized_output = " ".join(result.output.split())
+    assert result.exit_code == 1
+    assert "--busy-threshold" in normalized_output
+    assert "Omit blocking-mode root options before service subcommands" in (
+        normalized_output
+    )
+    assert "Usage:" not in result.output
 
 
 @pytest.mark.parametrize(

@@ -233,8 +233,8 @@ def _pid_alive(pid: int) -> bool:
 
 
 def _apply_legacy_threshold(
-    vram_value: str, legacy_threshold: Optional[str], busy_threshold: int
-) -> Tuple[str, int, Optional[str]]:
+    vram_value: str, legacy_threshold: Optional[str], busy_threshold: Union[int, str]
+) -> Tuple[str, Union[int, str], Optional[str]]:
     """
     Interpret the deprecated --threshold flag.
 
@@ -304,7 +304,19 @@ def _validate_cli_vram(vram: str) -> str:
     return vram
 
 
-def _validate_cli_busy_threshold(busy_threshold: int) -> int:
+def _validate_cli_busy_threshold(busy_threshold: Any) -> int:
+    if isinstance(busy_threshold, str):
+        normalized = busy_threshold.strip()
+        if not normalized:
+            raise typer.BadParameter(
+                "busy_threshold must be -1 or an integer between 0 and 100"
+            )
+        try:
+            busy_threshold = int(normalized)
+        except ValueError as exc:
+            raise typer.BadParameter(
+                "busy_threshold must be -1 or an integer between 0 and 100"
+            ) from exc
     try:
         return validate_busy_threshold(busy_threshold)
     except ValueError as exc:
@@ -884,7 +896,7 @@ def _run_blocking(
     gpu_ids: Optional[str],
     vram: str,
     legacy_threshold: Optional[str],
-    busy_threshold: int,
+    busy_threshold: Union[int, str],
 ) -> None:
     vram, busy_threshold, legacy_mode = _apply_legacy_threshold(
         vram, legacy_threshold, busy_threshold
@@ -958,10 +970,11 @@ def main(
         hidden=True,
         help="Deprecated alias: numeric maps to busy-threshold, string maps to vram.",
     ),
-    busy_threshold: int = typer.Option(
-        DEFAULT_BUSY_THRESHOLD,
+    busy_threshold: str = typer.Option(
+        str(DEFAULT_BUSY_THRESHOLD),
         "--busy-threshold",
         "--util-threshold",
+        metavar="INTEGER",
         help=(
             "Back off when utilization is above this 0..100 percent threshold "
             "or telemetry is unavailable; -1 disables utilization backoff "
@@ -975,6 +988,7 @@ def main(
             _reject_root_blocking_options_before_subcommand(ctx)
             return
         interval = _validate_cli_interval(interval)
+        busy_threshold = _validate_cli_busy_threshold(busy_threshold)
         _parse_gpu_ids(gpu_ids)
         _run_blocking(interval, gpu_ids, vram, legacy_threshold, busy_threshold)
     except typer.BadParameter as exc:
@@ -1019,10 +1033,11 @@ def start(
     interval: str = typer.Option(
         "300", metavar="NUMBER", help="Interval in seconds between checks."
     ),
-    busy_threshold: int = typer.Option(
-        DEFAULT_BUSY_THRESHOLD,
+    busy_threshold: str = typer.Option(
+        str(DEFAULT_BUSY_THRESHOLD),
         "--busy-threshold",
         "--util-threshold",
+        metavar="INTEGER",
         help=(
             "Back off when utilization is above this 0..100 percent threshold "
             "or telemetry is unavailable; -1 disables utilization backoff."
