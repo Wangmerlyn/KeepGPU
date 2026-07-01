@@ -1630,7 +1630,7 @@ def test_rpc_call_rejects_error_envelope_without_string_message(monkeypatch, err
     )
 
     with pytest.raises(
-        cli.ServiceResponseError, match="error.message must be a string"
+        cli.ServiceResponseError, match=re.escape("error.message must be a string")
     ):
         cli._rpc_call("status", {}, "127.0.0.1", 8765)
 
