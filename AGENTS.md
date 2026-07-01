@@ -197,6 +197,10 @@ This file defines how coding agents should work in this repository.
   `--port` through command-level validation so non-integer values return the
   shared structured `{"error": "port must be an integer between 1 and 65535"}`
   object instead of Typer/Click usage text.
+- Human-output service commands (`serve`, `start`, `service-stop`) must also
+  parse `--port` through command-level validation so non-integer values return
+  the shared `Error: port must be an integer between 1 and 65535` message before
+  imports, daemon auto-start, RPC, or daemon ownership operations.
 - CLI service daemon ownership checks must require known PID identity
   components. A PID record with `uid` or `start_time` missing or `null`, or a
   current process probe that cannot recover either value, is not ownership
