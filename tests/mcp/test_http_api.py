@@ -366,7 +366,15 @@ def test_http_rpc_noncanonical_head_returns_json_404_without_body(rpc_path):
 
 @pytest.mark.parametrize(
     "rpc_path",
-    ["/rpc/", "/rpc%2F", "/rpc%3Bdebug", "/rpc%3Fdebug=1", "/rp%63", "/%72pc"],
+    [
+        "/rpc/",
+        "/rpc%2F",
+        "/rpc%3Bdebug",
+        "/rpc%3Fdebug=1",
+        "/rp%63",
+        "/%72pc",
+        "/%2Frpc",
+    ],
 )
 def test_http_rpc_noncanonical_get_returns_json_404_without_static_fallback(
     rpc_path,
@@ -407,7 +415,7 @@ def test_http_rpc_noncanonical_path_rejects_before_jsonrpc_parse(rpc_path):
     assert payload["error"]["message"] == "Unknown endpoint"
 
 
-@pytest.mark.parametrize("rpc_path", ["/rp%63", "/%72pc"])
+@pytest.mark.parametrize("rpc_path", ["/rp%63", "/%72pc", "/%2Frpc"])
 def test_http_rpc_encoded_exact_alias_rejects_before_jsonrpc_parse(rpc_path):
     server = make_server()
     httpd, thread, base = _start_http_server(server)
@@ -445,7 +453,7 @@ def test_http_rpc_raw_double_slash_rejects_before_jsonrpc_parse():
     assert payload == {"error": {"message": "Unknown endpoint"}}
 
 
-@pytest.mark.parametrize("rpc_path", ["/rp%63", "/%72pc"])
+@pytest.mark.parametrize("rpc_path", ["/rp%63", "/%72pc", "/%2Frpc"])
 def test_http_rpc_encoded_exact_alias_unsupported_method_returns_json_404(rpc_path):
     server = make_server()
     httpd, thread, base = _start_http_server(server)
@@ -501,6 +509,7 @@ def test_http_unknown_api_routes_reject_unsupported_methods_with_json_404(method
         "/api%2Fsessions",
         "/api%2Funknown",
         "/api%2Fsessions%2Fjob",
+        "/%2Fapi/gpus",
         "/api%3Bdebug",
         "/api%3Fsessions",
         "/api%23sessions",
@@ -587,14 +596,13 @@ def test_http_raw_double_slash_api_session_delete_returns_404_without_stop():
     assert [job["job_id"] for job in status_payload["active_jobs"]] == [job_id]
 
 
-def test_http_encoded_api_route_unsupported_method_returns_json_404():
+@pytest.mark.parametrize("path", ["/api%2Fsessions", "/%2Fapi/gpus"])
+def test_http_encoded_api_route_unsupported_method_returns_json_404(path):
     server = make_server()
     httpd, thread, base = _start_http_server(server)
 
     try:
-        status, headers, body = _request_http_response(
-            "OPTIONS", f"{base}/api%2Fsessions"
-        )
+        status, headers, body = _request_http_response("OPTIONS", f"{base}{path}")
     finally:
         httpd.shutdown()
         httpd.server_close()
@@ -1754,7 +1762,9 @@ def test_http_unknown_api_route_returns_json_404(path):
         thread.join(timeout=2)
 
 
-@pytest.mark.parametrize("path", ["/api/gpus?bad=query", "/api/gpus;bad"])
+@pytest.mark.parametrize(
+    "path", ["/api/gpus?bad=query", "/api/gpus;bad", "/%2Fapi/gpus"]
+)
 def test_http_get_api_gpus_noncanonical_route_returns_json_404_without_listing(path):
     server = make_server()
     list_calls = []
