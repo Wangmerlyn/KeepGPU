@@ -160,7 +160,8 @@ creation returns `503`, and unexpected service/runtime failures return `500`
 instead of dropping the connection. Encoded noncanonical spellings such as
 `/api%2Fsessions`, `/api%3Bdebug`, or `/api%3Fsessions` are treated as
 unknown API routes and return JSON `404` responses rather than the dashboard
-HTML shell.
+HTML shell. Raw leading-double-slash API aliases such as `//api/sessions` are
+also unknown routes and do not start or stop sessions.
 The dashboard consumes those JSON objects and displays `error.message` when it is
 present, falling back to the plain response body or HTTP status only when needed.
 Direct JSON-RPC service calls report the same expected hardware/platform
@@ -177,7 +178,7 @@ enumeration, with error code `-32000`; arbitrary runtime failures remain
 | `/api/sessions` | POST | Start session with a JSON object body (`gpu_ids`, `vram`, finite positive bounded `interval`, `busy_threshold`, `job_id`); `vram` accepts human sizes or bytes up to 1 PiB byte-equivalent, omitted `gpu_ids` means all GPUs visible to the service process, omitted `busy_threshold` uses `25`, and duplicate or out-of-range selections are invalid. Explicit `gpu_ids` are checked against a validated `list_gpus()` response; an explicit empty `gpu_ids` list is invalid, an empty validated GPU listing is `503`, and malformed listing payloads are structured `500` errors before any session starts. |
 | `/api/sessions` | DELETE | Stop all sessions; returns `stopped`, `timed_out`, `failed`, and `errors`. |
 | `/api/sessions/{job_id}` | DELETE | Stop one session; returns `stopped`, `timed_out`, `failed`, and `errors`. |
-| `/rpc` | POST | Exact JSON-RPC compatibility endpoint; noncanonical `/rpc` URLs, including encoded exact aliases, return structured `404` errors. |
+| `/rpc` | POST | Exact JSON-RPC compatibility endpoint; noncanonical `/rpc` URLs, including leading `//rpc` and encoded exact aliases, return structured `404` errors. |
 | `/` | GET | Dashboard UI. |
 
 ## Environment variables
