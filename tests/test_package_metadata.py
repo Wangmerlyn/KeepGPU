@@ -107,10 +107,15 @@ def test_readme_stays_a_compact_front_door():
     readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
     normalized_readme = readme.lower()
     lines = [line for line in readme.splitlines() if line.strip()]
+    badge_lines = [line for line in readme.splitlines() if line.startswith("[![")]
 
     assert readme.startswith("# KeepGPU\n")
-    assert len(lines) <= 20
-    assert readme.count("[![") <= 2
+    assert len(lines) <= 21
+    assert badge_lines == [
+        "[![PyPI Version](https://img.shields.io/pypi/v/keep-gpu.svg)](https://pypi.python.org/pypi/keep-gpu)",
+        "[![Docs Status](https://readthedocs.org/projects/keepgpu/badge/?version=latest)](https://keepgpu.readthedocs.io/en/latest/?version=latest)",
+        "[![DOI](https://zenodo.org/badge/987167271.svg)](https://doi.org/10.5281/zenodo.17129114)",
+    ]
     assert "## choose an interface" not in normalized_readme
     assert "| need | start here |" not in normalized_readme
     assert "cuda" in normalized_readme
@@ -135,7 +140,6 @@ def test_readme_stays_a_compact_front_door():
     assert "rest endpoint" not in normalized_readme
     assert "```bibtex" not in normalized_readme
     assert "skillcheck" not in normalized_readme
-    assert "zenodo.org/badge" not in normalized_readme
     assert not re.search(r"\]\(\.?\.?/?docs/", readme)
     assert "https://keepgpu.readthedocs.io/en/latest/" in readme
     assert "https://keepgpu.readthedocs.io/en/latest/getting-started/" in readme
