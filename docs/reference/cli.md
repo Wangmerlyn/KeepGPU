@@ -150,14 +150,15 @@ reported as JSON errors before RPC.
 Stops the ownership-verified local daemon process created by auto-start logic.
 Invalid endpoint values are rejected locally before service checks or
 ownership-verified stop operations. Non-force shutdown requires the service to
-be reachable, `stop_keep` to report no stopped, timed-out, or failed sessions,
-and a final status check to show no active sessions before the daemon process is
-signaled. Malformed PID records with float or boolean numeric identity values
-are ignored rather than coerced before signaling. Auto-start cleans up and fails
-if it cannot create a trustworthy ownership record for the daemon it just
-spawned. On systems without `/proc`, KeepGPU may recover daemon identity from
-platform process metadata, but it still signals only when recovered identity is
-known and exactly matches the stored ownership record.
+be reachable, `stop_keep` to report no stopped, timed-out, or failed sessions
+and no non-empty message, and a final status check to show no active sessions
+before the daemon process is signaled. Malformed PID records with float or
+boolean numeric identity values are ignored rather than coerced before
+signaling. Auto-start cleans up and fails if it cannot create a trustworthy
+ownership record for the daemon it just spawned. On systems without `/proc`,
+KeepGPU may recover daemon identity from platform process metadata, but it still
+signals only when recovered identity is known and exactly matches the stored
+ownership record.
 
 | Option | Description |
 | --- | --- |

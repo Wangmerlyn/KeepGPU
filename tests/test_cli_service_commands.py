@@ -2553,6 +2553,50 @@ def test_service_stop_rejects_incomplete_stop_keep_before_stopping_daemon(
     assert "Traceback" not in result.output
 
 
+@pytest.mark.parametrize(
+    ("message", "expected_fragment"),
+    [
+        (
+            "Timed out while stopping some sessions.",
+            "Timed out while stopping some sessions.",
+        ),
+        (" ", "' '"),
+    ],
+)
+def test_service_stop_rejects_stop_keep_message_before_stopping_daemon(
+    monkeypatch, message, expected_fragment
+):
+    calls = {"stop_process": 0}
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        if method == "status":
+            return {"active_jobs": []}
+        if method == "stop_keep":
+            return {
+                "stopped": [],
+                "timed_out": [],
+                "failed": [],
+                "errors": {},
+                "message": message,
+            }
+        raise AssertionError(f"unexpected method {method}")
+
+    def fake_stop_process(host, port):
+        calls["stop_process"] += 1
+        return True
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop_process)
+
+    result = runner.invoke(cli.app, ["service-stop"])
+
+    assert result.exit_code == 1
+    assert expected_fragment in result.output
+    assert "service-stop --force" in result.output
+    assert calls["stop_process"] == 0
+    assert "Traceback" not in result.output
+
+
 def test_service_stop_rejects_newly_stopped_session_before_stopping_daemon(
     monkeypatch,
 ):
