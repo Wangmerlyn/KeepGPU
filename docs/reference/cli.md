@@ -173,8 +173,9 @@ The dashboard consumes those JSON objects and displays `error.message` when it i
 present, falling back to the plain response body or HTTP status only when needed.
 Direct JSON-RPC service calls report the same expected hardware/platform
 startup-unavailable conditions, including failed CUDA/ROCm visible-device
-enumeration, with error code `-32000`; arbitrary runtime failures remain
-`-32603 Internal error`. CLI service commands send explicit JSON-RPC 2.0
+enumeration and unavailable PyTorch MPS backends, with error code `-32000`;
+arbitrary runtime failures remain `-32603 Internal error`. CLI service commands
+send explicit JSON-RPC 2.0
 request envelopes to `/rpc`; omitted-version direct calls are retained only for
 legacy local scripts.
 

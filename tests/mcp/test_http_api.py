@@ -15,6 +15,7 @@ from keep_gpu.mcp.server import (
     SessionStartupUnavailable,
     _JSONRPCHandler,
 )
+from keep_gpu.utilities import platform_manager as pm
 from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableError
 
 
@@ -2047,6 +2048,37 @@ def test_http_post_sessions_startup_unavailable_returns_json_503(monkeypatch):
 
     assert status_code == 503
     assert payload["error"]["message"] == "No usable GPUs are available"
+    assert payload["error"]["type"] == "SessionStartupUnavailable"
+
+
+def test_http_post_sessions_unavailable_mps_returns_json_503(monkeypatch):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.MACM)
+
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    monkeypatch.setattr(
+        macm_module.torch.backends.mps,
+        "is_available",
+        lambda: False,
+    )
+
+    server = KeepGPUServer()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {"job_id": "mps-unavailable"},
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status_code == 503
+    assert payload["error"]["message"] == "PyTorch MPS backend is not available"
     assert payload["error"]["type"] == "SessionStartupUnavailable"
 
 
