@@ -86,9 +86,11 @@ understand the minimum knobs you need to keep a GPU occupied.
 
 2. Run the CLI in dry form (press `Ctrl+C` after a few seconds):
    ```bash
-   keep-gpu --interval 30 --vram 512MB
+   keep-gpu --gpu-ids 0 --interval 30 --vram 512MB
    ```
-   On CUDA or ROCm, you should see Rich logs showing the GPUs being kept awake.
+   This keeps the sanity check on visible GPU `0`; omit `--gpu-ids` only when
+   you intentionally want all visible GPUs. On CUDA or ROCm, you should see Rich
+   logs showing the GPUs being kept awake.
    Mac M series utilization telemetry is unavailable, so the default
    non-negative `busy_threshold` backs off instead of allocating keep tensors or
    running MPS compute. Use `--busy-threshold -1` only when you intentionally

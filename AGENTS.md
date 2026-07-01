@@ -49,6 +49,9 @@ This file defines how coding agents should work in this repository.
   not in README. Keep `docs/citation.md` aligned with the current Zenodo
   concept DOI metadata. Avoid badge clutter; keep badges to PyPI, docs status,
   and the Zenodo DOI badge.
+- First-run CLI examples in `README.md` and `docs/getting-started.md` should
+  prefer explicit `--gpu-ids 0` unless the text is intentionally demonstrating
+  the all-visible-GPUs default.
 - Avoid placing new project-specific documentation in the root directory; keep only canonical top-level docs (for example, `AGENTS.md`, `README.md`) at root.
 
 ### Quality Bar
