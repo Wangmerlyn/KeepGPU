@@ -111,7 +111,11 @@ This file defines how coding agents should work in this repository.
   making KeepGPU sound CUDA-only or treating MCP as experimental. Mac M/MPS docs
   must also explain that utilization telemetry is unavailable, so users need
   `busy_threshold=-1` only when they intentionally want unconditional MPS
-  keepalive work.
+  keepalive work. Public overview docs must not imply unconditional allocation
+  under the default eco-safe backoff; describe allocation and keepalive compute
+  as running only when utilization backoff permits, with the loop backing off
+  when telemetry is unavailable unless users explicitly choose
+  `busy_threshold=-1`.
 - Keep the MCP server compatible with standard MCP lifecycle/tool methods
   (`initialize`, `notifications/initialized`, `tools/list`, `tools/call`) while
   preserving legacy direct JSON-RPC method calls for local scripts.

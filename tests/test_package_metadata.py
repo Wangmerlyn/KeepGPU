@@ -202,6 +202,21 @@ def test_public_docs_do_not_regress_to_cuda_only_or_experimental_mcp():
     assert "--busy-threshold -1" in public_docs["getting_started"]
 
 
+def test_index_overview_describes_eco_safe_backoff_without_unconditional_claims():
+    index = (PROJECT_ROOT / "docs/index.md").read_text(encoding="utf-8")
+    normalized_index = re.sub(r"\s+", " ", index.lower())
+
+    assert "continuously allocates" not in normalized_index
+    assert "always looks" not in normalized_index
+    assert re.search(
+        r"(?:utilization )?telemetry is unavailable.*back(?:s)? off"
+        r"|back(?:s)? off.*(?:utilization )?telemetry is unavailable",
+        normalized_index,
+    )
+    assert "--busy-threshold -1" in normalized_index
+    assert "unconditional" in normalized_index
+
+
 def test_rest_session_docs_distinguish_empty_gpu_ids_from_empty_listing():
     public_docs = {
         "cli_reference": (PROJECT_ROOT / "docs/reference/cli.md").read_text(

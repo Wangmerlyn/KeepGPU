@@ -1,11 +1,12 @@
 # KeepGPU
 
-> Keep a GPU busy so the scheduler, lab mate, or cluster watchdog does not take it away.
+> Hold a GPU reservation politely while the scheduler, lab mate, or cluster watchdog waits.
 
-KeepGPU is a tiny-but-focused toolkit that continuously allocates VRAM and launches
-low-cost platform-specific keep-alive work so that a GPU always looks “in use.”
-You can run it as a CLI while you prep data, or embed the controllers directly
-in Python to guard resources during longer CPU-bound sections of your workflow.
+KeepGPU is a tiny-but-focused toolkit that allocates memory and runs low-cost
+platform-specific keep-alive work when utilization backoff permits. When
+utilization telemetry is unavailable, the default loop backs off and sleeps
+instead of forcing compute; `--busy-threshold -1` is the explicit unconditional
+keepalive mode, especially on Mac M/MPS.
 
 ## Why it matters
 
