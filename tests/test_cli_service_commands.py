@@ -2193,6 +2193,119 @@ def test_process_uid_returns_none_when_target_uid_is_unknown(monkeypatch):
     assert cli._process_uid(4321) is None
 
 
+def test_process_start_identity_uses_ps_when_proc_stat_is_unavailable(monkeypatch):
+    class MissingProcStatPath:
+        def __init__(self, _path):
+            pass
+
+        def exists(self):
+            return False
+
+    calls = []
+
+    def fake_check_output(args, **kwargs):
+        calls.append((args, kwargs))
+        return "Wed Jul  1 05:00:00 2026\n"
+
+    monkeypatch.setattr(cli, "Path", MissingProcStatPath)
+    monkeypatch.setattr(cli.subprocess, "check_output", fake_check_output)
+
+    assert cli._process_start_identity(4321) == "Wed Jul  1 05:00:00 2026"
+    assert calls == [
+        (
+            ["ps", "-p", "4321", "-o", "lstart="],
+            {"text": True},
+        )
+    ]
+
+
+@pytest.mark.parametrize("ps_output", ["\n", "   \n"])
+def test_process_start_identity_returns_none_for_empty_ps_output(
+    monkeypatch, ps_output
+):
+    class MissingProcStatPath:
+        def __init__(self, _path):
+            pass
+
+        def exists(self):
+            return False
+
+    monkeypatch.setattr(cli, "Path", MissingProcStatPath)
+    monkeypatch.setattr(
+        cli.subprocess,
+        "check_output",
+        lambda *args, **kwargs: ps_output,
+    )
+
+    assert cli._process_start_identity(4321) is None
+
+
+def test_process_start_identity_returns_none_when_target_start_time_is_unknown(
+    monkeypatch,
+):
+    class MissingProcStatPath:
+        def __init__(self, _path):
+            pass
+
+        def exists(self):
+            return False
+
+    monkeypatch.setattr(cli, "Path", MissingProcStatPath)
+    monkeypatch.setattr(
+        cli.subprocess,
+        "check_output",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("ps failed")),
+    )
+
+    assert cli._process_start_identity(4321) is None
+
+
+def test_stop_service_process_uses_ps_start_identity_when_proc_is_unavailable(
+    monkeypatch, tmp_path
+):
+    class MissingProcPath:
+        def __init__(self, _path):
+            pass
+
+        def exists(self):
+            return False
+
+        def stat(self):
+            raise OSError("no proc")
+
+    def fake_check_output(args, **kwargs):
+        if args == ["ps", "-p", "4321", "-o", "uid="]:
+            return "1001\n"
+        if args == ["ps", "-p", "4321", "-o", "lstart="]:
+            return "Wed Jul  1 05:00:00 2026\n"
+        raise AssertionError(f"unexpected ps command: {args!r}")
+
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli, "Path", MissingProcPath)
+    monkeypatch.setattr(cli.subprocess, "check_output", fake_check_output)
+    monkeypatch.setattr(
+        cli, "_process_cmdline", lambda pid: cli._service_command("127.0.0.1", 8765)
+    )
+
+    cli._write_service_pid("127.0.0.1", 8765, 4321)
+
+    alive = {"value": True}
+    kills = []
+
+    def fake_kill(pid, sig):
+        kills.append((pid, sig))
+        alive["value"] = False
+
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: alive["value"])
+    monkeypatch.setattr(cli.os, "kill", fake_kill)
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0.5)
+
+    assert stopped is True
+    assert kills == [(4321, cli.signal.SIGTERM)]
+    assert not cli._service_pid_path("127.0.0.1", 8765).exists()
+
+
 def test_stop_service_process_requires_structured_ownership_record(
     monkeypatch, tmp_path
 ):
@@ -2255,6 +2368,53 @@ def test_stop_service_process_rejects_coerced_ownership_record_numbers(
 
     assert stopped is False
     assert kills == []
+
+
+@pytest.mark.parametrize(
+    ("recorded_uid", "current_uid", "recorded_start", "current_start"),
+    [
+        (1000.0, 1000, "12345", "12345"),
+        (True, 1, "12345", "12345"),
+        (1000, 1000, "", ""),
+        (1000, 1000, 12345, 12345),
+        (1000, 1000, True, True),
+    ],
+)
+def test_stop_service_process_rejects_malformed_identity_record_components(
+    monkeypatch,
+    tmp_path,
+    recorded_uid,
+    current_uid,
+    recorded_start,
+    current_start,
+):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    payload = {
+        "pid": 4321,
+        "host": "127.0.0.1",
+        "port": 8765,
+        "argv": cli._service_command("127.0.0.1", 8765),
+        "uid": recorded_uid,
+        "start_time": recorded_start,
+    }
+    cli._service_pid_path("127.0.0.1", 8765).write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        cli, "_process_cmdline", lambda pid: cli._service_command("127.0.0.1", 8765)
+    )
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: current_uid)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: current_start)
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
+
+    kills = []
+    monkeypatch.setattr(cli.os, "kill", lambda pid, sig: kills.append((pid, sig)))
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0)
+
+    assert stopped is False
+    assert kills == []
+    assert not cli._service_pid_path("127.0.0.1", 8765).exists()
 
 
 @pytest.mark.parametrize("invalid_port", [0, -1])

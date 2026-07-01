@@ -79,8 +79,10 @@ keep-gpu service-stop
 If sessions are still active, timed out, or failed to stop cleanly, resolve them
 first or use `--force`. Force mode skips the session RPC checks, but it still
 stops only an ownership-verified daemon that KeepGPU auto-started. Malformed
-PID records, including float or boolean PID/port values, are ignored instead of
-being coerced into a process signal target.
+PID records, including float or boolean numeric identity values, are ignored
+instead of being coerced into a process signal target. On systems without
+`/proc`, KeepGPU may recover daemon identity from platform process metadata, but
+unknown identity still refuses to signal.
 
 ### List telemetry
 
@@ -170,6 +172,6 @@ of `keep-gpu status`.
   KeepGPU does not rewrite visibility masks in blocking mode. In service mode,
   ordinals are interpreted in the already-running service process environment.
 - **Start cannot reach service**: run `keep-gpu serve --host 127.0.0.1 --port 8765`.
-- **Need to close background service**: run `keep-gpu stop --all` first, then `keep-gpu service-stop`. Use `keep-gpu service-stop --force` only for an unresponsive auto-started daemon; it still refuses to signal a PID that KeepGPU cannot verify as its own.
+- **Need to close background service**: run `keep-gpu stop --all` first, then `keep-gpu service-stop`. Use `keep-gpu service-stop --force` only for an unresponsive auto-started daemon; it still refuses to signal a PID whose identity cannot be verified or recovered as KeepGPU-owned.
 - **OOM during keep**: reduce `--vram` or free GPU memory before starting.
 - **No utilization data**: on CUDA, ensure `nvidia-ml-py`/`pynvml` can initialize NVML; `nvidia-smi` can help sanity-check the driver outside KeepGPU. Malformed, duplicate/equivalent, or ambiguous `CUDA_VISIBLE_DEVICES` masks are reported as unavailable utilization rather than guessed. On ROCm, ensure the ROCm/system stack provides `rocm_smi` and avoid conflicting `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` masks; KeepGPU handles missing `rocm_smi` gracefully. ROCm telemetry resolves visible ranks through `ROCR_VISIBLE_DEVICES` plus one HIP/CUDA overlay and reports unavailable utilization rather than guessing when the mapping is malformed or ambiguous. Valid `busy_threshold` values are `-1` or `0..100`, and omitted CLI values default to `25`. With non-negative `busy_threshold`, KeepGPU sleeps before allocation or compute when utilization is unavailable. On Mac M series, utilization is expected to be `null`, so use `--busy-threshold -1` only when you intentionally want unconditional keepalive compute.

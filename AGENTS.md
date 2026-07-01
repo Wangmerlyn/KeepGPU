@@ -210,7 +210,10 @@ This file defines how coding agents should work in this repository.
 - CLI service daemon ownership checks must require known PID identity
   components. A PID record with `uid` or `start_time` missing or `null`, or a
   current process probe that cannot recover either value, is not ownership
-  verified and must not be signaled as a managed daemon.
+  verified and must not be signaled as a managed daemon. Process probes should
+  use guarded platform fallbacks when `/proc` is unavailable, but only known
+  matching identity values may authorize a signal; UID must be a plain integer
+  and start identity must be a non-empty string.
 - MCP executable HTTP endpoint inputs (`--host`, `--port`) must be validated
   before socket bind, matching the CLI service endpoint contract. The MCP
   argparse layer must pass raw `--port` values to the shared validator so
@@ -299,7 +302,7 @@ This file defines how coding agents should work in this repository.
 - Single-GPU `keep()` must reject a restart while a previous worker thread is
   still alive with its stop event already set; returning success in that state
   hides a stopping keeper as if a fresh keep succeeded.
-- Keep service daemon ownership safe: no stop, force-stop, or fallback path may signal a PID unless the auto-start ownership record verifies the running process. PID records must store exact plain JSON integer `pid` and `port` values; lossy numeric coercions such as floats or booleans are not ownership-verified.
+- Keep service daemon ownership safe: no stop, force-stop, or fallback path may signal a PID unless the auto-start ownership record verifies the running process. PID records must store exact plain JSON integer `pid`, `port`, and `uid` values plus a non-empty string `start_time`; lossy numeric coercions such as floats or booleans are not ownership-verified. Non-`/proc` process metadata fallbacks are allowed only when they recover known UID and start-identity values.
 - Non-force `keep-gpu service-stop` must require a reachable service, successful status/RPC checks, and a clean `stop_keep` result with no timed-out or failed sessions before signaling; use `--force` for unresponsive auto-started daemons.
 - Treat custom `job_id` values as reserved from the moment startup begins; duplicate starts must fail before another controller can begin keep-alive work.
 - Keep custom `job_id` validation centralized in `session_config.py`: only `None` means omitted/all-sessions, and custom IDs must be non-empty URL-path-safe strings before any session state changes.
