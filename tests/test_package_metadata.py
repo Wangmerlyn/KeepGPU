@@ -209,8 +209,8 @@ def test_index_overview_describes_eco_safe_backoff_without_unconditional_claims(
     assert "continuously allocates" not in normalized_index
     assert "always looks" not in normalized_index
     assert re.search(
-        r"(?:utilization )?telemetry is unavailable.*back(?:s)? off"
-        r"|back(?:s)? off.*(?:utilization )?telemetry is unavailable",
+        r"(?:utilization )?telemetry is unavailable.*back(?:s|ing)?\s*-?\s*off"
+        r"|back(?:s|ing)?\s*-?\s*off.*(?:utilization )?telemetry is unavailable",
         normalized_index,
     )
     assert "--busy-threshold -1" in normalized_index
