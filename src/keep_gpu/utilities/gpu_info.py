@@ -11,6 +11,9 @@ from keep_gpu.utilities.cuda_visibility import (
     lookup_nvml_uuid_handle,
 )
 from keep_gpu.utilities.logger import setup_logger
+from keep_gpu.utilities.platform_manager import (
+    DeviceEnumerationUnavailableError,
+)
 from keep_gpu.utilities.rocm_visibility import (
     resolve_rocm_visible_rank_to_smi_index,
     rocm_monitor_device_count,
@@ -20,17 +23,36 @@ from keep_gpu.utilities.session_config import normalize_utilization_percent
 logger = setup_logger(__name__)
 
 
+def _visible_torch_device_count() -> int:
+    try:
+        return int(torch.cuda.device_count())
+    except Exception as exc:
+        raise DeviceEnumerationUnavailableError(
+            f"Unable to enumerate visible GPUs: {exc}"
+        ) from exc
+
+
+def _torch_cuda_current_device() -> int:
+    try:
+        return int(torch.cuda.current_device())
+    except Exception as exc:
+        raise DeviceEnumerationUnavailableError(
+            f"Unable to enumerate visible GPUs: {exc}"
+        ) from exc
+
+
 def _torch_cuda_visible_count() -> Optional[int]:
     cuda = getattr(torch, "cuda", None)
     if cuda is None:
         return None
     try:
-        if not cuda.is_available():
-            return 0
-        count = int(cuda.device_count())
+        available = bool(cuda.is_available())
     except Exception as exc:
-        logger.debug("Torch CUDA visible count failed: %s", exc)
+        logger.debug("Torch CUDA availability query failed: %s", exc)
         return None
+    if not available:
+        return 0
+    count = _visible_torch_device_count()
     if count < 0:
         return None
     return count
@@ -43,14 +65,12 @@ def _torch_cuda_visible_ordinals_startable(count: int) -> bool:
 
     current_device = None
     try:
-        try:
-            current_device = int(cuda.current_device())
-        except Exception as exc:
-            logger.debug("Torch CUDA current device query failed: %s", exc)
-
+        current_device = _torch_cuda_current_device()
         for idx in range(count):
             cuda.set_device(idx)
         return True
+    except DeviceEnumerationUnavailableError:
+        raise
     except Exception as exc:
         logger.debug("Torch CUDA visible ordinal probe failed: %s", exc)
         return False
@@ -221,10 +241,15 @@ def _query_rocm() -> List[Dict[str, Any]]:
     try:
         rocm_smi.rsmi_init()
         monitor_count = rocm_monitor_device_count(rocm_smi)
-        if torch.cuda.is_available():
-            current_device = torch.cuda.current_device()
+        try:
+            cuda_available = bool(torch.cuda.is_available())
+        except Exception as exc:
+            logger.debug("Torch ROCm availability query failed: %s", exc)
+            cuda_available = False
+        if cuda_available:
+            current_device = _torch_cuda_current_device()
         # Use torch to enumerate devices for names/memory
-        count = torch.cuda.device_count() if torch.cuda.is_available() else 0
+        count = _visible_torch_device_count() if cuda_available else 0
         for idx in range(count):
             try:
                 torch.cuda.set_device(idx)
@@ -284,11 +309,15 @@ def _query_rocm() -> List[Dict[str, Any]]:
 
 def _query_torch() -> List[Dict[str, Any]]:
     infos: List[Dict[str, Any]] = []
-    if not torch.cuda.is_available():
-        return infos
-    current_device = torch.cuda.current_device()
     try:
-        count = torch.cuda.device_count()
+        if not torch.cuda.is_available():
+            return infos
+    except Exception as exc:
+        logger.debug("Torch CUDA availability query failed: %s", exc)
+        return infos
+    current_device = _torch_cuda_current_device()
+    try:
+        count = _visible_torch_device_count()
         for idx in range(count):
             torch.cuda.set_device(idx)
             try:
@@ -315,6 +344,8 @@ def _query_torch() -> List[Dict[str, Any]]:
                     "utilization": None,
                 }
             )
+    except DeviceEnumerationUnavailableError:
+        raise
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug("Torch GPU info failed: %s", exc)
     finally:
@@ -379,12 +410,16 @@ def get_gpu_info() -> List[Dict[str, Any]]:
             infos = _query_rocm()
             if infos:
                 return infos
+        except DeviceEnumerationUnavailableError:
+            raise
         except Exception as exc:
             logger.debug("ROCm info failed: %s", exc)
         try:
             infos = _query_torch()
             if infos:
                 return infos
+        except DeviceEnumerationUnavailableError:
+            raise
         except Exception as exc:
             logger.debug("Torch GPU info failed: %s", exc)
         return _query_mps()
@@ -395,6 +430,8 @@ def get_gpu_info() -> List[Dict[str, Any]]:
         infos, nvml_allows_torch_fallback = _query_nvml()
         if infos:
             return infos
+    except DeviceEnumerationUnavailableError:
+        raise
     except Exception as exc:
         logger.debug("NVML info failed: %s", exc)
 
@@ -403,6 +440,8 @@ def get_gpu_info() -> List[Dict[str, Any]]:
             infos = _query_torch()
             if infos:
                 return infos
+        except DeviceEnumerationUnavailableError:
+            raise
         except Exception as exc:
             logger.debug("Torch GPU info failed: %s", exc)
 

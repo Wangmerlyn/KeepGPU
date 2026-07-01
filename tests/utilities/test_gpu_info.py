@@ -5,6 +5,7 @@ import sys
 import pytest
 
 from keep_gpu.utilities import gpu_info
+from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableError
 
 OVERSIZED_NUMERIC_TOKEN = "9" * 100
 
@@ -77,22 +78,33 @@ class DummyTorchCudaROCm:
         self,
         count: int = 2,
         *,
+        available_error: Exception | None = None,
+        current_device_error: Exception | None = None,
+        device_count_error: Exception | None = None,
         set_device_errors: "dict[int, Exception] | None" = None,
     ):
         self.count = count
+        self.available_error = available_error
+        self.current_device_error = current_device_error
+        self.device_count_error = device_count_error
         self.current = 0
         self.set_device_attempts: list[int] = []
         self.set_devices: list[int] = []
         self.set_device_errors = set_device_errors or {}
 
-    @staticmethod
-    def is_available():
+    def is_available(self):
+        if self.available_error is not None:
+            raise self.available_error
         return True
 
     def current_device(self):
+        if self.current_device_error is not None:
+            raise self.current_device_error
         return self.current
 
     def device_count(self):
+        if self.device_count_error is not None:
+            raise self.device_count_error
         return self.count
 
     def set_device(self, idx):
@@ -117,20 +129,28 @@ class DummyTorchCudaCUDA:
         count: int = 1,
         *,
         available: bool = True,
+        available_error: Exception | None = None,
+        current_device_error: Exception | None = None,
         device_count_error: Exception | None = None,
         set_device_error: Exception | None = None,
     ):
         self.count = count
         self.available = available
+        self.available_error = available_error
+        self.current_device_error = current_device_error
         self.device_count_error = device_count_error
         self.set_device_error = set_device_error
         self.current = 0
         self.set_devices: list[int] = []
 
     def is_available(self):
+        if self.available_error is not None:
+            raise self.available_error
         return self.available
 
     def current_device(self):
+        if self.current_device_error is not None:
+            raise self.current_device_error
         return self.current
 
     def device_count(self):
@@ -179,6 +199,9 @@ def _install_rocm_gpu_info_mocks(
     monkeypatch,
     *,
     count: int = 2,
+    available_error: Exception | None = None,
+    current_device_error: Exception | None = None,
+    device_count_error: Exception | None = None,
     util_by_index: dict[int, int] | None = None,
     smi_count: int = 8,
     set_device_errors: "dict[int, Exception] | None" = None,
@@ -189,6 +212,9 @@ def _install_rocm_gpu_info_mocks(
 
     dummy_cuda = DummyTorchCudaROCm(
         count=count,
+        available_error=available_error,
+        current_device_error=current_device_error,
+        device_count_error=device_count_error,
         set_device_errors=set_device_errors,
     )
     dummy_torch = type(
@@ -217,6 +243,8 @@ def _install_cuda_gpu_info_mocks(
     *,
     count: int = 1,
     available: bool = True,
+    available_error: Exception | None = None,
+    current_device_error: Exception | None = None,
     device_count_error: Exception | None = None,
     set_device_error: Exception | None = None,
     has_version: bool = True,
@@ -225,6 +253,8 @@ def _install_cuda_gpu_info_mocks(
     dummy_cuda = DummyTorchCudaCUDA(
         count=count,
         available=available,
+        available_error=available_error,
+        current_device_error=current_device_error,
         device_count_error=device_count_error,
         set_device_error=set_device_error,
     )
@@ -765,7 +795,7 @@ def test_get_gpu_info_cuda_nvml_hides_devices_when_torch_count_is_zero(monkeypat
     assert dummy_nvml.shutdown_calls == 1
 
 
-def test_get_gpu_info_cuda_nvml_hides_devices_when_torch_count_fails(monkeypatch):
+def test_get_gpu_info_cuda_nvml_raises_when_torch_count_fails(monkeypatch):
     dummy_nvml = MultiGPUDummyNVML(count=1)
     monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
     _install_cuda_gpu_info_mocks(
@@ -773,9 +803,99 @@ def test_get_gpu_info_cuda_nvml_hides_devices_when_torch_count_fails(monkeypatch
         device_count_error=RuntimeError("cuda runtime unavailable"),
     )
 
-    assert gpu_info.get_gpu_info() == []
+    with pytest.raises(
+        DeviceEnumerationUnavailableError,
+        match="Unable to enumerate visible GPUs: cuda runtime unavailable",
+    ):
+        gpu_info.get_gpu_info()
     assert dummy_nvml.queried_indexes == []
     assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_cuda_nvml_raises_when_torch_current_device_fails(monkeypatch):
+    dummy_nvml = MultiGPUDummyNVML(count=1)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(
+        monkeypatch,
+        current_device_error=RuntimeError("cuda current device unavailable"),
+    )
+
+    with pytest.raises(
+        DeviceEnumerationUnavailableError,
+        match="Unable to enumerate visible GPUs: cuda current device unavailable",
+    ):
+        gpu_info.get_gpu_info()
+    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_rocm_raises_when_torch_count_fails(monkeypatch):
+    dummy_rocm, _ = _install_rocm_gpu_info_mocks(
+        monkeypatch,
+        device_count_error=RuntimeError("rocm runtime unavailable"),
+    )
+
+    with pytest.raises(
+        DeviceEnumerationUnavailableError,
+        match="Unable to enumerate visible GPUs: rocm runtime unavailable",
+    ):
+        gpu_info.get_gpu_info()
+    assert dummy_rocm.queried_indexes == []
+    assert dummy_rocm.shutdown_calls == 1
+
+
+def test_get_gpu_info_rocm_returns_empty_when_torch_availability_fails(monkeypatch):
+    dummy_rocm, _ = _install_rocm_gpu_info_mocks(
+        monkeypatch,
+        available_error=RuntimeError("rocm availability unavailable"),
+    )
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_rocm.queried_indexes == []
+    assert dummy_rocm.shutdown_calls == 1
+
+
+def test_get_gpu_info_rocm_raises_when_torch_current_device_fails(monkeypatch):
+    dummy_rocm, _ = _install_rocm_gpu_info_mocks(
+        monkeypatch,
+        current_device_error=RuntimeError("rocm current device unavailable"),
+    )
+
+    with pytest.raises(
+        DeviceEnumerationUnavailableError,
+        match="Unable to enumerate visible GPUs: rocm current device unavailable",
+    ):
+        gpu_info.get_gpu_info()
+    assert dummy_rocm.queried_indexes == []
+    assert dummy_rocm.shutdown_calls == 1
+
+
+def test_get_gpu_info_torch_fallback_raises_when_current_device_fails(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    _install_cuda_gpu_info_mocks(
+        monkeypatch,
+        current_device_error=RuntimeError("cuda current device unavailable"),
+    )
+
+    with pytest.raises(
+        DeviceEnumerationUnavailableError,
+        match="Unable to enumerate visible GPUs: cuda current device unavailable",
+    ):
+        gpu_info.get_gpu_info()
+
+
+def test_get_gpu_info_torch_fallback_raises_when_count_fails(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    _install_cuda_gpu_info_mocks(
+        monkeypatch,
+        device_count_error=RuntimeError("cuda fallback count unavailable"),
+    )
+
+    with pytest.raises(
+        DeviceEnumerationUnavailableError,
+        match="Unable to enumerate visible GPUs: cuda fallback count unavailable",
+    ):
+        gpu_info.get_gpu_info()
 
 
 def test_get_gpu_info_cuda_nvml_hides_devices_when_torch_set_device_fails(
