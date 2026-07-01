@@ -217,6 +217,10 @@ This file defines how coding agents should work in this repository.
   the shared URL-path-safe job-id contract. Known nested `status.params` fields
   must match the public session contract while extra fields remain
   forward-compatible.
+- Targeted CLI service commands must reject success payloads for the wrong
+  session: `keep-gpu status --job-id X` requires response `job_id == X`, and
+  `keep-gpu stop --job-id X` requires every `stopped`, `timed_out`, `failed`,
+  and `errors` job id to be `X`.
 - CLI service endpoint inputs (`--host`, `--port`) must be validated locally
   before service RPC, daemon auto-start, stop-all fallback, or daemon ownership
   operations. JSON-output commands must return structured `{"error": "..."}`

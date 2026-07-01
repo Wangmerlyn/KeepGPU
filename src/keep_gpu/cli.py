@@ -780,7 +780,10 @@ def _validate_status_session_record(
 
 
 def _validate_status_result(
-    result: Dict[str, Any], *, single_job: bool
+    result: Dict[str, Any],
+    *,
+    single_job: bool,
+    expected_job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     if single_job:
         if not isinstance(result.get("active"), bool):
@@ -791,6 +794,10 @@ def _validate_status_result(
             _validate_status_session_record(result, "status", "result")
         else:
             _validate_result_job_id(result["job_id"], "status", "job_id")
+        if expected_job_id is not None and result["job_id"] != expected_job_id:
+            raise _malformed_method_result(
+                "status", "result.job_id must match requested job_id"
+            )
     else:
         active_jobs = _require_list_field(result, "active_jobs", "status")
         for index, active_job in enumerate(active_jobs):
@@ -804,7 +811,9 @@ def _validate_status_result(
     return result
 
 
-def _validate_stop_keep_result(result: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_stop_keep_result(
+    result: Dict[str, Any], *, expected_job_id: Optional[str] = None
+) -> Dict[str, Any]:
     outcomes: Dict[str, List[str]] = {}
     seen_jobs: Dict[str, str] = {}
     for field in ("stopped", "timed_out", "failed"):
@@ -843,6 +852,12 @@ def _validate_stop_keep_result(result: Dict[str, Any]) -> Dict[str, Any]:
         raise _malformed_method_result(
             "stop_keep", "errors keys must match failed job ids"
         )
+    if expected_job_id is not None:
+        outcome_jobs = set(seen_jobs)
+        if any(job_id != expected_job_id for job_id in outcome_jobs | error_jobs):
+            raise _malformed_method_result(
+                "stop_keep", "outcome job ids must match requested job_id"
+            )
     message = result.get("message")
     if "message" in result and not isinstance(message, str):
         raise _malformed_method_result("stop_keep", "message must be a string")
@@ -1240,7 +1255,11 @@ def status(
             host,
             port,
         )
-        result = _validate_status_result(result, single_job=job_id is not None)
+        result = _validate_status_result(
+            result,
+            single_job=job_id is not None,
+            expected_job_id=job_id,
+        )
         _print_machine_json(result)
     except (RuntimeError, typer.BadParameter) as exc:
         _print_machine_json({"error": str(exc)})
@@ -1283,7 +1302,7 @@ def stop(
                 port,
                 timeout=45.0,
             )
-            result = _validate_stop_keep_result(result)
+            result = _validate_stop_keep_result(result, expected_job_id=job_id)
         _print_machine_json(result)
     except (RuntimeError, typer.BadParameter) as exc:
         _print_machine_json({"error": str(exc)})

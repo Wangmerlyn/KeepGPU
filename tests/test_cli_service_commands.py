@@ -1126,6 +1126,36 @@ def test_status_job_allows_inactive_payload_without_session_fields(monkeypatch):
     assert payload == {"active": False, "job_id": "missing-job"}
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"active": False, "job_id": "other-job"},
+        {
+            "active": True,
+            "job_id": "other-job",
+            "params": {},
+            "state": "active",
+            "last_error": None,
+        },
+    ],
+)
+def test_status_job_rejects_mismatched_job_id_result(monkeypatch, payload):
+    def fake_rpc(method, params, host, port):
+        assert method == "status"
+        assert params == {"job_id": "job-1"}
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["status", "--job-id", "job-1"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed status response" in decoded["error"]
+    assert "result.job_id must match requested job_id" in decoded["error"]
+    assert "Traceback" not in result.output
+
+
 def test_stop_job_outputs_single_decoded_json_object(monkeypatch):
     def fake_rpc(method, params, host, port, timeout=8.0):
         assert method == "stop_keep"
@@ -1140,6 +1170,53 @@ def test_stop_job_outputs_single_decoded_json_object(monkeypatch):
     assert result.exit_code == 0
     payload = _single_decoded_json_object(result.output)
     assert payload["stopped"] == ["job-1"]
+
+
+def test_stop_job_allows_empty_not_found_result(monkeypatch):
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        assert method == "stop_keep"
+        assert params == {"job_id": "missing-job"}
+        assert timeout == 45.0
+        return {"stopped": [], "timed_out": [], "failed": [], "errors": {}}
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["stop", "--job-id", "missing-job"])
+
+    assert result.exit_code == 0
+    payload = _single_decoded_json_object(result.output)
+    assert payload == {"stopped": [], "timed_out": [], "failed": [], "errors": {}}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"stopped": ["other-job"], "timed_out": [], "failed": [], "errors": {}},
+        {"stopped": [], "timed_out": ["other-job"], "failed": [], "errors": {}},
+        {
+            "stopped": [],
+            "timed_out": [],
+            "failed": ["other-job"],
+            "errors": {"other-job": "release failed"},
+        },
+    ],
+)
+def test_stop_job_rejects_mismatched_job_id_result(monkeypatch, payload):
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        assert method == "stop_keep"
+        assert params == {"job_id": "job-1"}
+        assert timeout == 45.0
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["stop", "--job-id", "job-1"])
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed stop_keep response" in decoded["error"]
+    assert "outcome job ids must match requested job_id" in decoded["error"]
+    assert "Traceback" not in result.output
 
 
 @pytest.mark.parametrize(
