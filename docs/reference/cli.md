@@ -49,7 +49,11 @@ If `start` auto-starts the service and the service then reports expected
 startup unavailability before creating a session, the CLI best-effort stops the
 just-created daemon instead of leaving it idle.
 The same best-effort cleanup runs when auto-start times out before the service
-passes its health check.
+passes its health check. Auto-start refuses to overwrite an ownership-verified
+live daemon PID record when that daemon's health endpoint is unavailable; inspect
+the service log at
+`~/.keepgpu/service-<host-with-dots-as-underscores>-<port>.log` or run
+`keep-gpu service-stop --force` before retrying.
 
 | Option | Default | Description |
 | --- | --- | --- |

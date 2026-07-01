@@ -82,8 +82,12 @@ stops only an ownership-verified daemon that KeepGPU auto-started. Malformed PID
 records, including float or boolean numeric identity values, are ignored instead
 of being coerced into a process signal target. Auto-start also cleans up and
 fails if it cannot create a trustworthy ownership record for the daemon it just
-spawned. On systems without `/proc`, KeepGPU may recover daemon identity from
-platform process metadata, but unknown identity still refuses to signal.
+spawned. If auto-start finds an ownership-verified live daemon record but the
+health check is unavailable, it refuses to overwrite that record; inspect the
+service log at `~/.keepgpu/service-<host-with-dots-as-underscores>-<port>.log`
+or use `keep-gpu service-stop --force` before trying again. On systems without
+`/proc`, KeepGPU may recover daemon identity from platform process metadata, but
+unknown identity still refuses to signal.
 
 ### List telemetry
 

@@ -317,6 +317,9 @@ This file defines how coding agents should work in this repository.
   still alive with its stop event already set; returning success in that state
   hides a stopping keeper as if a fresh keep succeeded.
 - Keep service daemon ownership safe: no stop, force-stop, or fallback path may signal a PID unless the auto-start ownership record verifies the running process. PID records must store exact plain JSON integer `pid`, `port`, and `uid` values plus a non-empty string `start_time`; lossy numeric coercions such as floats or booleans are not ownership-verified. Non-`/proc` process metadata fallbacks are allowed only when they recover known UID and start-identity values. If auto-start spawns a daemon but cannot write a trustworthy ownership record, it must best-effort terminate that just-spawned process and fail instead of leaving an unmanaged daemon behind.
+- Auto-start must not overwrite the PID record for an ownership-verified live
+  KeepGPU daemon whose health endpoint is unavailable; fail with an actionable
+  message so the user can inspect logs or explicitly force-stop it.
 - Non-force `keep-gpu service-stop` must require a reachable service, successful status/RPC checks, and a clean `stop_keep` result with no timed-out or failed sessions before signaling; use `--force` for unresponsive auto-started daemons.
 - Treat custom `job_id` values as reserved from the moment startup begins; duplicate starts must fail before another controller can begin keep-alive work.
 - Keep custom `job_id` validation centralized in `session_config.py`: only `None` means omitted/all-sessions, and custom IDs must be non-empty URL-path-safe strings before any session state changes.
