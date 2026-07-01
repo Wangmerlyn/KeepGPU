@@ -48,6 +48,8 @@ GPUs; explicit empty or whitespace-only values are invalid.
 If `start` auto-starts the service and the service then reports expected
 startup unavailability before creating a session, the CLI best-effort stops the
 just-created daemon instead of leaving it idle.
+Malformed JSON-RPC service envelopes, including missing or non-string
+`error.message`, are response errors and do not trigger this rollback.
 The same best-effort cleanup runs when auto-start times out before the service
 passes its health check. Auto-start refuses to overwrite an ownership-verified
 live daemon PID record when that daemon's health endpoint is unavailable; inspect
@@ -75,8 +77,8 @@ the service log at
 
 Prints a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
-envelopes and malformed status job records are reported as JSON error objects
-instead of empty success results.
+envelopes, including missing or non-string `error.message`, and malformed status
+job records are reported as JSON error objects instead of empty success results.
 Started sessions with terminal worker allocation/runtime failures remain listed
 as `state="runtime_failed"` with `last_error` and can still be stopped. Normal
 busy-GPU or unavailable-telemetry backoff keeps the session active; it is not a
@@ -104,8 +106,9 @@ later starts.
 in deterministic snapshot order with the same additive response fields.
 The output is a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
-envelopes and malformed stop result records are reported as JSON error objects
-instead of empty success results.
+envelopes, including missing or non-string `error.message`, and malformed stop
+result records are reported as JSON error objects instead of empty success
+results.
 
 ### `keep-gpu list-gpus`
 
@@ -120,9 +123,10 @@ Torch can select; nullable memory fields mean memory telemetry is unavailable
 after selection succeeds. Service/runtime errors after CLI parsing succeeds are
 reported as `{"error": "..."}`. CUDA/ROCm visible-device enumeration failures
 are reported as startup-unavailable errors instead of successful empty GPU
-lists. Malformed JSON-RPC service envelopes are reported as JSON error objects
-instead of empty success results; malformed GPU records are reported the same
-way. `utilization` is either `null` or a finite number from `0` to `100`;
+lists. Malformed JSON-RPC service envelopes, including missing or non-string
+`error.message`, are reported as JSON error objects instead of empty success
+results; malformed GPU records are reported the same way. `utilization` is
+either `null` or a finite number from `0` to `100`;
 out-of-range telemetry is unavailable, not idle.
 Invalid endpoint values, including non-integer or out-of-range ports, are
 reported as JSON errors before RPC.

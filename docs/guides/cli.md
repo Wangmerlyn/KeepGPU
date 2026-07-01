@@ -31,6 +31,9 @@ keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
 If this invocation auto-starts the service but session creation fails with an
 expected startup-unavailable error before a session is created, `start`
 best-effort stops the just-created daemon so it does not remain idle.
+Malformed JSON-RPC service envelopes, including missing or non-string
+`error.message`, are reported as response errors and do not trigger this
+startup-unavailable rollback.
 If auto-start times out before the service becomes healthy, the CLI applies the
 same best-effort cleanup to the daemon it just started.
 
@@ -103,8 +106,9 @@ Torch can select; nullable memory fields mean memory telemetry is unavailable
 after selection succeeds. `status`, `stop`, and `list-gpus` print JSON objects,
 including `{"error": "..."}` for service/runtime errors after CLI parsing
 succeeds, that can be parsed directly with `jq` or a single `json.loads()` call.
-Malformed JSON-RPC service envelopes and malformed method-specific result
-records are reported as JSON error objects instead of empty success results.
+Malformed JSON-RPC service envelopes, including missing or non-string
+`error.message`, and malformed method-specific result records are reported as
+JSON error objects instead of empty success results.
 Utilization values are either `null` or finite percentages from `0` to `100`;
 out-of-range vendor readings are displayed as unavailable telemetry.
 Response IDs must echo the request ID with a valid matching JSON-RPC ID type.

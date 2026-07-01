@@ -1613,6 +1613,28 @@ def test_rpc_call_rejects_error_envelope_with_non_object_error(monkeypatch):
         cli._rpc_call("status", {}, "127.0.0.1", 8765)
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        {"code": -32603},
+        {"code": -32603, "message": None},
+        {"code": -32603, "message": []},
+    ],
+)
+def test_rpc_call_rejects_error_envelope_without_string_message(monkeypatch, error):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {"jsonrpc": "2.0", "id": 1000, "error": error},
+    )
+
+    with pytest.raises(
+        cli.ServiceResponseError, match=re.escape("error.message must be a string")
+    ):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
 def test_rpc_call_rejects_error_envelope_with_null_id(monkeypatch):
     monkeypatch.setattr(cli.time, "time", lambda: 1.0)
     monkeypatch.setattr(
@@ -1993,6 +2015,33 @@ def test_start_does_not_stop_auto_started_service_for_malformed_success_payload(
 
     assert result.exit_code == 1
     assert "start_keep result must include job_id" in result.output
+    assert stopped == []
+
+
+def test_start_does_not_stop_auto_started_service_for_malformed_error_envelope(
+    monkeypatch,
+):
+    stopped = []
+
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: True)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {
+            "jsonrpc": "2.0",
+            "id": 1000,
+            "error": {"code": cli.JSONRPC_STARTUP_UNAVAILABLE, "message": []},
+        },
+    )
+    monkeypatch.setattr(
+        cli, "_stop_service_process", lambda host, port: stopped.append((host, port))
+    )
+
+    result = runner.invoke(cli.app, ["start"])
+
+    assert result.exit_code == 1
+    assert "error.message must be a string" in result.output
     assert stopped == []
 
 
