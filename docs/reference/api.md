@@ -76,6 +76,14 @@ changes.
     options:
       show_source: true
 
+::: keep_gpu.single_gpu_controller.rocm_gpu_controller
+    options:
+      show_source: true
+
+::: keep_gpu.single_gpu_controller.macm_gpu_controller
+    options:
+      show_source: true
+
 ::: keep_gpu.global_gpu_controller.global_gpu_controller
     options:
       show_source: true
