@@ -285,6 +285,10 @@ This file defines how coding agents should work in this repository.
   explicit custom IDs locally before service RPC, stop-all fallback, or daemon
   side effects. Only omitting the option means all-session status or no stop
   target was chosen.
+- `keep-gpu stop --all` daemon fallback may signal an ownership-verified daemon
+  only after typed service transport failures such as `ServiceUnreachableError`;
+  generic application/runtime errors must never be classified by message text
+  such as `timed out`.
 - For CLI `--gpu-ids`, only omission means all visible GPUs; explicit empty or
   whitespace-only values are invalid and must not silently expand to all GPUs.
 - Blocking CLI mode must defer omitted-GPU hardware enumeration to

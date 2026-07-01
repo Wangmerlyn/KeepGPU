@@ -110,6 +110,10 @@ boundary first, waits only for starting jobs in that boundary, and does not stop
 later starts.
 `--all` releases the sessions in its snapshot concurrently and prints results
 in deterministic snapshot order with the same additive response fields.
+If the stop RPC transport is unreachable, `--all` may force-stop an
+ownership-verified local daemon. Application/runtime errors from the service are
+reported as JSON errors and do not trigger daemon stop fallback based on message
+text.
 The output is a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
 envelopes, including missing or non-string `error.message`, and malformed stop
