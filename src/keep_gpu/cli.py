@@ -640,6 +640,7 @@ def _rpc_call(
     timeout: float = 8.0,
 ) -> Dict[str, Any]:
     payload = {
+        "jsonrpc": "2.0",
         "id": int(time.time() * 1000),
         "method": method,
         "params": params or {},
