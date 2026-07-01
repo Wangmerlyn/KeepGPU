@@ -58,15 +58,17 @@ def _wait_until(condition, timeout_s=1.0):
 
 
 @pytest.mark.parametrize(
-    "endpoint_args",
+    ("endpoint_args", "expected_error"),
     [
-        ["--port", "0"],
-        ["--port", "70000"],
-        ["--port", "true"],
-        ["--host", "bad host"],
+        (["--port", "0"], "port must be an integer between 1 and 65535"),
+        (["--port", "70000"], "port must be an integer between 1 and 65535"),
+        (["--port", "true"], "port must be an integer between 1 and 65535"),
+        (["--host", "bad host"], "host must be a DNS hostname or IPv4 address"),
     ],
 )
-def test_http_main_rejects_invalid_endpoint_before_binding(monkeypatch, endpoint_args):
+def test_http_main_rejects_invalid_endpoint_before_binding(
+    monkeypatch, capsys, endpoint_args, expected_error
+):
     run_http_calls = []
 
     monkeypatch.setattr(
@@ -86,6 +88,7 @@ def test_http_main_rejects_invalid_endpoint_before_binding(monkeypatch, endpoint
 
     assert exc_info.value.code != 0
     assert run_http_calls == []
+    assert expected_error in capsys.readouterr().err
 
 
 def test_http_main_passes_valid_endpoint_to_run_http(monkeypatch):
