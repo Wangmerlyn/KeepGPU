@@ -1105,7 +1105,14 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             return
         super().send_error(code, message, explain)
 
-    def _json_runtime_error(self, method: str, path: str, exc: Exception) -> None:
+    def _json_runtime_error(
+        self,
+        method: str,
+        path: str,
+        exc: Exception,
+        *,
+        write_body: bool = True,
+    ) -> None:
         logger.exception("%s request failed for path %s", method, path)
         self._json_response(
             500,
@@ -1115,6 +1122,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
                     "type": exc.__class__.__name__,
                 }
             },
+            write_body=write_body,
         )
 
     def _read_json_body(self) -> Any:
@@ -1132,7 +1140,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(length).decode("utf-8")
         return json.loads(body)
 
-    def _serve_static(self, request_path: str) -> None:
+    def _serve_static(self, request_path: str, write_body: bool = True) -> None:
         if request_path in ("/", ""):
             relative = "index.html"
         else:
@@ -1142,7 +1150,11 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         requested = (STATIC_DIR / decoded_relative).resolve()
         static_root = STATIC_DIR.resolve()
         if static_root not in requested.parents and requested != static_root:
-            self._json_response(403, {"error": {"message": "Forbidden"}})
+            self._json_response(
+                403,
+                {"error": {"message": "Forbidden"}},
+                write_body=write_body,
+            )
             return
 
         is_asset_request = (
@@ -1155,22 +1167,34 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         if not requested.exists() or requested.is_dir():
             if is_asset_request:
                 self._json_response(
-                    404, {"error": {"message": "Static asset not found"}}
+                    404,
+                    {"error": {"message": "Static asset not found"}},
+                    write_body=write_body,
                 )
                 return
             # SPA fallback for client-side routes.
             requested = static_root / "index.html"
             if not requested.exists():
-                self._json_response(404, {"error": {"message": "UI not built"}})
+                self._json_response(
+                    404,
+                    {"error": {"message": "UI not built"}},
+                    write_body=write_body,
+                )
                 return
 
-        content = requested.read_bytes()
         content_type, _ = mimetypes.guess_type(str(requested))
         self.send_response(200)
         self.send_header("content-type", content_type or "application/octet-stream")
-        self.send_header("content-length", str(len(content)))
+        if write_body:
+            content = requested.read_bytes()
+            content_length = len(content)
+        else:
+            content = b""
+            content_length = requested.stat().st_size
+        self.send_header("content-length", str(content_length))
         self.end_headers()
-        self.wfile.write(content)
+        if write_body:
+            self.wfile.write(content)
 
     def _job_id_from_session_path(self, path: str) -> str:
         prefix = "/api/sessions/"
@@ -1243,6 +1267,31 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             self._serve_static(path)
         except Exception as exc:  # noqa: BLE001  # pragma: no cover - defensive
             self._json_runtime_error("GET", path, exc)
+
+    def do_HEAD(self):  # noqa: N802
+        parsed = urlparse(self.path)
+        path = parsed.path
+        try:
+            if self._reject_noncanonical_rpc_route(parsed, write_body=False):
+                return
+            if self._reject_noncanonical_api_route(parsed, write_body=False):
+                return
+            if path == "/":
+                self._serve_static(path, write_body=False)
+                return
+            if self._send_known_route_unsupported_method_response(path):
+                return
+            if self._is_api_path(path):
+                self._json_response(
+                    404,
+                    {"error": {"message": "Unknown endpoint"}},
+                    write_body=False,
+                )
+                return
+
+            self._serve_static(path, write_body=False)
+        except Exception as exc:  # noqa: BLE001  # pragma: no cover - defensive
+            self._json_runtime_error("HEAD", path, exc, write_body=False)
 
     def do_POST(self):  # noqa: N802
         """

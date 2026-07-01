@@ -150,9 +150,12 @@ This file defines how coding agents should work in this repository.
   noncanonical spellings such as `/rpc/`, `/rpc;...`, `/rpc?...`, `/rp%63`, and
   `/%72pc` return structured JSON `404 Unknown endpoint` without JSON-RPC
   dispatch or dashboard/static fallback.
-- Missing dashboard asset URLs, including `/assets/*` and extension-bearing
-  static paths, must return structured JSON `404` errors instead of the
-  dashboard HTML shell.
+- Missing dashboard asset URLs, including `GET`/`HEAD` requests for `/assets/*`
+  and extension-bearing static paths, must return structured JSON `404` errors
+  instead of the dashboard HTML shell; `HEAD` responses must not include a body.
+- `HEAD` requests for GET-able dashboard/static paths such as `/` and concrete
+  static assets must return the same success headers as `GET` with no body,
+  while API/RPC `HEAD` requests keep the structured JSON 405/404 contract.
 - For stdio MCP, stdout must contain only JSON protocol messages; diagnostics
   and human logs belong on stderr.
 

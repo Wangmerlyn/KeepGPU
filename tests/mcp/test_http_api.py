@@ -304,6 +304,25 @@ def test_http_rpc_head_rejects_with_json_405_and_empty_body():
     assert body == b""
 
 
+@pytest.mark.parametrize("rpc_path", ["/rpc/", "/rp%63"])
+def test_http_rpc_noncanonical_head_returns_json_404_without_body(rpc_path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("HEAD", f"{base}{rpc_path}")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get("content-type") == "application/json"
+    assert "allow" not in {name.lower() for name in headers.keys()}
+    assert body == b""
+
+
 @pytest.mark.parametrize(
     "rpc_path",
     ["/rpc/", "/rpc%2F", "/rpc%3Bdebug", "/rpc%3Fdebug=1", "/rp%63", "/%72pc"],
@@ -584,6 +603,24 @@ def test_http_head_api_sessions_rejects_with_json_405_headers_and_empty_body():
     assert body == b""
 
 
+def test_http_api_encoded_noncanonical_head_returns_json_404_without_body():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("HEAD", f"{base}/api%2Fsessions")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get("content-type") == "application/json"
+    assert "allow" not in {name.lower() for name in headers.keys()}
+    assert body == b""
+
+
 def test_http_unsupported_method_helper_ignores_uninitialized_handler():
     handler = _JSONRPCHandler.__new__(_JSONRPCHandler)
 
@@ -727,6 +764,68 @@ def test_http_missing_static_asset_returns_404_not_dashboard_index(path):
     assert json.loads(body.decode("utf-8")) == {
         "error": {"message": "Static asset not found"}
     }
+
+
+@pytest.mark.parametrize("path", ["/assets/missing.js", "/missing.keepgpu-test.js"])
+def test_http_head_missing_static_asset_returns_json_404_without_body(path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("HEAD", f"{base}{path}")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get_content_type() == "application/json"
+    assert body == b""
+
+
+@pytest.mark.parametrize(
+    ("path", "content_type"),
+    [("/", "text/html"), ("/assets/index.css", "text/css")],
+)
+def test_http_head_static_success_returns_headers_without_body(path, content_type):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("HEAD", f"{base}{path}")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 200
+    assert headers.get_content_type() == content_type
+    assert int(headers["content-length"]) > 0
+    assert body == b""
+
+
+def test_http_head_static_runtime_error_returns_json_500_without_body(monkeypatch):
+    server = make_server()
+
+    def fail_guess_type(_path):
+        raise RuntimeError("static exploded")
+
+    monkeypatch.setattr(server_module.mimetypes, "guess_type", fail_guess_type)
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("HEAD", f"{base}/")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 500
+    assert headers.get_content_type() == "application/json"
+    assert body == b""
 
 
 def test_http_missing_dashboard_shell_reports_ui_not_built(monkeypatch, tmp_path):
