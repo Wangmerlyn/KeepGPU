@@ -255,7 +255,9 @@ This file defines how coding agents should work in this repository.
 - REST session creation must validate cheap local fields (`vram`, `interval`,
   `busy_threshold`, `job_id`, duplicate custom `job_id`, and `gpu_ids` shape)
   before telemetry/list_gpus probing. Valid explicit `gpu_ids` are still checked
-  against listed visible IDs before startup.
+  against listed visible IDs before startup. Docs and tests must distinguish an
+  explicit empty `gpu_ids` list, which is invalid input, from an empty validated
+  GPU listing, which is startup-unavailable.
 - Supported REST API routes/methods must return structured JSON error objects
   for validation, unknown-endpoint, and unexpected runtime failures; do not let
   handler exceptions drop the HTTP connection.

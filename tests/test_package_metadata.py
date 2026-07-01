@@ -202,6 +202,22 @@ def test_public_docs_do_not_regress_to_cuda_only_or_experimental_mcp():
     assert "--busy-threshold -1" in public_docs["getting_started"]
 
 
+def test_rest_session_docs_distinguish_empty_gpu_ids_from_empty_listing():
+    public_docs = {
+        "cli_reference": (PROJECT_ROOT / "docs/reference/cli.md").read_text(
+            encoding="utf-8"
+        ),
+        "mcp_guide": (PROJECT_ROOT / "docs/guides/mcp.md").read_text(encoding="utf-8"),
+    }
+
+    for doc in public_docs.values():
+        normalized_doc = re.sub(r"\s+", " ", doc)
+        assert "an explicit empty `gpu_ids` list is invalid" in normalized_doc
+        assert "empty validated GPU listing is `503`" in normalized_doc
+        assert "a valid empty list is `503`" not in normalized_doc
+        assert "valid empty GPU list" not in normalized_doc
+
+
 def test_sdist_manifest_does_not_package_test_suite():
     manifest_path = PROJECT_ROOT / "MANIFEST.in"
     assert manifest_path.exists()
