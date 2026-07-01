@@ -218,14 +218,35 @@ class RocmGPUController(BaseGPUController):
         startup_evt: Optional[threading.Event] = None,
         startup_errors: Optional[list[Exception]] = None,
     ) -> None:
+        startup_confirmed = startup_evt is None
+
+        def confirm_startup() -> None:
+            nonlocal startup_confirmed
+            if startup_confirmed:
+                return
+            startup_confirmed = True
+            assert startup_evt is not None
+            startup_evt.set()
+
+        def record_startup_failure(exc: Exception) -> None:
+            if not startup_confirmed and startup_errors is not None:
+                startup_errors.append(exc)
+            else:
+                self._failure_exc = exc
+            confirm_startup()
+
+        def record_worker_failure(exc: Exception) -> None:
+            failure = RuntimeError(
+                f"rank {self.rank}: unexpected ROCm keep worker failure: {exc}"
+            )
+            record_startup_failure(failure)
+            logger.exception("%s", failure)
+
         stop_evt = self._stop_evt
         if stop_evt is None:
             exc = RuntimeError(f"rank {self.rank}: stop event not initialized")
             logger.error("%s", exc)
-            if startup_errors is not None:
-                startup_errors.append(exc)
-            if startup_evt is not None:
-                startup_evt.set()
+            record_startup_failure(exc)
             return
         assert stop_evt is not None
 
@@ -233,10 +254,7 @@ class RocmGPUController(BaseGPUController):
             torch.cuda.set_device(self.rank)
         except Exception as exc:  # noqa: BLE001 - surface backend startup failure
             logger.error("rank %s: ROCm startup failed: %s", self.rank, exc)
-            if startup_errors is not None:
-                startup_errors.append(exc)
-            if startup_evt is not None:
-                startup_evt.set()
+            record_startup_failure(exc)
             return
         tensor = None
         attempts = 0
@@ -246,17 +264,13 @@ class RocmGPUController(BaseGPUController):
                 f"rank {self.rank}: invalid vram_to_keep={self.vram_to_keep}"
             )
             logger.error("%s", exc)
-            if startup_errors is not None:
-                startup_errors.append(exc)
-            if startup_evt is not None:
-                startup_evt.set()
+            record_startup_failure(exc)
             return
-        if startup_evt is not None:
-            startup_evt.set()
         while not stop_evt.is_set():
             try:
                 util = self._query_utilization()
                 if not self._should_run_batch(util, self.busy_threshold):
+                    confirm_startup()
                     logger.debug(
                         "rank %s: GPU utilization unavailable or busy (%s), deferring allocation",
                         self.rank,
@@ -271,6 +285,7 @@ class RocmGPUController(BaseGPUController):
                     dtype=torch.float32,
                     requires_grad=False,
                 )
+                confirm_startup()
                 break
             except RuntimeError as exc:
                 attempts += 1
@@ -286,31 +301,38 @@ class RocmGPUController(BaseGPUController):
                     exc,
                 )
                 if "out of memory" not in str(exc).lower():
-                    self._failure_exc = RuntimeError(
-                        f"rank {self.rank}: unexpected ROCm keep worker failure: {exc}"
-                    )
-                    logger.exception("%s", self._failure_exc)
+                    record_worker_failure(exc)
                     return
                 if (
                     self.max_allocation_retries is not None
                     and attempts >= self.max_allocation_retries
                 ):
-                    self._failure_exc = RuntimeError(
+                    failure = RuntimeError(
                         f"rank {self.rank}: failed to allocate tensor after {attempts} attempts"
                     )
-                    logger.error("%s", self._failure_exc)
+                    record_startup_failure(failure)
+                    logger.error("%s", failure)
                     return
+                torch.cuda.empty_cache()
+                confirm_startup()
                 if stop_evt.wait(self.interval):
                     return
             except Exception as exc:
-                self._failure_exc = RuntimeError(
-                    f"rank {self.rank}: unexpected ROCm keep worker failure: {exc}"
-                )
-                logger.exception("%s", self._failure_exc)
+                record_worker_failure(exc)
                 return
 
         if tensor is None:
-            logger.error("rank %s: failed to allocate tensor, exiting loop", self.rank)
+            if not startup_confirmed:
+                exc = RuntimeError(
+                    f"rank {self.rank}: stopped before ROCm startup allocation"
+                )
+                logger.error("%s", exc)
+                record_startup_failure(exc)
+            else:
+                logger.debug(
+                    "rank %s: exiting before ROCm allocation after startup confirmation",
+                    self.rank,
+                )
             return
         assert tensor is not None
 

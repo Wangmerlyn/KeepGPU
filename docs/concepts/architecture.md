@@ -50,7 +50,11 @@ CLI args ──▶ GlobalGPUController ──▶ [backend controller rank=0]
      device count before `torch.device`, `set_device`, telemetry, or allocation
      can target an invalid ordinal.
    - Starts a daemon thread and confirms fatal backend startup setup before
-     `keep()` reports success.
+     `keep()` reports success. When backoff permits an initial allocation, a
+     fatal non-OOM allocation failure is still a startup failure; busy/unknown
+     telemetry deferral and recoverable OOM retries remain normal startup
+     progress. Recoverable OOM retries clear the device cache before the next
+     attempt.
    - Performs intervalled lightweight elementwise batches after startup.
    - Calls `_monitor_utilization` (by way of NVML) to detect real activity
      before allocating the keep tensor.
@@ -116,9 +120,12 @@ Elementwise keep-alive batches:
   visible and can still be stopped. Busy-GPU or unavailable-telemetry deferral is
   normal backoff behavior and does not change an active session to
   `runtime_failed`.
-- Fatal backend startup errors are reported before `keep()` returns. Recoverable
-  later runtime errors are logged, and recoverable allocation failures retry
-  after clearing the device cache.
+- Fatal backend startup errors are reported before `keep()` returns, including a
+  first permitted non-OOM allocation failure. Recoverable later runtime errors
+  are logged, and recoverable startup or runtime allocation failures retry after
+  clearing the device cache. Internal startup waiters are always signaled before
+  the worker returns, and no-error-list internal paths retain failure details in
+  `allocation_status()`.
 
 ## Platform detection
 

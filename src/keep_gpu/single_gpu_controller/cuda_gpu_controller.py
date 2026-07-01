@@ -211,16 +211,35 @@ class CudaGPUController(BaseGPUController):
         startup_errors: Optional[list[Exception]] = None,
     ) -> None:
         """Internal: run workloads until stop event is set."""
+        startup_confirmed = startup_evt is None
+
+        def confirm_startup() -> None:
+            nonlocal startup_confirmed
+            if startup_confirmed:
+                return
+            startup_confirmed = True
+            assert startup_evt is not None
+            startup_evt.set()
+
+        def record_startup_failure(exc: Exception) -> None:
+            if not startup_confirmed and startup_errors is not None:
+                startup_errors.append(exc)
+            else:
+                self._failure_exc = exc
+            confirm_startup()
+
+        def record_worker_failure(exc: Exception) -> None:
+            failure = RuntimeError(
+                f"rank {self.rank}: unexpected CUDA keep worker failure: {exc}"
+            )
+            record_startup_failure(failure)
+            logger.exception("%s", failure)
+
         stop_evt = self._stop_evt
         if stop_evt is None:
             exc = RuntimeError(f"rank {self.rank}: stop event not initialized")
             logger.error("%s", exc)
-            if startup_errors is not None:
-                startup_errors.append(exc)
-            else:
-                self._failure_exc = exc
-            if startup_evt is not None:
-                startup_evt.set()
+            record_startup_failure(exc)
             return
         assert stop_evt is not None
 
@@ -228,12 +247,7 @@ class CudaGPUController(BaseGPUController):
             torch.cuda.set_device(self.rank)
         except Exception as exc:  # noqa: BLE001 - surface backend startup failure
             logger.error("rank %s: CUDA startup failed: %s", self.rank, exc)
-            if startup_errors is not None:
-                startup_errors.append(exc)
-            else:
-                self._failure_exc = exc
-            if startup_evt is not None:
-                startup_evt.set()
+            record_startup_failure(exc)
             return
         num_elements = self._num_elements if self._num_elements is not None else 0
         if num_elements <= 0:
@@ -241,20 +255,14 @@ class CudaGPUController(BaseGPUController):
                 f"rank {self.rank}: invalid vram_to_keep={self.vram_to_keep}"
             )
             logger.error("%s", exc)
-            if startup_errors is not None:
-                startup_errors.append(exc)
-            else:
-                self._failure_exc = exc
-            if startup_evt is not None:
-                startup_evt.set()
+            record_startup_failure(exc)
             return
-        if startup_evt is not None:
-            startup_evt.set()
         matrix = None
         while not stop_evt.is_set():
             try:
                 gpu_utilization = self._monitor_utilization(self.rank)
                 if not self._should_run_batch(gpu_utilization, self.busy_threshold):
+                    confirm_startup()
                     logger.debug(
                         "rank %s: GPU utilization unavailable or busy (%s), deferring allocation",
                         self.rank,
@@ -269,26 +277,33 @@ class CudaGPUController(BaseGPUController):
                     dtype=torch.float32,
                     requires_grad=False,
                 )
+                confirm_startup()
                 break
             except RuntimeError as e:
                 logger.error("rank %s: failed to allocate matrix: %s", self.rank, e)
                 if "out of memory" in str(e).lower():
+                    torch.cuda.empty_cache()
+                    confirm_startup()
                     if stop_evt.wait(self.interval):
                         return
                     continue
-                self._failure_exc = RuntimeError(
-                    f"rank {self.rank}: unexpected CUDA keep worker failure: {e}"
-                )
-                logger.exception("%s", self._failure_exc)
+                record_worker_failure(e)
                 return
-            except Exception as exc:
-                self._failure_exc = RuntimeError(
-                    f"rank {self.rank}: unexpected CUDA keep worker failure: {exc}"
-                )
-                logger.exception("%s", self._failure_exc)
+            except Exception as exc:  # noqa: BLE001 - surface backend startup failure
+                record_worker_failure(exc)
                 return
         if matrix is None:
-            logger.error("rank %s: failed to allocate matrix, exiting loop", self.rank)
+            if not startup_confirmed:
+                exc = RuntimeError(
+                    f"rank {self.rank}: stopped before CUDA startup allocation"
+                )
+                logger.error("%s", exc)
+                record_startup_failure(exc)
+            else:
+                logger.debug(
+                    "rank %s: exiting before CUDA allocation after startup confirmation",
+                    self.rank,
+                )
             return
         while not stop_evt.is_set():
             try:
