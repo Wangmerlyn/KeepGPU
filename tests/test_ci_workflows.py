@@ -8,6 +8,7 @@ ROOT_REQUIREMENTS_INSTALL_RE = re.compile(
     r"\b(?:python\s+-m\s+)?pip\s+install\s+-r\s+(?:\./)?requirements\.txt\b"
 )
 MKDOCS_MAJOR_TWO_BOUND_RE = re.compile(r"<\s*2(?:\.0+)?(?:\s|,|$)")
+YAML_BLOCK_SCALAR_START_RE = re.compile(r":\s*[|>][-+0-9]*\s*$")
 
 
 def _installs_root_requirements_file(workflow: str) -> bool:
@@ -48,8 +49,23 @@ def _bounds_below_mkdocs_two(requirement: str) -> bool:
 
 def _workflow_action_ref(workflow: str, action: str) -> str:
     action_pattern = re.escape(action)
+    block_scalar_indent = None
     for line in workflow.splitlines():
-        active_line = line.split("#", 1)[0].strip()
+        if not line.strip():
+            continue
+
+        indent = len(line) - len(line.lstrip(" "))
+        if block_scalar_indent is not None:
+            if indent > block_scalar_indent:
+                continue
+            block_scalar_indent = None
+
+        active_line = line.split("#", 1)[0]
+        if YAML_BLOCK_SCALAR_START_RE.search(active_line.rstrip()):
+            block_scalar_indent = indent
+            continue
+
+        active_line = active_line.strip()
         match = re.match(
             rf"-?\s*uses\s*:\s*['\"]?({action_pattern}@[^\s'\"]+)['\"]?\s*$",
             active_line,
@@ -77,7 +93,7 @@ def test_precommit_workflow_does_not_install_runtime_package():
     ]
 
 
-def test_precommit_workflow_uses_current_core_action_majors():
+def test_precommit_workflow_uses_current_core_action_refs():
     precommit_path = PROJECT_ROOT / ".github/workflows/pre-commit.yaml"
     if not precommit_path.exists():
         precommit_path = PROJECT_ROOT / ".github/workflows/pre-commit.yml"
@@ -125,6 +141,18 @@ def test_workflow_action_ref_requires_active_uses_line():
         AssertionError, match="missing workflow action: actions/setup-python"
     ):
         _workflow_action_ref(workflow, "actions/setup-python")
+
+
+def test_workflow_action_ref_ignores_run_block_content():
+    workflow = """
+    steps:
+      - name: show historical action
+        run: |
+          uses: actions/checkout@v99
+      - uses: actions/checkout@v4
+    """
+
+    assert _workflow_action_ref(workflow, "actions/checkout") == "actions/checkout@v4"
 
 
 def test_python_workflow_does_not_install_root_requirements_file():
