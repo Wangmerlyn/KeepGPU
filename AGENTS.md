@@ -131,6 +131,9 @@ This file defines how coding agents should work in this repository.
 - Keep the MCP server compatible with standard MCP lifecycle/tool methods
   (`initialize`, `notifications/initialized`, `tools/list`, `tools/call`) while
   preserving legacy direct JSON-RPC method calls for local scripts.
+- MCP `tools/list` responses must be read-only snapshots from the caller's
+  perspective; local embedding callers must not be able to mutate the server's
+  shared tool registry through a returned response object.
 - JSON-RPC handlers must reject explicit request versions other than `"2.0"`
   with `-32600 Invalid Request` before applying notification silence, including
   id-less notifications, while preserving omitted-version legacy/internal calls

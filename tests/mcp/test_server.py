@@ -1,3 +1,4 @@
+import copy
 import json
 import math
 import os
@@ -1379,6 +1380,48 @@ def test_mcp_tools_list_exposes_keepgpu_actions():
         assert job_id_schema["type"] == ["string", "null"]
         assert job_id_schema["minLength"] == 1
         assert job_id_schema["pattern"] == JOB_ID_PATTERN_TEXT
+
+
+def test_mcp_tools_list_returns_snapshot_not_mutable_registry():
+    server = make_server()
+    tools_req = {"jsonrpc": "2.0", "id": 20, "method": "tools/list"}
+    original_tools = copy.deepcopy(server_module.MCP_TOOLS)
+
+    try:
+        first_resp = _handle_request(server, tools_req)
+        returned_tools = first_resp["result"]["tools"]
+        returned_tools[0]["name"] = "poisoned"
+        returned_tools[0]["inputSchema"]["properties"]["gpu_ids"]["items"][
+            "minimum"
+        ] = 999
+
+        second_resp = _handle_request(server, tools_req)
+        second_tools = {tool["name"]: tool for tool in second_resp["result"]["tools"]}
+
+        assert set(second_tools) == {"start_keep", "stop_keep", "status", "list_gpus"}
+        assert (
+            second_tools["start_keep"]["inputSchema"]["properties"]["gpu_ids"]["items"][
+                "minimum"
+            ]
+            == 0
+        )
+
+        call_resp = _handle_request(
+            server,
+            {
+                "jsonrpc": "2.0",
+                "id": 21,
+                "method": "tools/call",
+                "params": {
+                    "name": "start_keep",
+                    "arguments": {"job_id": "mcp-tools-snapshot", "gpu_ids": [0]},
+                },
+            },
+        )
+
+        assert call_resp["result"]["isError"] is False
+    finally:
+        server_module.MCP_TOOLS[:] = original_tools
 
 
 def test_jsonrpc_rejects_explicit_invalid_request_version():
