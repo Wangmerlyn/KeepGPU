@@ -3,7 +3,8 @@ import re
 import threading
 from typing import Any, List, Optional, Union
 
-_JOB_ID_PATTERN = re.compile(r"^[A-Za-z0-9._~-]+$")
+JOB_ID_PATTERN_TEXT = r"^[A-Za-z0-9._~-]+$"
+_JOB_ID_PATTERN = re.compile(JOB_ID_PATTERN_TEXT)
 DEFAULT_BUSY_THRESHOLD = 25
 PUBLIC_INTERVAL_MAX_SECONDS = int(threading.TIMEOUT_MAX)
 

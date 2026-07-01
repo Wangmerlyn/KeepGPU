@@ -58,6 +58,7 @@ from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableError
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
+    JOB_ID_PATTERN_TEXT,
     PUBLIC_INTERVAL_MAX_SECONDS,
     is_utilization_percent_or_none,
     validate_busy_threshold,
@@ -116,6 +117,8 @@ MCP_TOOLS: List[Dict[str, Any]] = [
                 },
                 "job_id": {
                     "type": ["string", "null"],
+                    "minLength": 1,
+                    "pattern": JOB_ID_PATTERN_TEXT,
                     "description": "Optional URL-path-safe session identifier.",
                 },
             },
@@ -131,6 +134,8 @@ MCP_TOOLS: List[Dict[str, Any]] = [
             "properties": {
                 "job_id": {
                     "type": ["string", "null"],
+                    "minLength": 1,
+                    "pattern": JOB_ID_PATTERN_TEXT,
                     "description": "Session identifier; null or omitted stops all.",
                 }
             },
@@ -146,6 +151,8 @@ MCP_TOOLS: List[Dict[str, Any]] = [
             "properties": {
                 "job_id": {
                     "type": ["string", "null"],
+                    "minLength": 1,
+                    "pattern": JOB_ID_PATTERN_TEXT,
                     "description": "Session identifier; null or omitted lists all.",
                 }
             },
