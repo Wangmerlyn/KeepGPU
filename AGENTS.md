@@ -63,6 +63,8 @@ This file defines how coding agents should work in this repository.
 - Pre-commit CI should install only the `pre-commit` runner; hooks provision
   their own tool environments, so do not install KeepGPU runtime dependencies
   just to lint.
+- Keep shared GitHub Actions on the same current major versions across
+  workflows, and guard intentional core action major pins in CI tests.
 - Keep Python test CI dependency installs explicit. Do not reintroduce a root
   `requirements.txt` fallback; runtime and test dependencies belong in
   `pyproject.toml`, while docs dependencies belong in `docs/requirements.txt`.

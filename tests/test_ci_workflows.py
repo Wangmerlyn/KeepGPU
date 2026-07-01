@@ -44,6 +44,12 @@ def _bounds_below_mkdocs_two(requirement: str) -> bool:
     return bool(MKDOCS_MAJOR_TWO_BOUND_RE.search(requirement))
 
 
+def _workflow_action_ref(workflow: str, action: str) -> str:
+    match = re.search(rf"uses:\s*{re.escape(action)}@v[0-9]+\b", workflow)
+    assert match is not None, f"missing workflow action: {action}"
+    return match.group(0).removeprefix("uses:").strip()
+
+
 def test_precommit_workflow_does_not_install_runtime_package():
     workflow_path = PROJECT_ROOT / ".github/workflows/pre-commit.yaml"
     if not workflow_path.exists():
@@ -60,6 +66,26 @@ def test_precommit_workflow_does_not_install_runtime_package():
         "python -m pip install --upgrade pip",
         "pip install pre-commit",
     ]
+
+
+def test_precommit_workflow_uses_current_core_action_majors():
+    precommit_path = PROJECT_ROOT / ".github/workflows/pre-commit.yaml"
+    if not precommit_path.exists():
+        precommit_path = PROJECT_ROOT / ".github/workflows/pre-commit.yml"
+    precommit_workflow = precommit_path.read_text(encoding="utf-8")
+
+    python_workflow_path = PROJECT_ROOT / ".github/workflows/python-app.yml"
+    if not python_workflow_path.exists():
+        python_workflow_path = PROJECT_ROOT / ".github/workflows/python-app.yaml"
+    python_workflow = python_workflow_path.read_text(encoding="utf-8")
+
+    expected_checkout = _workflow_action_ref(python_workflow, "actions/checkout")
+    expected_setup_python = _workflow_action_ref(
+        python_workflow, "actions/setup-python"
+    )
+
+    assert f"uses: {expected_checkout}" in precommit_workflow
+    assert f"uses: {expected_setup_python}" in precommit_workflow
 
 
 def test_python_workflow_does_not_install_root_requirements_file():
