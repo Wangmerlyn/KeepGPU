@@ -57,8 +57,9 @@ This file defines how coding agents should work in this repository.
 - Keep it "Linus" simple - concise, readable, and robust; avoid bloat/over-engineering.
 - Run the smallest relevant checks first (unit tests, targeted scripts), then broader checks when needed.
 - Add tests when there is an existing test pattern; do not introduce a brand-new testing framework unless requested.
-- Use monotonic clocks for timeout/deadline arithmetic. Reserve wall-clock
-  `time.time()` for epoch timestamps, persisted records, and protocol IDs.
+- Use monotonic clocks for timeout/deadline arithmetic and elapsed-duration
+  measurements. Reserve wall-clock `time.time()` for epoch timestamps,
+  persisted records, and protocol IDs.
 - Build metadata should list directly used third-party distributions; do not
   rely on transitive dependencies, and do not add Python stdlib modules such as
   `argparse` as build/runtime dependencies.

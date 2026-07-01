@@ -358,13 +358,13 @@ class CudaGPUController(BaseGPUController):
         """Run a batch of in-place ReLU ops to keep GPU busy."""
         stop_evt = self._stop_evt
 
-        tic = time.time()
+        tic = time.monotonic()
         for _ in range(self.relu_iterations):
             torch.relu_(matrix)
             if stop_evt is not None and stop_evt.is_set():
                 break
         torch.cuda.synchronize()
-        toc = time.time()
+        toc = time.monotonic()
 
         logger.debug(
             "rank %s: relu ops batch done - avg %.2f ms",
