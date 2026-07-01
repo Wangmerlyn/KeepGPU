@@ -887,6 +887,10 @@ def _require_clean_stop_keep_for_service_stop(result: Dict[str, Any]) -> None:
         incomplete.append(f"timed out: {', '.join(result['timed_out'])}")
     if result["failed"]:
         incomplete.append(f"failed: {', '.join(result['failed'])}")
+    message = result.get("message")
+    if isinstance(message, str) and message:
+        message_detail = message.strip() or repr(message)
+        incomplete.append(f"message: {message_detail}")
     if incomplete:
         raise RuntimeError(
             "Stop sessions before stopping the service daemon. Incomplete stop_keep result "
