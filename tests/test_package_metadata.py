@@ -82,9 +82,20 @@ def test_colorlog_is_not_a_required_runtime_dependency():
 
 
 def test_license_metadata_uses_spdx_string_supported_by_python_floor():
-    assert _project_config()["requires-python"] == ">=3.9"
+    assert _project_config()["requires-python"] == ">=3.9,<3.14"
     assert _project_config()["license"] == "MIT"
     assert "setuptools>=77.0.1" in _build_system_requires()
+
+
+def test_python_version_classifiers_match_advertised_supported_range():
+    assert _project_config()["classifiers"] == [
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+    ]
 
 
 def test_project_description_no_longer_describes_cli_only_app():

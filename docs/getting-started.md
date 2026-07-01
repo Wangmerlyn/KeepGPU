@@ -5,7 +5,8 @@ understand the minimum knobs you need to keep a GPU occupied.
 
 ## Requirements
 
-- Python 3.9+ (matching the version in your environment/cluster image).
+- Python 3.9 through 3.13 (matching the version in your environment/cluster
+  image).
 - A PyTorch build that matches your target platform: CUDA, ROCm/HIP, Mac M
   series MPS, or CPU-only for import and docs workflows.
 - CUDA utilization monitoring uses NVML by way of `nvidia-ml-py` (the `pynvml`
