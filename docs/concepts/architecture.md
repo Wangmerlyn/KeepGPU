@@ -19,8 +19,9 @@ full training workload.
 4. **GPU monitor (NVML/ROCm/MPS)** – Wraps `nvidia-ml-py` (the `pynvml`
    module) for CUDA telemetry, system-provided ROCm SMI when `rocm_smi` is
    importable, and best-effort MPS memory counters on Mac M series.
-   CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` before querying NVML and
-   treats malformed, duplicate, or ambiguous masks as unavailable telemetry.
+   CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` before querying NVML, accepts
+   unique UUID prefixes, stops at `-1`, and treats malformed, duplicate, or
+   ambiguous masks as unavailable telemetry.
    ROCm
    telemetry resolves `ROCR_VISIBLE_DEVICES` plus one matching
    `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm
@@ -56,12 +57,13 @@ CLI args ──▶ GlobalGPUController ──▶ [backend controller rank=0]
    - Allocates a tensor sized by way of `vram_to_keep` only when backoff allows
      work.
      The monitor receives the CUDA visible rank and resolves
-     `CUDA_VISIBLE_DEVICES` numeric or UUID tokens before querying NVML, so
-     telemetry follows the same device the worker keeps. Malformed masks, such
-     as empty tokens or `-1` mixed with other tokens, and duplicate/equivalent
-     masks are treated as unavailable telemetry before any partial NVML handle
-     lookup, so eco-safe backoff applies instead of aliasing or guessing a
-     physical GPU.
+     `CUDA_VISIBLE_DEVICES` numeric tokens, unique UUID prefixes, or full UUID
+     tokens before querying NVML, so telemetry follows the same device the
+     worker keeps. CUDA parsing stops at `-1`; masks such as `0,2,-1,1` expose
+     only the valid prefix before `-1`. Empty tokens, duplicate/equivalent
+     masks, ambiguous UUID prefixes, and out-of-range indexes are treated as
+     unavailable telemetry, so eco-safe backoff applies instead of aliasing or
+     guessing a physical GPU.
 4. Each ROCm worker follows the same visible-rank contract. The controller keeps
    the visible rank selected by the user, while ROCm SMI telemetry is queried by
    the resolved physical SMI index when the environment masks are numeric,

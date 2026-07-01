@@ -21,9 +21,15 @@ class DummyNVMLUtil:
 
 
 class MultiGPUDummyNVML:
-    def __init__(self, count: int, uuid_to_index: dict[object, int] | None = None):
+    def __init__(
+        self,
+        count: int,
+        uuid_to_index: dict[object, int] | None = None,
+        uuid_by_index: dict[int, str] | None = None,
+    ):
         self.count = count
         self.uuid_to_index = uuid_to_index or {}
+        self.uuid_by_index = uuid_by_index or {}
         self.queried_indexes = []
         self.queried_uuids = []
         self.shutdown_calls = 0
@@ -47,9 +53,8 @@ class MultiGPUDummyNVML:
     def nvmlDeviceGetIndex(handle):
         return handle
 
-    @staticmethod
-    def nvmlDeviceGetUUID(handle):
-        return f"GPU-mock-{handle}".encode()
+    def nvmlDeviceGetUUID(self, handle):
+        return self.uuid_by_index.get(handle, f"GPU-mock-{handle}").encode()
 
     @staticmethod
     def nvmlDeviceGetMemoryInfo(handle):
@@ -345,6 +350,61 @@ def test_get_gpu_info_nvml_maps_cuda_uuid_mask_to_visible_ordinal(monkeypatch):
     assert dummy_nvml.shutdown_calls == 1
 
 
+def test_get_gpu_info_nvml_maps_unique_cuda_uuid_prefix_mask(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-abc123")
+    dummy_nvml = MultiGPUDummyNVML(
+        count=4,
+        uuid_by_index={2: "GPU-abc123-dead-beef"},
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=1)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["id"] == 0
+    assert infos[0]["physical_id"] == 2
+    assert infos[0]["uuid"] == "GPU-abc123-dead-beef"
+    assert infos[0]["name"] == "Mock GPU 2"
+    assert dummy_nvml.queried_indexes == [0, 1, 2, 3]
+    assert dummy_nvml.queried_uuids == ["GPU-abc123", b"GPU-abc123"]
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_ambiguous_cuda_uuid_prefix_mask_hides_all(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-abc123")
+    dummy_nvml = MultiGPUDummyNVML(
+        count=4,
+        uuid_by_index={
+            1: "GPU-abc123-dead-beef",
+            2: "GPU-abc123-cafe-babe",
+        },
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=1)
+
+    assert gpu_info.get_gpu_info() == []
+    assert dummy_nvml.queried_indexes == [0, 1, 2, 3]
+    assert dummy_nvml.shutdown_calls == 1
+
+
+def test_get_gpu_info_nvml_truncates_cuda_visible_devices_at_negative_one(
+    monkeypatch,
+):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,2,-1,1")
+    dummy_nvml = MultiGPUDummyNVML(count=4)
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=2)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert [info["id"] for info in infos] == [0, 1]
+    assert [info["physical_id"] for info in infos] == [0, 2]
+    assert [info["name"] for info in infos] == ["Mock GPU 0", "Mock GPU 2"]
+    assert dummy_nvml.queried_indexes == [0, 2]
+    assert dummy_nvml.shutdown_calls == 1
+
+
 def test_get_gpu_info_nvml_empty_cuda_visible_devices_hides_all(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
     dummy_nvml = MultiGPUDummyNVML(count=2)
@@ -381,7 +441,7 @@ def test_get_gpu_info_nvml_unresolved_uuid_mask_does_not_list_placeholder(
     assert dummy_nvml.shutdown_calls == 1
 
 
-def test_get_gpu_info_nvml_mixed_invalid_uuid_mask_avoids_partial_numeric_lookup(
+def test_get_gpu_info_nvml_mixed_unresolved_uuid_mask_fails_closed(
     monkeypatch,
 ):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,GPU-typo")
@@ -390,7 +450,7 @@ def test_get_gpu_info_nvml_mixed_invalid_uuid_mask_avoids_partial_numeric_lookup
     _install_cuda_gpu_info_mocks(monkeypatch, count=2)
 
     assert gpu_info.get_gpu_info() == []
-    assert dummy_nvml.queried_indexes == []
+    assert dummy_nvml.queried_indexes == [0, 1]
     assert dummy_nvml.queried_uuids == ["GPU-typo", b"GPU-typo"]
     assert dummy_nvml.shutdown_calls == 1
 

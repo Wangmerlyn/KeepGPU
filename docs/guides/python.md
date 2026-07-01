@@ -28,10 +28,12 @@ train_model()                     # GPU memory is released automatically
   a device handle or keep worker is created.
   CUDA utilization backoff resolves that visible rank through
   `CUDA_VISIBLE_DEVICES` before querying NVML; for example, with
-  `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads physical GPU `5`. Malformed,
-  duplicate/equivalent, ambiguous, or out-of-range CUDA masks are treated as
-  unavailable telemetry before partial NVML handle lookup. ROCm utilization
-  resolves `ROCR_VISIBLE_DEVICES` as the base mask and one matching
+  `CUDA_VISIBLE_DEVICES=3,5`, rank `1` reads physical GPU `5`. Unique CUDA
+  UUID prefixes are accepted, and parsing stops at `-1` after valid preceding
+  tokens. Malformed, duplicate/equivalent, ambiguous, out-of-range, or
+  unresolved CUDA masks are treated as unavailable telemetry instead of
+  guessing a physical GPU. ROCm utilization resolves `ROCR_VISIBLE_DEVICES` as
+  the base mask and one matching
   `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying ROCm
   SMI. If a mapping cannot be resolved, utilization is treated as unavailable.
 - `interval` is the finite positive pause between keep-alive bursts inside the

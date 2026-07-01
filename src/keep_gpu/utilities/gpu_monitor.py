@@ -10,6 +10,7 @@ from keep_gpu.utilities.cuda_visibility import (
     cuda_visible_index_value,
     cuda_visible_mask,
     is_cuda_visible_index_token,
+    lookup_nvml_uuid_handle,
 )
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.session_config import normalize_utilization_percent
@@ -198,16 +199,11 @@ class NVMLMonitor:
         uuid_lookup = getattr(self._nvml, "nvmlDeviceGetHandleByUUID", None)
         if uuid_lookup is None:
             return None
-        for uuid in (token, token.encode("utf-8")):
-            try:
-                return uuid_lookup(uuid)
-            except self._nvml.NVMLError as exc:
-                if self._is_uninitialized_error(exc):
-                    raise
-                continue
-            except (AttributeError, TypeError):
-                continue
-        return None
+        return lookup_nvml_uuid_handle(
+            self._nvml,
+            token,
+            should_reraise=self._is_uninitialized_error,
+        )
 
 
 _nvml_monitor = NVMLMonitor(pynvml)

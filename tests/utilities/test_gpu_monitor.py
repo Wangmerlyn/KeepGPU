@@ -28,6 +28,7 @@ class DummyNVML:
         support_uuid_lookup: bool = False,
         invalid_indexes: set[int] | None = None,
         uuid_index_by_value: dict[object, int] | None = None,
+        uuid_by_index: dict[int, str] | None = None,
         count: int = 8,
     ) -> None:
         self.should_fail = should_fail
@@ -46,6 +47,7 @@ class DummyNVML:
         self.uuid_always_type_error = uuid_always_type_error
         self.invalid_indexes = invalid_indexes or set()
         self.uuid_index_by_value = uuid_index_by_value or {}
+        self.uuid_by_index = uuid_by_index or {}
         if support_uuid_lookup:
             self.nvmlDeviceGetHandleByUUID = self._nvmlDeviceGetHandleByUUID
 
@@ -96,6 +98,14 @@ class DummyNVML:
         if hasattr(handle, "uuid") and handle.uuid in self.uuid_index_by_value:
             return self.uuid_index_by_value[handle.uuid]
         raise self.NVMLError("index lookup failure")
+
+    def nvmlDeviceGetUUID(self, handle):
+        self._require_initialized()
+        if hasattr(handle, "index"):
+            return self.uuid_by_index.get(handle.index, f"GPU-mock-{handle.index}")
+        if hasattr(handle, "uuid"):
+            return handle.uuid
+        raise self.NVMLError("uuid lookup failure")
 
     def nvmlDeviceGetUtilizationRates(self, handle):
         self._require_initialized()
@@ -263,7 +273,7 @@ def test_monitor_returns_none_for_repeated_empty_tokens_without_handle_lookup(
     assert dummy.queried_uuids == []
 
 
-def test_monitor_returns_none_when_prior_token_is_invalid(monkeypatch):
+def test_monitor_returns_none_for_index_after_negative_one_truncation(monkeypatch):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,-1,2")
     dummy = DummyNVML(util_by_index={2: 99})
     monitor = NVMLMonitor(dummy)
@@ -305,7 +315,7 @@ def test_monitor_returns_none_when_later_uuid_token_is_unresolved(monkeypatch):
     monitor = NVMLMonitor(dummy)
 
     assert monitor.get_gpu_utilization(0) is None
-    assert dummy.queried_indexes == []
+    assert dummy.queried_indexes == list(range(dummy.count))
     assert dummy.queried_uuids == ["GPU-typo", b"GPU-typo"]
 
 
@@ -417,8 +427,52 @@ def test_monitor_returns_none_when_uuid_lookup_fails(monkeypatch):
     monitor = NVMLMonitor(dummy)
 
     assert monitor.get_gpu_utilization(0) is None
-    assert dummy.queried_indexes == []
+    assert dummy.queried_indexes == list(range(dummy.count))
     assert dummy.queried_uuids == ["GPU-abc123", b"GPU-abc123"]
+
+
+def test_monitor_maps_unique_cuda_uuid_prefix_mask(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-abc123")
+    dummy = DummyNVML(
+        util_by_index={2: 72},
+        fail_uuid_lookup=True,
+        support_uuid_lookup=True,
+        uuid_by_index={2: "GPU-abc123-dead-beef"},
+        count=4,
+    )
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) == 72
+    assert dummy.queried_indexes == [0, 1, 2, 3]
+    assert dummy.queried_uuids == ["GPU-abc123", b"GPU-abc123"]
+
+
+def test_monitor_returns_none_for_ambiguous_cuda_uuid_prefix_mask(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-abc123")
+    dummy = DummyNVML(
+        fail_uuid_lookup=True,
+        support_uuid_lookup=True,
+        uuid_by_index={
+            1: "GPU-abc123-dead-beef",
+            2: "GPU-abc123-cafe-babe",
+        },
+        count=4,
+    )
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(0) is None
+    assert dummy.queried_indexes == [0, 1, 2, 3]
+    assert dummy.queried_uuids == ["GPU-abc123", b"GPU-abc123"]
+
+
+def test_monitor_truncates_cuda_visible_devices_at_negative_one(monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,2,-1,1")
+    dummy = DummyNVML(util_by_index={2: 92}, count=4)
+    monitor = NVMLMonitor(dummy)
+
+    assert monitor.get_gpu_utilization(1) == 92
+    assert dummy.queried_indexes == [0, 2]
+    assert dummy.queried_uuids == []
 
 
 def test_monitor_returns_none_when_prior_uuid_lookup_fails(monkeypatch):
@@ -431,5 +485,5 @@ def test_monitor_returns_none_when_prior_uuid_lookup_fails(monkeypatch):
     monitor = NVMLMonitor(dummy)
 
     assert monitor.get_gpu_utilization(1) is None
-    assert dummy.queried_indexes == []
+    assert dummy.queried_indexes == list(range(dummy.count))
     assert dummy.queried_uuids == ["GPU-abc123", b"GPU-abc123"]
