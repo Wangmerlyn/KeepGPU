@@ -135,8 +135,9 @@ expected startup-unavailable `503`; malformed listing payloads or records are
 unexpected internal `500` errors and no session is created.
 CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` for the service process and
 treats malformed, duplicate/equivalent, ambiguous, or out-of-range masks as
-unavailable utilization rather than partially querying or guessing a physical
-GPU.
+unavailable utilization rather than guessing a physical GPU. Unique CUDA UUID
+prefixes resolve like CUDA-visible devices, and parsing stops at `-1` after any
+valid preceding tokens.
 
 Custom `job_id` values are unique across active and starting sessions. If a
 duplicate arrives while the original start is still creating controller work,

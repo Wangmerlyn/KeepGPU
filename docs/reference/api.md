@@ -36,8 +36,10 @@ selection, starts a worker, or queries telemetry. CUDA and ROCm call
 `torch.cuda.device_count()` only after the rank is known to be a plain integer.
 
 CUDA telemetry resolves visible ordinals through `CUDA_VISIBLE_DEVICES` before
-querying NVML; malformed, duplicate/equivalent, ambiguous, or out-of-range
-masks report unavailable utilization before partial handle lookup.
+querying NVML. Numeric tokens, full UUID tokens, and unique UUID prefixes are
+supported, and parsing stops at `-1` after any valid preceding tokens.
+Malformed, duplicate/equivalent, ambiguous, out-of-range, or unresolved
+mappings report unavailable utilization instead of guessing a physical device.
 ROCm telemetry resolves `ROCR_VISIBLE_DEVICES` as the base mask and one
 matching `HIP_VISIBLE_DEVICES`/`CUDA_VISIBLE_DEVICES` overlay before querying
 ROCm SMI. Unresolved mappings report unavailable utilization instead of falling

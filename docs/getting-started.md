@@ -169,9 +169,11 @@ with GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="750MB", interval=60):
 
 Those `gpu_ids` are visible device ordinals after CUDA or ROCm visibility
 filtering. CUDA telemetry resolves `CUDA_VISIBLE_DEVICES` and treats duplicate
-or ambiguous masks as unavailable telemetry; ROCm telemetry resolves
-`ROCR_VISIBLE_DEVICES` and one matching `HIP_VISIBLE_DEVICES` or
-`CUDA_VISIBLE_DEVICES` overlay before querying vendor utilization counters.
+or ambiguous masks as unavailable telemetry. CUDA UUID prefixes are accepted
+when unique, and parsing stops at `-1` after any valid preceding tokens. ROCm
+telemetry resolves `ROCR_VISIBLE_DEVICES` and one matching
+`HIP_VISIBLE_DEVICES` or `CUDA_VISIBLE_DEVICES` overlay before querying vendor
+utilization counters.
 
 From here, jump to the CLI Playbook for scenario-driven guidance or the API
 recipes if you need to embed KeepGPU in orchestration scripts.

@@ -7,6 +7,8 @@ import torch
 from keep_gpu.utilities.cuda_visibility import (
     cuda_visible_index_value,
     cuda_visible_mask,
+    decode_nvml_text,
+    lookup_nvml_uuid_handle,
 )
 from keep_gpu.utilities.logger import setup_logger
 from keep_gpu.utilities.rocm_visibility import (
@@ -16,12 +18,6 @@ from keep_gpu.utilities.rocm_visibility import (
 from keep_gpu.utilities.session_config import normalize_utilization_percent
 
 logger = setup_logger(__name__)
-
-
-def _decode_nvml_text(value: Any) -> str:
-    if isinstance(value, bytes):
-        return value.decode(errors="ignore")
-    return str(value)
 
 
 def _torch_cuda_visible_count() -> Optional[int]:
@@ -66,19 +62,6 @@ def _torch_cuda_visible_ordinals_startable(count: int) -> bool:
                 logger.debug("Torch CUDA device restore failed: %s", exc)
 
 
-def _lookup_nvml_uuid_handle(pynvml, token: str):
-    uuid_lookup = getattr(pynvml, "nvmlDeviceGetHandleByUUID", None)
-    if uuid_lookup is None:
-        return None
-
-    for uuid in (token, token.encode("utf-8")):
-        try:
-            return uuid_lookup(uuid)
-        except Exception:
-            continue
-    return None
-
-
 def _nvml_physical_id(pynvml, handle, fallback: Optional[int] = None) -> Optional[int]:
     if fallback is not None:
         return fallback
@@ -97,7 +80,7 @@ def _nvml_uuid(pynvml, handle) -> Optional[str]:
     if uuid_lookup is None:
         return None
     try:
-        return _decode_nvml_text(uuid_lookup(handle))
+        return decode_nvml_text(uuid_lookup(handle))
     except Exception:
         return None
 
@@ -111,7 +94,7 @@ def _nvml_info_for_handle(
     mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
     util = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
     utilization = normalize_utilization_percent(util)
-    name = _decode_nvml_text(pynvml.nvmlDeviceGetName(handle))
+    name = decode_nvml_text(pynvml.nvmlDeviceGetName(handle))
     info: Dict[str, Any] = {
         "id": visible_id,
         "visible_id": visible_id,
@@ -136,11 +119,7 @@ def _resolve_nvml_visible_handles(pynvml, visible_tokens):
         physical_id = cuda_visible_index_value(token)
         if physical_id is not None:
             continue
-        try:
-            handle = _lookup_nvml_uuid_handle(pynvml, token)
-        except Exception:
-            handle = None
-
+        handle = lookup_nvml_uuid_handle(pynvml, token)
         if handle is None:
             return None
 
