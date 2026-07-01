@@ -343,6 +343,9 @@ This file defines how coding agents should work in this repository.
   sessions. Eco-safe busy/unknown-telemetry deferral and recoverable OOM retries
   may still complete startup without allocating; recoverable OOM retries must
   clear the backend cache before sleeping and retrying.
+- Failed single-GPU startup paths must clear any vendor-library initialization
+  and stale `_thread`/`_stop_evt` state before re-raising unless a real worker is
+  still alive and explicitly stopping.
 - Internal single-GPU startup paths that receive a `startup_evt` must always
   signal it before returning, and paths without a `startup_errors` list must
   retain the failure detail in `allocation_status()`.

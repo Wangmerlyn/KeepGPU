@@ -183,6 +183,45 @@ def test_rocm_keep_shuts_down_smi_when_worker_startup_fails(monkeypatch):
     assert calls == ["init", "shutdown"]
 
 
+def test_rocm_keep_shuts_down_smi_when_thread_start_fails(monkeypatch):
+    import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
+
+    monkeypatch.setattr(rocm_module.torch.cuda, "device_count", lambda: 1)
+    calls = []
+
+    class DummyRocmSmi:
+        def rsmi_init(self):
+            calls.append("init")
+
+        def rsmi_shut_down(self):
+            calls.append("shutdown")
+
+    class FailingThread:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self):
+            raise RuntimeError("thread start failed")
+
+    monkeypatch.setattr(rocm_module.threading, "Thread", FailingThread)
+
+    ctrl = RocmGPUController(
+        rank=0,
+        interval=0.01,
+        vram_to_keep=4,
+        busy_threshold=-1,
+    )
+    ctrl._rocm_smi = DummyRocmSmi()
+
+    with pytest.raises(RuntimeError, match="thread start failed"):
+        ctrl.keep()
+
+    assert calls == ["init", "shutdown"]
+    assert ctrl._rocm_smi_initialized is False
+    assert ctrl._thread is None
+    assert ctrl._stop_evt is None
+
+
 def test_rocm_keep_rejects_retry_while_startup_thread_is_stopping(monkeypatch):
     import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
 
