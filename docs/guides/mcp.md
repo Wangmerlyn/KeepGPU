@@ -10,7 +10,8 @@ KeepGPU ships a local service that powers four local surfaces:
 This is the same backend used by `keep-gpu start/status/stop/list-gpus`.
 Exact `/api` and unknown `/api/*` paths return structured JSON `404` errors
 instead of dashboard HTML. `/api/sessions/{job_id}` uses one raw path component;
-extra raw path segments are unknown endpoints.
+extra raw path segments are unknown endpoints. Noncanonical raw aliases such as
+`//api/sessions` are also unknown endpoints and do not start or stop sessions.
 Missing packaged asset URLs also return JSON `404` responses instead of the
 dashboard shell.
 
@@ -63,8 +64,8 @@ envelopes.
 HTTP mode is KeepGPU's local JSON-RPC/REST/dashboard service. It accepts the
 same JSON-RPC message shapes at the exact `/rpc` endpoint, but it is not a
 Streamable HTTP MCP endpoint. Noncanonical `/rpc` URLs, including trailing
-slashes, query strings, or encoded aliases such as `/rp%63`, return structured
-`404 Unknown endpoint` errors.
+slashes, query strings, leading double slashes such as `//rpc`, or encoded
+aliases such as `/rp%63`, return structured `404 Unknown endpoint` errors.
 
 Malformed HTTP JSON-RPC bodies return a JSON-RPC `-32700 Parse error` envelope
 with `id: null`; REST routes keep REST-shaped JSON errors.

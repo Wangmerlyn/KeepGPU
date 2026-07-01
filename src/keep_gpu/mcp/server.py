@@ -1024,8 +1024,36 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
     def _is_api_path(path: str) -> bool:
         return path == "/api" or path.startswith("/api/")
 
+    @staticmethod
+    def _request_target_from_raw_requestline(raw_requestline: bytes) -> Optional[str]:
+        request_line = raw_requestline.decode("iso-8859-1").rstrip("\r\n")
+        parts = request_line.split()
+        if len(parts) < 2:
+            return None
+        return parts[1]
+
+    def _raw_request_target(self) -> Optional[str]:
+        raw_requestline = getattr(self, "raw_requestline", b"")
+        if not isinstance(raw_requestline, bytes):
+            return None
+        return self._request_target_from_raw_requestline(raw_requestline)
+
+    @staticmethod
+    def _collapse_leading_slash_target(raw_target: Optional[str]) -> Optional[str]:
+        if raw_target is None or not raw_target.startswith("//"):
+            return None
+        return "/" + raw_target.lstrip("/")
+
     @classmethod
-    def _is_noncanonical_api_route(cls, parsed) -> bool:
+    def _is_noncanonical_api_route(
+        cls, parsed, raw_target: Optional[str] = None
+    ) -> bool:
+        collapsed_raw = cls._collapse_leading_slash_target(raw_target)
+        if collapsed_raw is not None:
+            raw_parsed = urlparse(collapsed_raw)
+            route_paths = (raw_parsed.path, unquote(raw_parsed.path))
+            if any(cls._is_api_path(path) for path in route_paths):
+                return True
         if parsed.path == "/api/gpus" and bool(
             parsed.params or parsed.query or parsed.fragment
         ):
@@ -1038,8 +1066,16 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             for path in route_paths
         ) or any(path == "/api" for path in route_paths)
 
-    @staticmethod
-    def _is_noncanonical_rpc_route(parsed) -> bool:
+    @classmethod
+    def _is_noncanonical_rpc_route(
+        cls, parsed, raw_target: Optional[str] = None
+    ) -> bool:
+        collapsed_raw = cls._collapse_leading_slash_target(raw_target)
+        if collapsed_raw is not None:
+            raw_parsed = urlparse(collapsed_raw)
+            route_paths = (raw_parsed.path, unquote(raw_parsed.path))
+            if any(path == "/rpc" for path in route_paths):
+                return True
         route_paths = (parsed.path, unquote(parsed.path))
         return (
             any(
@@ -1054,7 +1090,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         )
 
     def _reject_noncanonical_rpc_route(self, parsed, write_body: bool = True) -> bool:
-        if not self._is_noncanonical_rpc_route(parsed):
+        if not self._is_noncanonical_rpc_route(parsed, self._raw_request_target()):
             return False
         self._json_response(
             404,
@@ -1064,7 +1100,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         return True
 
     def _reject_noncanonical_api_route(self, parsed, write_body: bool = True) -> bool:
-        if not self._is_noncanonical_api_route(parsed):
+        if not self._is_noncanonical_api_route(parsed, self._raw_request_target()):
             return False
         self._json_response(
             404,

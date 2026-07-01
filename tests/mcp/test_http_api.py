@@ -142,18 +142,8 @@ def _allow_methods(headers):
     }
 
 
-def _raw_post_with_content_length(httpd, path: str, content_length: str):
+def _send_raw_http_json_request(httpd, request: bytes):
     host, port = httpd.server_address
-    request = (
-        f"POST {path} HTTP/1.1\r\n"
-        f"Host: {host}:{port}\r\n"
-        "Content-Type: application/json\r\n"
-        f"Content-Length: {content_length}\r\n"
-        "Connection: close\r\n"
-        "\r\n"
-        "{}"
-    ).encode("ascii")
-
     with socket.create_connection((host, port), timeout=2.0) as sock:
         sock.settimeout(2.0)
         sock.sendall(request)
@@ -176,6 +166,39 @@ def _raw_post_with_content_length(httpd, path: str, content_length: str):
     status_line = header_bytes.splitlines()[0].decode("iso-8859-1")
     status_code = int(status_line.split()[1])
     return status_code, json.loads(body.decode("utf-8")) if body else {}
+
+
+def _raw_post_with_content_length(httpd, path: str, content_length: str):
+    host, port = httpd.server_address
+    request = (
+        f"POST {path} HTTP/1.1\r\n"
+        f"Host: {host}:{port}\r\n"
+        "Content-Type: application/json\r\n"
+        f"Content-Length: {content_length}\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "{}"
+    ).encode("ascii")
+    return _send_raw_http_json_request(httpd, request)
+
+
+def _raw_http_json_request(httpd, method: str, target: str, payload=None):
+    host, port = httpd.server_address
+    if payload is None:
+        body = b""
+    elif isinstance(payload, bytes):
+        body = payload
+    else:
+        body = json.dumps(payload).encode("utf-8")
+    request = (
+        f"{method} {target} HTTP/1.1\r\n"
+        f"Host: {host}:{port}\r\n"
+        "Content-Type: application/json\r\n"
+        f"Content-Length: {len(body)}\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+    ).encode("ascii") + body
+    return _send_raw_http_json_request(httpd, request)
 
 
 @pytest.mark.parametrize(
@@ -383,6 +406,27 @@ def test_http_rpc_encoded_exact_alias_rejects_before_jsonrpc_parse(rpc_path):
     assert payload["error"]["message"] == "Unknown endpoint"
 
 
+def test_http_rpc_raw_double_slash_rejects_before_jsonrpc_parse():
+    server = make_server()
+    httpd, thread, _ = _start_http_server(server)
+
+    try:
+        status, payload = _raw_http_json_request(
+            httpd,
+            "POST",
+            "//rpc",
+            b"{bad json",
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert payload == {"error": {"message": "Unknown endpoint"}}
+
+
 @pytest.mark.parametrize("rpc_path", ["/rp%63", "/%72pc"])
 def test_http_rpc_encoded_exact_alias_unsupported_method_returns_json_404(rpc_path):
     server = make_server()
@@ -462,6 +506,67 @@ def test_http_encoded_api_routes_return_json_404_without_static_fallback(path):
     assert json.loads(body.decode("utf-8")) == {
         "error": {"message": "Unknown endpoint"}
     }
+
+
+def test_http_raw_double_slash_api_sessions_post_returns_404_without_start():
+    server = make_server()
+    httpd, thread, _ = _start_http_server(server)
+
+    try:
+        status, payload = _raw_http_json_request(
+            httpd,
+            "POST",
+            "//api/sessions",
+            {
+                "job_id": "double-slash-start",
+                "gpu_ids": [0],
+                "vram": "64MB",
+                "interval": 20,
+                "busy_threshold": 5,
+            },
+        )
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert payload == {"error": {"message": "Unknown endpoint"}}
+    assert server.status()["active_jobs"] == []
+
+
+def test_http_raw_double_slash_api_session_delete_returns_404_without_stop():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        _, start_payload = _request_json(
+            "POST",
+            f"{base}/api/sessions",
+            {
+                "job_id": "double-slash-stop",
+                "gpu_ids": [0],
+                "vram": "64MB",
+                "interval": 20,
+                "busy_threshold": 5,
+            },
+        )
+        job_id = start_payload["job_id"]
+
+        status, payload = _raw_http_json_request(
+            httpd, "DELETE", f"//api/sessions/{job_id}"
+        )
+        _, status_payload = _request_json("GET", f"{base}/api/sessions")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert payload == {"error": {"message": "Unknown endpoint"}}
+    assert [job["job_id"] for job in status_payload["active_jobs"]] == [job_id]
 
 
 def test_http_encoded_api_route_unsupported_method_returns_json_404():
