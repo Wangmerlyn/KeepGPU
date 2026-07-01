@@ -2565,12 +2565,22 @@ def test_stop_service_process_rejects_unknown_recorded_identity_components(
     monkeypatch, tmp_path, uid, start_time
 ):
     monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
-    monkeypatch.setattr(cli, "_process_uid", lambda pid: uid)
-    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: start_time)
-    cli._write_service_pid("127.0.0.1", 8765, 4321)
+    payload = {
+        "pid": 4321,
+        "host": "127.0.0.1",
+        "port": 8765,
+        "argv": cli._service_command("127.0.0.1", 8765),
+        "uid": uid,
+        "start_time": start_time,
+    }
+    cli._service_pid_path("127.0.0.1", 8765).write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
     monkeypatch.setattr(
         cli, "_process_cmdline", lambda pid: cli._service_command("127.0.0.1", 8765)
     )
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
     monkeypatch.setattr(cli, "_pid_alive", lambda pid: True)
 
     kills = []
@@ -2687,6 +2697,8 @@ def test_stop_service_process_confirms_sigkill_exit(monkeypatch, tmp_path):
 
 def test_write_service_pid_stores_ownership_record(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
 
     cli._write_service_pid("127.0.0.1", 8765, 4321)
 
@@ -2697,8 +2709,8 @@ def test_write_service_pid_stores_ownership_record(monkeypatch, tmp_path):
     assert payload["host"] == "127.0.0.1"
     assert payload["port"] == 8765
     assert payload["argv"] == cli._service_command("127.0.0.1", 8765)
-    assert payload["uid"] == cli._process_uid(4321)
-    assert "start_time" in payload
+    assert payload["uid"] == 1000
+    assert payload["start_time"] == "12345"
     assert "created_at" in payload
 
 
@@ -2769,3 +2781,184 @@ def test_stop_service_process_rejects_mismatched_record(monkeypatch, tmp_path):
 
     stopped = cli._stop_service_process("127.0.0.1", 8765)
     assert stopped is False
+
+
+def test_start_service_process_terminates_spawned_process_when_pid_write_fails(
+    monkeypatch, tmp_path
+):
+    class FakeProcess:
+        pid = 4321
+
+        def __init__(self):
+            self.terminated = 0
+            self.killed = 0
+            self.wait_timeouts = []
+
+        def terminate(self):
+            self.terminated += 1
+
+        def wait(self, timeout=None):
+            self.wait_timeouts.append(timeout)
+
+        def kill(self):
+            self.killed += 1
+
+    process = FakeProcess()
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(
+        cli,
+        "_write_service_pid",
+        lambda host, port, pid: (_ for _ in ()).throw(OSError("pid write failed")),
+    )
+
+    with pytest.raises(OSError, match="pid write failed"):
+        cli._start_service_process("127.0.0.1", 8765)
+
+    assert process.terminated == 1
+    assert process.killed == 0
+    assert process.wait_timeouts == [1.0]
+    assert not cli._service_pid_path("127.0.0.1", 8765).exists()
+
+
+def test_start_service_process_preserves_existing_pid_record_when_pid_write_fails(
+    monkeypatch, tmp_path
+):
+    class FakeProcess:
+        pid = 4321
+
+        def __init__(self):
+            self.terminated = 0
+            self.wait_timeouts = []
+
+        def terminate(self):
+            self.terminated += 1
+
+        def wait(self, timeout=None):
+            self.wait_timeouts.append(timeout)
+
+        def kill(self):
+            raise AssertionError("clean terminate should not need kill")
+
+    process = FakeProcess()
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    pid_path = cli._service_pid_path("127.0.0.1", 8765)
+    pid_path.write_text('{"pid": 1111, "legacy": true}', encoding="utf-8")
+    monkeypatch.setattr(cli.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(
+        cli,
+        "_write_service_pid",
+        lambda host, port, pid: (_ for _ in ()).throw(OSError("pid write failed")),
+    )
+
+    with pytest.raises(OSError, match="pid write failed"):
+        cli._start_service_process("127.0.0.1", 8765)
+
+    assert process.terminated == 1
+    assert process.wait_timeouts == [1.0]
+    assert pid_path.read_text(encoding="utf-8") == '{"pid": 1111, "legacy": true}'
+
+
+def test_start_service_process_aborts_before_spawn_when_pid_snapshot_fails(
+    monkeypatch, tmp_path
+):
+    class UnreadablePidPath:
+        def read_bytes(self):
+            raise OSError("snapshot failed")
+
+        def write_bytes(self, data):
+            raise AssertionError("unknown prior PID record should not be overwritten")
+
+        def unlink(self, missing_ok=False):
+            raise AssertionError("unknown prior PID record should not be cleared")
+
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(
+        cli, "_service_pid_path", lambda host, port: UnreadablePidPath()
+    )
+    monkeypatch.setattr(
+        cli.subprocess,
+        "Popen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("service should not spawn when PID snapshot fails")
+        ),
+    )
+
+    with pytest.raises(OSError, match="snapshot failed"):
+        cli._start_service_process("127.0.0.1", 8765)
+
+
+def test_start_service_process_waits_when_terminate_signal_fails(monkeypatch, tmp_path):
+    class FakeProcess:
+        pid = 4321
+
+        def __init__(self):
+            self.terminate_calls = 0
+            self.wait_timeouts = []
+            self.killed = 0
+
+        def terminate(self):
+            self.terminate_calls += 1
+            raise OSError("already exited")
+
+        def wait(self, timeout=None):
+            self.wait_timeouts.append(timeout)
+
+        def kill(self):
+            self.killed += 1
+
+    process = FakeProcess()
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(
+        cli,
+        "_write_service_pid",
+        lambda host, port, pid: (_ for _ in ()).throw(OSError("pid write failed")),
+    )
+
+    with pytest.raises(OSError, match="pid write failed"):
+        cli._start_service_process("127.0.0.1", 8765)
+
+    assert process.terminate_calls == 1
+    assert process.wait_timeouts == [1.0]
+    assert process.killed == 0
+
+
+@pytest.mark.parametrize(
+    ("uid", "start_time"),
+    [(None, "12345"), (1000, None), (True, "12345"), (1000, "")],
+)
+def test_start_service_process_terminates_spawned_process_when_identity_is_unknown(
+    monkeypatch, tmp_path, uid, start_time
+):
+    class FakeProcess:
+        pid = 4321
+
+        def __init__(self):
+            self.terminated = 0
+            self.wait_timeouts = []
+
+        def terminate(self):
+            self.terminated += 1
+
+        def wait(self, timeout=None):
+            self.wait_timeouts.append(timeout)
+
+        def kill(self):
+            raise AssertionError("clean terminate should not need kill")
+
+    process = FakeProcess()
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: uid)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: start_time)
+
+    with pytest.raises(
+        RuntimeError,
+        match="Cannot verify KeepGPU service daemon ownership",
+    ):
+        cli._start_service_process("127.0.0.1", 8765)
+
+    assert process.terminated == 1
+    assert process.wait_timeouts == [1.0]
+    assert not cli._service_pid_path("127.0.0.1", 8765).exists()

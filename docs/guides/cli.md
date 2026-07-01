@@ -78,11 +78,12 @@ keep-gpu service-stop
 
 If sessions are still active, timed out, or failed to stop cleanly, resolve them
 first or use `--force`. Force mode skips the session RPC checks, but it still
-stops only an ownership-verified daemon that KeepGPU auto-started. Malformed
-PID records, including float or boolean numeric identity values, are ignored
-instead of being coerced into a process signal target. On systems without
-`/proc`, KeepGPU may recover daemon identity from platform process metadata, but
-unknown identity still refuses to signal.
+stops only an ownership-verified daemon that KeepGPU auto-started. Malformed PID
+records, including float or boolean numeric identity values, are ignored instead
+of being coerced into a process signal target. Auto-start also cleans up and
+fails if it cannot create a trustworthy ownership record for the daemon it just
+spawned. On systems without `/proc`, KeepGPU may recover daemon identity from
+platform process metadata, but unknown identity still refuses to signal.
 
 ### List telemetry
 
