@@ -178,10 +178,11 @@ This file defines how coding agents should work in this repository.
 - Keep public session input validation centralized in `src/keep_gpu/utilities/session_config.py`; CLI, Python, REST, and JSON-RPC entry points must share the same contract.
 - JSON-RPC user parameter validation errors and unknown direct-method params must return `-32602 Invalid params`; reserve `-32603 Internal error` for unexpected server failures.
 - Expected controller startup unavailability, such as no usable visible GPUs,
-  failed CUDA/ROCm visible-device enumeration, unavailable PyTorch MPS backends,
-  or unsupported platforms, must surface as explicit startup-unavailable errors
-  (direct JSON-RPC `-32000`, REST `503`, MCP tool `isError=true`) while
-  arbitrary unexpected startup/runtime failures remain internal errors.
+  failed CUDA/ROCm visible-device enumeration, unavailable or unprobeable
+  PyTorch MPS backends, or unsupported platforms, must surface as explicit
+  startup-unavailable errors (direct JSON-RPC `-32000`, REST `503`, MCP tool
+  `isError=true`) while arbitrary unexpected startup/runtime failures remain
+  internal errors.
 - Direct JSON-RPC and MCP tool `list_gpus` calls must classify expected
   `DeviceEnumerationUnavailableError` failures as startup-unavailable, matching
   REST `/api/gpus` `503` behavior; malformed GPU listing payloads remain

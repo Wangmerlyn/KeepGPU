@@ -155,6 +155,29 @@ def test_global_controller_reports_unavailable_mps_as_startup_unavailable(
         GlobalGPUController(gpu_ids=[0], vram_to_keep=4)
 
 
+def test_global_controller_reports_mps_probe_exception_as_startup_unavailable(
+    monkeypatch,
+):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.MACM)
+
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    def raise_probe_error():
+        raise ValueError("MPS probe exploded")
+
+    monkeypatch.setattr(
+        macm_module.torch.backends.mps,
+        "is_available",
+        raise_probe_error,
+    )
+
+    with pytest.raises(
+        NoGPUAvailableError,
+        match="PyTorch MPS backend availability check failed: MPS probe exploded",
+    ):
+        GlobalGPUController(gpu_ids=[0], vram_to_keep=4)
+
+
 def test_global_release_attempts_all_controllers_and_reports_failures():
     class DummyController:
         def __init__(self, rank, error=None):

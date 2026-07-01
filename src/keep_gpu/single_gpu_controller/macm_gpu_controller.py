@@ -40,7 +40,7 @@ class MacMGPUController(BaseGPUController):
         rank = validate_visible_rank(rank, 1)
         try:
             mps_available = torch.backends.mps.is_available()
-        except RuntimeError as exc:
+        except Exception as exc:
             raise MPSBackendUnavailableError(
                 f"PyTorch MPS backend availability check failed: {exc}"
             ) from exc

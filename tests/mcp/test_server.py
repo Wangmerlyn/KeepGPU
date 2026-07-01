@@ -746,6 +746,41 @@ def test_jsonrpc_start_keep_unavailable_mps_returns_public_code(monkeypatch):
         server.shutdown()
 
 
+def test_jsonrpc_start_keep_mps_probe_exception_returns_public_code(monkeypatch):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.MACM)
+
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    def raise_probe_error():
+        raise ValueError("MPS probe exploded")
+
+    monkeypatch.setattr(
+        macm_module.torch.backends.mps,
+        "is_available",
+        raise_probe_error,
+    )
+
+    server = KeepGPUServer()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"job_id": "mps-probe-error", "gpu_ids": [0]},
+    }
+
+    try:
+        resp = _handle_request(server, req)
+
+        assert "error" in resp
+        assert resp["error"]["code"] == JSONRPC_STARTUP_UNAVAILABLE
+        assert (
+            "PyTorch MPS backend availability check failed: MPS probe exploded"
+            in resp["error"]["message"]
+        )
+        assert server.status()["active_jobs"] == []
+    finally:
+        server.shutdown()
+
+
 def test_jsonrpc_start_keep_zero_visible_gpus_returns_public_code(monkeypatch):
     import torch
 
