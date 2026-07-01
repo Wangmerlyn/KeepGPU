@@ -43,6 +43,14 @@ class _StopWaitForbidden:
         raise AssertionError("fatal worker failures should stop immediately")
 
 
+class _StopAlreadySet:
+    def is_set(self):
+        return True
+
+    def wait(self, _timeout):
+        raise AssertionError("pre-stopped workers should not wait")
+
+
 class _AliveThread:
     def is_alive(self):
         return True
@@ -343,6 +351,26 @@ def test_macm_records_invalid_post_start_num_elements_as_failure():
     error = ctrl.allocation_status()
     assert isinstance(error, RuntimeError)
     assert str(error) == "rank 0: invalid vram_to_keep=0"
+
+
+def test_macm_preserves_failure_when_stopped_before_startup_allocation():
+    ctrl = MacMGPUController.__new__(MacMGPUController)
+    ctrl.rank = 0
+    ctrl.device = "mps"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.iterations = 1
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopAlreadySet()
+    startup_evt = threading.Event()
+
+    ctrl._keep_loop(startup_evt=startup_evt, startup_errors=None)
+
+    assert startup_evt.is_set()
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "rank 0: stopped before MPS startup allocation"
 
 
 def test_macm_retries_post_start_allocation_oom_without_failure(monkeypatch):
