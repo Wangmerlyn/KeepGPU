@@ -2,7 +2,10 @@ import threading
 
 import pytest
 
-from keep_gpu.single_gpu_controller.macm_gpu_controller import MacMGPUController
+from keep_gpu.single_gpu_controller.macm_gpu_controller import (
+    MacMGPUController,
+    MPSBackendUnavailableError,
+)
 
 
 class _StopAfterOneWait:
@@ -113,6 +116,29 @@ def test_macm_constructor_preserves_unavailable_mps_runtime_error(monkeypatch):
 
     with pytest.raises(RuntimeError, match="PyTorch MPS backend is not available"):
         MacMGPUController(rank=0, busy_threshold=25, iterations=1)
+
+
+def test_macm_constructor_wraps_mps_probe_exception(monkeypatch):
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    probe_error = ValueError("mps probe corrupted")
+
+    def raise_probe_error():
+        raise probe_error
+
+    monkeypatch.setattr(
+        macm_module.torch.backends.mps,
+        "is_available",
+        raise_probe_error,
+    )
+
+    with pytest.raises(
+        MPSBackendUnavailableError,
+        match="PyTorch MPS backend availability check failed: mps probe corrupted",
+    ) as exc_info:
+        MacMGPUController(rank=0, busy_threshold=25, iterations=1)
+
+    assert exc_info.value.__cause__ is probe_error
 
 
 def test_macm_keep_rejects_restart_while_previous_thread_is_stopping():

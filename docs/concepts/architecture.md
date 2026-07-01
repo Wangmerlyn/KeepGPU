@@ -135,8 +135,9 @@ Vendor detection probes initialize and then shut down their telemetry libraries
 immediately, so detection does not leave NVML or ROCm SMI handles open. A PyTorch
 build with a truthy `torch.version.hip` is treated as ROCm before any NVML-based
 CUDA fallback, even if NVML is available on the host.
-CUDA/ROCm enumeration failures and unavailable PyTorch MPS backends are expected
-startup-unavailable conditions rather than internal service errors.
+CUDA/ROCm enumeration failures and unavailable or unprobeable PyTorch MPS
+backends are expected startup-unavailable conditions rather than internal
+service errors.
 
 Runtime telemetry has its own recovery path because GPU listing can run while a
 keeper is active. If an independent listing probe shuts down NVML or ROCm SMI,
