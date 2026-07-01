@@ -173,7 +173,8 @@ This file defines how coding agents should work in this repository.
 - Direct JSON-RPC and MCP tool `list_gpus` calls must classify expected
   `DeviceEnumerationUnavailableError` failures as startup-unavailable, matching
   REST `/api/gpus` `503` behavior; malformed GPU listing payloads remain
-  internal service contract errors.
+  internal service contract errors. CUDA/ROCm `torch.cuda.device_count()`
+  failures are enumeration-unavailable errors, not successful empty GPU lists.
 - CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
 - CLI service RPC clients must reject malformed JSON-RPC service envelopes
   (wrong `jsonrpc`, mismatched `id`, `id: null` responses to a request with a
@@ -263,7 +264,8 @@ This file defines how coding agents should work in this repository.
   handler exceptions drop the HTTP connection.
 - `GET /api/gpus` must report expected `DeviceEnumerationUnavailableError`
   failures as structured JSON `503` responses; arbitrary listing runtime
-  failures remain structured `500` errors.
+  failures remain structured `500` errors. CUDA/ROCm visible-device count
+  failures must not be flattened into successful empty listings.
 - The dashboard request wrapper must prefer structured REST `error.message`
   strings over raw JSON bodies so users see actionable start/refresh/release
   failures instead of protocol payloads.

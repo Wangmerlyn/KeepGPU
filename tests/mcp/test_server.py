@@ -20,7 +20,7 @@ from keep_gpu.mcp.server import (
     SessionStartupUnavailable,
     _handle_request,
 )
-from keep_gpu.utilities import platform_manager as pm
+from keep_gpu.utilities import gpu_info, platform_manager as pm
 from keep_gpu.utilities.humanized_input import PUBLIC_VRAM_MAX_BYTES
 
 
@@ -944,6 +944,64 @@ def test_list_gpus():
     server = make_server()
     info = server.list_gpus()
     assert "gpus" in info
+
+
+def test_list_gpus_propagates_real_helper_enumeration_unavailable(
+    monkeypatch,
+):
+    class DummyNVML:
+        shutdown_calls = 0
+
+        @staticmethod
+        def nvmlInit():
+            return None
+
+        @staticmethod
+        def nvmlDeviceGetCount():
+            return 1
+
+        @classmethod
+        def nvmlShutdown(cls):
+            cls.shutdown_calls += 1
+
+    class DummyCuda:
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def device_count():
+            raise RuntimeError("cuda runtime unavailable")
+
+    dummy_torch = type(
+        "T",
+        (),
+        {
+            "cuda": DummyCuda(),
+            "version": type("V", (), {"hip": None}),
+            "backends": type(
+                "Backends",
+                (),
+                {
+                    "mps": type(
+                        "MPSBackend", (), {"is_available": staticmethod(lambda: False)}
+                    )
+                },
+            ),
+        },
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", DummyNVML)
+    monkeypatch.setitem(sys.modules, "rocm_smi", None)
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+
+    server = make_server()
+
+    with pytest.raises(
+        pm.DeviceEnumerationUnavailableError,
+        match="Unable to enumerate visible GPUs: cuda runtime unavailable",
+    ):
+        server.list_gpus()
+    assert DummyNVML.shutdown_calls == 1
 
 
 def test_list_gpus_accepts_nullable_memory_and_utilization(monkeypatch):

@@ -114,10 +114,12 @@ rather than advertised as
 usable `gpu_ids`. On ROCm, listed records are limited to visible ordinals that
 Torch can select; nullable memory fields mean memory telemetry is unavailable
 after selection succeeds. Service/runtime errors after CLI parsing succeeds are
-reported as `{"error": "..."}`. Malformed JSON-RPC service envelopes are
-reported as JSON error objects instead of empty success results; malformed GPU
-records are reported the same way. `utilization` is either `null` or a finite
-number from `0` to `100`; out-of-range telemetry is unavailable, not idle.
+reported as `{"error": "..."}`. CUDA/ROCm visible-device enumeration failures
+are reported as startup-unavailable errors instead of successful empty GPU
+lists. Malformed JSON-RPC service envelopes are reported as JSON error objects
+instead of empty success results; malformed GPU records are reported the same
+way. `utilization` is either `null` or a finite number from `0` to `100`;
+out-of-range telemetry is unavailable, not idle.
 Invalid endpoint values, including non-integer or out-of-range ports, are
 reported as JSON errors before RPC.
 
