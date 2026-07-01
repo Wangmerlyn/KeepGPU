@@ -1019,6 +1019,10 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
 
     @classmethod
     def _is_noncanonical_api_route(cls, parsed) -> bool:
+        if parsed.path == "/api/gpus" and bool(
+            parsed.params or parsed.query or parsed.fragment
+        ):
+            return True
         if cls._is_api_path(parsed.path):
             return False
         route_paths = (parsed.path, unquote(parsed.path))

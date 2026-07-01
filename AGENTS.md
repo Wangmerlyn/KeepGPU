@@ -137,6 +137,8 @@ This file defines how coding agents should work in this repository.
   is API-shaped (`/api`, `/api/...`, `/api;...`, `/api?...`, or `/api#...`)
   must return structured JSON `404 Unknown endpoint` responses instead of
   serving the dashboard/static fallback or `BaseHTTPRequestHandler` HTML errors.
+  Exact API endpoints such as `/api/gpus` must not accept params, query strings,
+  or fragments unless the handler explicitly documents those components.
   Canonical API paths may still validate encoded `job_id` path components
   normally.
 - Implemented HTTP verb handlers (`do_POST`, `do_DELETE`, and future siblings)
