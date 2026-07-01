@@ -50,12 +50,14 @@ def validate_endpoint_port(port: Any) -> int:
     if isinstance(port, int):
         parsed_port = port
     elif isinstance(port, str):
-        if not port or port.strip() != port:
+        if (
+            not port
+            or port.strip() != port
+            or not port.isascii()
+            or not port.isdecimal()
+        ):
             raise ValueError(ENDPOINT_PORT_ERROR)
-        try:
-            parsed_port = int(port)
-        except ValueError:
-            raise ValueError(ENDPOINT_PORT_ERROR) from None
+        parsed_port = int(port)
     else:
         raise ValueError(ENDPOINT_PORT_ERROR)
 

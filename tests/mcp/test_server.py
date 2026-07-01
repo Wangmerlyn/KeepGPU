@@ -64,6 +64,9 @@ def _wait_until(condition, timeout_s=1.0):
         (["--port", "0"], "port must be an integer between 1 and 65535"),
         (["--port", "70000"], "port must be an integer between 1 and 65535"),
         (["--port", "true"], "port must be an integer between 1 and 65535"),
+        (["--port", "+8765"], "port must be an integer between 1 and 65535"),
+        (["--port", "8_765"], "port must be an integer between 1 and 65535"),
+        (["--port", "１２３"], "port must be an integer between 1 and 65535"),
         (["--host", "bad host"], "host must be a DNS hostname or IPv4 address"),
     ],
 )

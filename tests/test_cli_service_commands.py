@@ -624,8 +624,11 @@ def test_service_json_command_rejects_invalid_port_before_rpc(monkeypatch):
     ("command", "called_key"),
     [
         (["status", "--port", "abc"], "rpc"),
+        (["status", "--port", "+8765"], "rpc"),
         (["stop", "--all", "--port", "abc"], "stop_all"),
+        (["stop", "--all", "--port", "8_765"], "stop_all"),
         (["list-gpus", "--port", "abc"], "rpc"),
+        (["list-gpus", "--port", "１２３"], "rpc"),
     ],
 )
 def test_service_json_commands_reject_non_integer_port_as_json_before_rpc_or_fallback(
