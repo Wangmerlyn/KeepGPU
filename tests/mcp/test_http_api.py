@@ -306,7 +306,7 @@ def test_http_rpc_head_rejects_with_json_405_and_empty_body():
 
 @pytest.mark.parametrize(
     "rpc_path",
-    ["/rpc/", "/rpc%2F", "/rpc%3Bdebug", "/rpc%3Fdebug=1"],
+    ["/rpc/", "/rpc%2F", "/rpc%3Bdebug", "/rpc%3Fdebug=1", "/rp%63", "/%72pc"],
 )
 def test_http_rpc_noncanonical_get_returns_json_404_without_static_fallback(
     rpc_path,
@@ -345,6 +345,45 @@ def test_http_rpc_noncanonical_path_rejects_before_jsonrpc_parse(rpc_path):
 
     assert status == 404
     assert payload["error"]["message"] == "Unknown endpoint"
+
+
+@pytest.mark.parametrize("rpc_path", ["/rp%63", "/%72pc"])
+def test_http_rpc_encoded_exact_alias_rejects_before_jsonrpc_parse(rpc_path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, payload = _request_raw("POST", f"{base}{rpc_path}", b"{bad json")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert payload["error"]["message"] == "Unknown endpoint"
+
+
+@pytest.mark.parametrize("rpc_path", ["/rp%63", "/%72pc"])
+def test_http_rpc_encoded_exact_alias_unsupported_method_returns_json_404(rpc_path):
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status, headers, body = _request_http_response("OPTIONS", f"{base}{rpc_path}")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers.get("content-type") == "application/json"
+    assert "allow" not in {name.lower() for name in headers.keys()}
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Unknown endpoint"}
+    }
 
 
 @pytest.mark.parametrize(
