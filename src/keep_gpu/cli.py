@@ -97,6 +97,11 @@ def _service_command(host: str, port: int) -> List[str]:
     ]
 
 
+def _print_machine_json(data: Dict[str, Any]) -> None:
+    console.file.write(f"{json.dumps(data, indent=2, allow_nan=False)}\n")
+    console.file.flush()
+
+
 def _process_start_identity(pid: int) -> Optional[str]:
     try:
         stat_path = Path(f"/proc/{pid}/stat")
@@ -1230,9 +1235,9 @@ def status(
             port,
         )
         result = _validate_status_result(result, single_job=job_id is not None)
-        console.print_json(data=result)
+        _print_machine_json(result)
     except (RuntimeError, typer.BadParameter) as exc:
-        console.print_json(data={"error": str(exc)})
+        _print_machine_json({"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
 
@@ -1273,9 +1278,9 @@ def stop(
                 timeout=45.0,
             )
             result = _validate_stop_keep_result(result)
-        console.print_json(data=result)
+        _print_machine_json(result)
     except (RuntimeError, typer.BadParameter) as exc:
-        console.print_json(data={"error": str(exc)})
+        _print_machine_json({"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
 
@@ -1293,9 +1298,9 @@ def list_gpus(
         host, port = _validate_cli_service_endpoint(host, port)
         result = _rpc_call("list_gpus", {}, host, port)
         result = _validate_list_gpus_result(result)
-        console.print_json(data=result)
+        _print_machine_json(result)
     except (RuntimeError, typer.BadParameter) as exc:
-        console.print_json(data={"error": str(exc)})
+        _print_machine_json({"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
 

@@ -1,8 +1,10 @@
 import builtins
 import json
 import re
+from io import StringIO
 
 import pytest
+from rich.console import Console
 from typer.testing import CliRunner
 
 from keep_gpu import cli
@@ -15,6 +17,16 @@ def _single_decoded_json_object(output):
     payload = json.loads(output)
     assert isinstance(payload, dict)
     return payload
+
+
+def _force_color_console(monkeypatch):
+    output = StringIO()
+    monkeypatch.setattr(
+        cli,
+        "console",
+        Console(file=output, force_terminal=True, color_system="truecolor"),
+    )
+    return output
 
 
 def test_interval_help_uses_number_metavar():
@@ -810,6 +822,63 @@ def test_status_outputs_single_decoded_json_object(monkeypatch):
     payload = _single_decoded_json_object(result.output)
     assert payload["active"] is True
     assert payload["active_jobs"][0]["job_id"] == "job-1"
+
+
+@pytest.mark.parametrize(
+    ("command", "expected_payload"),
+    [
+        (["status"], {"active_jobs": []}),
+        (
+            ["stop", "--job-id", "job-1"],
+            {"stopped": ["job-1"], "timed_out": [], "failed": [], "errors": {}},
+        ),
+        (["list-gpus"], {"gpus": []}),
+    ],
+)
+def test_service_json_commands_stay_plain_json_when_console_color_is_enabled(
+    monkeypatch, command, expected_payload
+):
+    output = _force_color_console(monkeypatch)
+
+    def fake_rpc(method, params, host, port, timeout=8.0):
+        if method == "status":
+            return {"active_jobs": []}
+        if method == "stop_keep":
+            return {"stopped": ["job-1"], "timed_out": [], "failed": [], "errors": {}}
+        if method == "list_gpus":
+            return {"gpus": []}
+        raise AssertionError(f"unexpected RPC method: {method}")
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, command)
+
+    rendered = output.getvalue()
+    assert result.exit_code == 0
+    assert "\x1b[" not in rendered
+    assert _single_decoded_json_object(rendered) == expected_payload
+
+
+def test_service_json_errors_stay_plain_json_when_console_color_is_enabled(
+    monkeypatch,
+):
+    output = _force_color_console(monkeypatch)
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            RuntimeError("telemetry service unavailable")
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["list-gpus"])
+
+    rendered = output.getvalue()
+    assert result.exit_code == 1
+    assert "\x1b[" not in rendered
+    assert _single_decoded_json_object(rendered) == {
+        "error": "telemetry service unavailable"
+    }
 
 
 def test_status_job_outputs_single_decoded_json_object(monkeypatch):
