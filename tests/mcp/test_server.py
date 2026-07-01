@@ -22,6 +22,7 @@ from keep_gpu.mcp.server import (
 )
 from keep_gpu.utilities import gpu_info, platform_manager as pm
 from keep_gpu.utilities.humanized_input import PUBLIC_VRAM_MAX_BYTES
+from keep_gpu.utilities.session_config import JOB_ID_PATTERN_TEXT
 
 
 class DummyController:
@@ -1267,10 +1268,11 @@ def test_mcp_tools_list_exposes_keepgpu_actions():
     assert start_schema["properties"]["interval"]["type"] == "number"
     assert start_schema["properties"]["interval"]["exclusiveMinimum"] == 0
     assert start_schema["properties"]["busy_threshold"]["default"] == 25
-    assert tools["status"]["inputSchema"]["properties"]["job_id"]["type"] == [
-        "string",
-        "null",
-    ]
+    for tool_name in ("start_keep", "stop_keep", "status"):
+        job_id_schema = tools[tool_name]["inputSchema"]["properties"]["job_id"]
+        assert job_id_schema["type"] == ["string", "null"]
+        assert job_id_schema["minLength"] == 1
+        assert job_id_schema["pattern"] == JOB_ID_PATTERN_TEXT
 
 
 def test_jsonrpc_rejects_explicit_invalid_request_version():

@@ -320,6 +320,9 @@ This file defines how coding agents should work in this repository.
 - Non-force `keep-gpu service-stop` must require a reachable service, successful status/RPC checks, and a clean `stop_keep` result with no timed-out or failed sessions before signaling; use `--force` for unresponsive auto-started daemons.
 - Treat custom `job_id` values as reserved from the moment startup begins; duplicate starts must fail before another controller can begin keep-alive work.
 - Keep custom `job_id` validation centralized in `session_config.py`: only `None` means omitted/all-sessions, and custom IDs must be non-empty URL-path-safe strings before any session state changes.
+- MCP tool schemas that expose `job_id` must reuse the shared
+  `JOB_ID_PATTERN_TEXT` contract from `session_config.py`, so generated clients
+  see the same non-empty URL-path-safe shape enforced at runtime.
 - Stop requests must not miss starting sessions. Targeted stops wait for the
   matching startup before returning `not found`; stop-all records its initial
   active/starting boundary first, waits only for starts in that boundary, and
