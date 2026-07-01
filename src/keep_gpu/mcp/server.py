@@ -1459,7 +1459,7 @@ def run_http(server: KeepGPUServer, host: str = "127.0.0.1", port: int = 8765) -
         server.shutdown()
 
 
-def _validate_mcp_http_endpoint(host: str, port: int) -> tuple[str, int]:
+def _validate_mcp_http_endpoint(host: str, port: Any) -> tuple[str, int]:
     return validate_endpoint(host, port)
 
 
@@ -1473,7 +1473,7 @@ def main() -> None:
         help="Transport mode (default: stdio)",
     )
     parser.add_argument("--host", default="127.0.0.1", help="HTTP host (http mode)")
-    parser.add_argument("--port", type=int, default=8765, help="HTTP port (http mode)")
+    parser.add_argument("--port", default=8765, help="HTTP port (http mode)")
     args = parser.parse_args()
 
     if args.mode == "http":

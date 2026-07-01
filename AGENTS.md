@@ -212,7 +212,9 @@ This file defines how coding agents should work in this repository.
   current process probe that cannot recover either value, is not ownership
   verified and must not be signaled as a managed daemon.
 - MCP executable HTTP endpoint inputs (`--host`, `--port`) must be validated
-  before socket bind, matching the CLI service endpoint contract.
+  before socket bind, matching the CLI service endpoint contract. The MCP
+  argparse layer must pass raw `--port` values to the shared validator so
+  non-integer ports use the shared error message instead of argparse type errors.
 - `keep-gpu start` must validate local inputs such as `--vram`, `--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, and `--port` before auto-starting the service daemon or making RPC calls.
 - If `keep-gpu start` auto-starts a service daemon and the following
   `start_keep` RPC returns expected startup-unavailable JSON-RPC code
