@@ -1044,6 +1044,15 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             return None
         return "/" + raw_target.lstrip("/")
 
+    @staticmethod
+    def _route_path_candidates(path: str) -> tuple[str, ...]:
+        candidates: list[str] = []
+        for candidate in (path, unquote(path)):
+            candidates.append(candidate)
+            if candidate.startswith("//"):
+                candidates.append("/" + candidate.lstrip("/"))
+        return tuple(dict.fromkeys(candidates))
+
     @classmethod
     def _is_noncanonical_api_route(
         cls, parsed, raw_target: Optional[str] = None
@@ -1051,7 +1060,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         collapsed_raw = cls._collapse_leading_slash_target(raw_target)
         if collapsed_raw is not None:
             raw_parsed = urlparse(collapsed_raw)
-            route_paths = (raw_parsed.path, unquote(raw_parsed.path))
+            route_paths = cls._route_path_candidates(raw_parsed.path)
             if any(cls._is_api_path(path) for path in route_paths):
                 return True
         if parsed.path == "/api/gpus" and bool(
@@ -1060,7 +1069,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             return True
         if cls._is_api_path(parsed.path):
             return False
-        route_paths = (parsed.path, unquote(parsed.path))
+        route_paths = cls._route_path_candidates(parsed.path)
         return any(
             path.startswith(("/api/", "/api;", "/api?", "/api#"))
             for path in route_paths
@@ -1073,16 +1082,16 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
         collapsed_raw = cls._collapse_leading_slash_target(raw_target)
         if collapsed_raw is not None:
             raw_parsed = urlparse(collapsed_raw)
-            route_paths = (raw_parsed.path, unquote(raw_parsed.path))
+            route_paths = cls._route_path_candidates(raw_parsed.path)
             if any(path == "/rpc" for path in route_paths):
                 return True
-        route_paths = (parsed.path, unquote(parsed.path))
+        route_paths = cls._route_path_candidates(parsed.path)
         return (
             any(
                 path.startswith(("/rpc/", "/rpc;", "/rpc?", "/rpc#"))
                 for path in route_paths
             )
-            or (parsed.path != "/rpc" and unquote(parsed.path) == "/rpc")
+            or (parsed.path != "/rpc" and any(path == "/rpc" for path in route_paths))
             or (
                 any(path == "/rpc" for path in route_paths)
                 and bool(parsed.params or parsed.query or parsed.fragment)

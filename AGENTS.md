@@ -139,22 +139,22 @@ This file defines how coding agents should work in this repository.
   responses. `/api/sessions/{job_id}` accepts exactly one raw path component;
   raw extra segments such as `/api/sessions/foo/bar` are unknown routes.
 - Encoded or otherwise noncanonical route spellings whose raw or decoded target
-  is API-shaped (`//api/...`, `/api`, `/api/...`, `/api;...`, `/api?...`, or
-  `/api#...`) must return structured JSON `404 Unknown endpoint` responses
-  instead of serving the dashboard/static fallback or `BaseHTTPRequestHandler`
-  HTML errors. Exact API endpoints such as `/api/gpus` must not accept params,
-  query strings, or fragments unless the handler explicitly documents those
-  components. Canonical API paths may still validate encoded `job_id` path
-  components normally.
+  is API-shaped (`//api/...`, `/%2Fapi/...`, `/api`, `/api/...`, `/api;...`,
+  `/api?...`, or `/api#...`) must return structured JSON `404 Unknown endpoint`
+  responses instead of serving the dashboard/static fallback or
+  `BaseHTTPRequestHandler` HTML errors. Exact API endpoints such as `/api/gpus`
+  must not accept params, query strings, or fragments unless the handler
+  explicitly documents those components. Canonical API paths may still validate
+  encoded `job_id` path components normally.
 - Implemented HTTP verb handlers (`do_POST`, `do_DELETE`, and future siblings)
   must call the shared unsupported-method helper before local unknown-endpoint
   404 branches, so known paths never regress to 404 or body-parse errors solely
   because the wrong implemented verb was used.
 - `/rpc` is an exact POST-only JSON-RPC endpoint; `GET /rpc` must return
   structured JSON `405 Method Not Allowed` with `Allow: POST`, while
-  noncanonical spellings such as `//rpc`, `/rpc/`, `/rpc;...`, `/rpc?...`,
-  `/rp%63`, and `/%72pc` return structured JSON `404 Unknown endpoint` without
-  JSON-RPC dispatch or dashboard/static fallback.
+  noncanonical spellings such as `//rpc`, `/%2Frpc`, `/rpc/`, `/rpc;...`,
+  `/rpc?...`, `/rp%63`, and `/%72pc` return structured JSON `404 Unknown
+  endpoint` without JSON-RPC dispatch or dashboard/static fallback.
 - Missing dashboard asset URLs, including `GET`/`HEAD` requests for `/assets/*`
   and extension-bearing static paths, must return structured JSON `404` errors
   instead of the dashboard HTML shell; `HEAD` responses must not include a body.
