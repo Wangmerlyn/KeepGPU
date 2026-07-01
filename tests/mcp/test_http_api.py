@@ -778,6 +778,26 @@ def test_http_jsonrpc_parse_error_returns_jsonrpc_envelope(rpc_path):
     assert payload["error"]["code"] == -32700
 
 
+def test_http_rpc_bad_version_notification_returns_invalid_request_envelope():
+    server = make_server()
+    httpd, thread, base = _start_http_server(server)
+    request = {"jsonrpc": "1.0", "method": "notifications/initialized"}
+
+    try:
+        status, payload = _request_json("POST", f"{base}/rpc", request)
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 200
+    assert payload["jsonrpc"] == "2.0"
+    assert payload["id"] is None
+    assert payload["error"]["code"] == -32600
+    assert payload["error"]["message"] == "JSON-RPC version must be 2.0."
+
+
 def test_http_post_sessions_rejects_negative_content_length_without_client_close():
     server = make_server()
     httpd, thread, _ = _start_threaded_http_server(server)

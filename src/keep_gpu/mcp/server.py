@@ -946,10 +946,10 @@ def _handle_request(server: KeepGPUServer, payload: Any) -> Optional[Dict[str, A
         params = payload.get("params", {})
         if not isinstance(method, str) or not method:
             raise JSONRPCError(JSONRPC_INVALID_REQUEST, "Request method is required.")
-        if method.startswith("notifications/") and "id" not in payload:
-            return None
         if "jsonrpc" in payload and payload["jsonrpc"] != "2.0":
             raise JSONRPCError(JSONRPC_INVALID_REQUEST, "JSON-RPC version must be 2.0.")
+        if method.startswith("notifications/") and "id" not in payload:
+            return None
         if "id" not in payload or not _is_valid_jsonrpc_id(raw_id):
             raise JSONRPCError(JSONRPC_INVALID_REQUEST, "Requests must include an id.")
         if method.startswith("notifications/"):
