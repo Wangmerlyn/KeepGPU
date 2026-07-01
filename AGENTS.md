@@ -330,6 +330,10 @@ This file defines how coding agents should work in this repository.
 - Internal single-GPU startup paths that receive a `startup_evt` must always
   signal it before returning, and paths without a `startup_errors` list must
   retain the failure detail in `allocation_status()`.
+- MPS startup paths stopped before first allocation must follow the same
+  contract as CUDA/ROCm: signal startup completion and retain
+  `stopped before MPS startup allocation` so service status does not degrade to a
+  generic timeout or lose the lifecycle cause.
 - Single-GPU `keep()` must reject a restart while a previous worker thread is
   still alive with its stop event already set; returning success in that state
   hides a stopping keeper as if a fresh keep succeeded.

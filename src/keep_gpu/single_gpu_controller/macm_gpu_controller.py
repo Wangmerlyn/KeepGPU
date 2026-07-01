@@ -239,7 +239,21 @@ class MacMGPUController(BaseGPUController):
                 return
 
         if tensor is None:
-            logger.error("rank %s: failed to allocate tensor, exiting loop", self.rank)
+            if startup_evt is not None and not startup_evt.is_set():
+                exc = RuntimeError(
+                    f"rank {self.rank}: stopped before MPS startup allocation"
+                )
+                logger.error("%s", exc)
+                if startup_errors is not None:
+                    startup_errors.append(exc)
+                else:
+                    self._failure_exc = exc
+                startup_evt.set()
+            else:
+                logger.debug(
+                    "rank %s: exiting before MPS allocation after startup confirmation",
+                    self.rank,
+                )
             return
 
         while not stop_evt.is_set():
