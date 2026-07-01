@@ -259,6 +259,108 @@ def test_status_retains_first_runtime_failure_without_refreshing_again():
     assert controller.runtime_error_calls == 1
 
 
+@pytest.mark.parametrize("status_scope", ["single", "all"])
+def test_status_runtime_health_hook_does_not_block_stop_keep(status_scope):
+    runtime_hook_entered = threading.Event()
+    release_runtime_hook = threading.Event()
+    status_result = {}
+    stop_result = {}
+
+    class BlockingRuntimeHealthController(DummyController):
+        def runtime_error(self):
+            runtime_hook_entered.set()
+            release_runtime_hook.wait(timeout=2.0)
+            return RuntimeError("late runtime failure")
+
+    server = KeepGPUServer(
+        controller_factory=cast(
+            Any, lambda **kwargs: BlockingRuntimeHealthController(**kwargs)
+        )
+    )
+    job_id = server.start_keep(job_id="slow-health", gpu_ids=[0])["job_id"]
+
+    def check_status():
+        if status_scope == "single":
+            status_result.update(value=server.status(job_id))
+            return
+        status_result.update(value=server.status())
+
+    status_thread = threading.Thread(target=check_status)
+    status_thread.start()
+    stop_thread = threading.Thread(
+        target=lambda: stop_result.update(value=server.stop_keep(job_id))
+    )
+    try:
+        assert runtime_hook_entered.wait(timeout=1.0)
+
+        stop_thread.start()
+
+        assert _wait_until(lambda: "value" in stop_result, timeout_s=0.2)
+        assert stop_result["value"]["stopped"] == [job_id]
+        assert server._sessions == {}
+    finally:
+        release_runtime_hook.set()
+        stop_thread.join(timeout=1.0)
+        status_thread.join(timeout=1.0)
+
+    assert not stop_thread.is_alive()
+    assert not status_thread.is_alive()
+    if status_scope == "single":
+        assert status_result["value"] == {"active": False, "job_id": job_id}
+    else:
+        assert status_result["value"] == {"active_jobs": []}
+
+
+def test_late_runtime_health_result_does_not_mutate_reused_job_id():
+    runtime_hook_entered = threading.Event()
+    release_runtime_hook = threading.Event()
+    status_result = {}
+    controller_count = 0
+
+    class BlockingRuntimeHealthController(DummyController):
+        def __init__(self, **kwargs):
+            nonlocal controller_count
+
+            super().__init__(**kwargs)
+            controller_count += 1
+            self.should_block_runtime = controller_count == 1
+
+        def runtime_error(self):
+            if self.should_block_runtime:
+                runtime_hook_entered.set()
+                release_runtime_hook.wait(timeout=2.0)
+                return RuntimeError("stale runtime failure")
+            return None
+
+    server = KeepGPUServer(
+        controller_factory=cast(
+            Any, lambda **kwargs: BlockingRuntimeHealthController(**kwargs)
+        )
+    )
+    job_id = server.start_keep(job_id="reused-job", gpu_ids=[0])["job_id"]
+    status_thread = threading.Thread(
+        target=lambda: status_result.update(value=server.status(job_id))
+    )
+    status_thread.start()
+    try:
+        assert runtime_hook_entered.wait(timeout=1.0)
+        assert server.stop_keep(job_id)["stopped"] == [job_id]
+
+        assert server.start_keep(job_id=job_id, gpu_ids=[1]) == {"job_id": job_id}
+
+        release_runtime_hook.set()
+        status_thread.join(timeout=1.0)
+    finally:
+        release_runtime_hook.set()
+        status_thread.join(timeout=1.0)
+
+    assert not status_thread.is_alive()
+    assert status_result["value"]["state"] == "active"
+    assert status_result["value"]["last_error"] is None
+    assert status_result["value"]["params"]["gpu_ids"] == [1]
+    assert server.status(job_id)["state"] == "active"
+
+
 def test_status_runtime_health_does_not_overwrite_retained_stop_states():
     class RuntimeFailedController(DummyController):
         def runtime_error(self):

@@ -272,8 +272,10 @@ This file defines how coding agents should work in this repository.
   status as `state="runtime_failed"` with `last_error`; the session remains
   visible and stoppable. Busy or unavailable telemetry backoff is normal
   deferred allocation behavior, not a runtime failure.
-- Controller runtime-health hooks used by service status must stay non-blocking
-  and read-only because status refresh runs under the session lock.
+- Controller runtime-health hooks used by service status must stay read-only and
+  should remain lightweight. Service status must not hold the session lifecycle
+  lock while invoking those hooks, and late hook results may only update the
+  same still-active session they inspected.
 - CUDA, ROCm, and MPS controllers must retain fatal post-start worker failures
   by way of `allocation_status()` so `GlobalGPUController.runtime_error()` can
   move service status to `runtime_failed`; normal busy/unknown telemetry backoff

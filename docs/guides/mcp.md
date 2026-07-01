@@ -156,7 +156,10 @@ If an already-started worker later reports a terminal runtime or allocation
 failure, the retained session is refreshed to `state="runtime_failed"` with
 `last_error`. It remains visible and stoppable. This is distinct from normal
 busy-GPU or unavailable-telemetry backoff, where the controller defers
-allocation and the session stays active.
+allocation and the session stays active. Runtime-health probes are observational:
+status does not hold the session lifecycle lock while running them, and a late
+probe result is ignored if the inspected session has already stopped or been
+replaced.
 
 `stop_keep` returns additive outcome fields:
 
