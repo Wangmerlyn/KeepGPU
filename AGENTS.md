@@ -164,6 +164,10 @@ This file defines how coding agents should work in this repository.
   surface as explicit startup-unavailable errors (direct JSON-RPC `-32000`,
   REST `503`, MCP tool `isError=true`) while arbitrary unexpected
   startup/runtime failures remain internal errors.
+- Direct JSON-RPC and MCP tool `list_gpus` calls must classify expected
+  `DeviceEnumerationUnavailableError` failures as startup-unavailable, matching
+  REST `/api/gpus` `503` behavior; malformed GPU listing payloads remain
+  internal service contract errors.
 - CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
 - CLI service RPC clients must reject malformed JSON-RPC service envelopes
   (wrong `jsonrpc`, mismatched `id`, `id: null` responses to a request with a
