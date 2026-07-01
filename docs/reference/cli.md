@@ -79,6 +79,8 @@ Prints a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
 envelopes, including missing or non-string `error.message`, and malformed status
 job records are reported as JSON error objects instead of empty success results.
+When `--job-id` is supplied, the returned `job_id` must match the requested
+target or the response is rejected as malformed.
 The machine JSON stream is plain JSON without Rich color or highlighting, even
 when the command runs under a pseudo-TTY or forced-color terminal.
 Started sessions with terminal worker allocation/runtime failures remain listed
@@ -110,7 +112,8 @@ The output is a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
 envelopes, including missing or non-string `error.message`, and malformed stop
 result records are reported as JSON error objects instead of empty success
-results.
+results. When `--job-id` is supplied, all returned outcome and error job IDs
+must match the requested target.
 The machine JSON stream is plain JSON without Rich color or highlighting, even
 when the command runs under a pseudo-TTY or forced-color terminal.
 
