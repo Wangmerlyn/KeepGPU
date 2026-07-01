@@ -31,7 +31,8 @@ keep-gpu-mcp-server --mode http --host 127.0.0.1 --port 8765
 ```
 
 HTTP endpoint inputs are validated before socket bind. `--host` must be a DNS
-hostname or IPv4 address, and `--port` must be an integer in `1..65535`.
+hostname or IPv4 address, and `--port` must be a plain ASCII decimal integer
+in `1..65535`.
 
 ## MCP protocol over stdio
 

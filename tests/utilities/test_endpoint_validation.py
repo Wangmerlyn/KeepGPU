@@ -59,7 +59,23 @@ def test_validate_endpoint_port_accepts_ints_and_clean_digit_strings(port):
 
 @pytest.mark.parametrize(
     "port",
-    [0, 65536, -1, True, False, "", " ", "abc", " 8765", "8765 ", 8765.0, None],
+    [
+        0,
+        65536,
+        -1,
+        True,
+        False,
+        "",
+        " ",
+        "abc",
+        " 8765",
+        "8765 ",
+        "+8765",
+        "8_765",
+        "１２３",
+        8765.0,
+        None,
+    ],
 )
 def test_validate_endpoint_port_rejects_invalid_values(port):
     with pytest.raises(ValueError, match=ENDPOINT_PORT_ERROR):

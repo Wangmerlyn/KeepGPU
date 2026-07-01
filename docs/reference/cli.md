@@ -35,7 +35,7 @@ Starts local KeepGPU service (HTTP + JSON-RPC + dashboard).
 | Option | Default | Description |
 | --- | --- | --- |
 | `--host` | `127.0.0.1` | Service bind host. Must be a DNS hostname or IPv4 address. |
-| `--port` | `8765` | Service port as an integer in `1..65535`. |
+| `--port` | `8765` | Service port as a plain ASCII decimal integer in `1..65535`. |
 
 ### `keep-gpu start`
 
@@ -65,7 +65,7 @@ the service log at
 | `--busy-threshold` / `--util-threshold` | `25` | `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
 | `--job-id` | auto | Optional URL-path-safe custom id. Invalid IDs are rejected locally before service auto-start; valid IDs must be unique across active and starting sessions. |
 | `--host` | `127.0.0.1` | Service host to contact; invalid values are rejected before auto-start. |
-| `--port` | `8765` | Service port to contact; must be an integer in `1..65535`. |
+| `--port` | `8765` | Service port to contact; must be a plain ASCII decimal integer in `1..65535`. |
 | `--auto-start/--no-auto-start` | `--auto-start` | Auto-start local service if unavailable. |
 
 ### `keep-gpu status`
@@ -153,7 +153,7 @@ known and exactly matches the stored ownership record.
 
 | Option | Description |
 | --- | --- |
-| `--host`, `--port` | Service host/port. `--host` must be a DNS hostname or IPv4 address, and `--port` must be an integer in `1..65535`. |
+| `--host`, `--port` | Service host/port. `--host` must be a DNS hostname or IPv4 address, and `--port` must be a plain ASCII decimal integer in `1..65535`. |
 | `--force` | Skip session RPC checks and stop the daemon only if the auto-start ownership record verifies the process. |
 
 ## Service HTTP endpoints

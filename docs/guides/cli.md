@@ -41,7 +41,7 @@ Local `start` inputs are validated before auto-starting the service. Invalid
 `--vram`, `--job-id`, `--interval`, `--busy-threshold`, or `--gpu-ids` values
 fail without creating daemon runtime files or issuing RPC. Service endpoint
 flags are validated the same way: `--host` must be a DNS hostname or IPv4
-address, and `--port` must be an integer in `1..65535`.
+address, and `--port` must be a plain ASCII decimal integer in `1..65535`.
 Omit `--gpu-ids` to use all visible GPUs; an explicit empty or whitespace-only
 value is invalid.
 `--interval` must be finite, positive, and within the Python runtime wait
