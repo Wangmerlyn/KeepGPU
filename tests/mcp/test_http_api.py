@@ -1445,6 +1445,31 @@ def test_http_unknown_api_route_returns_json_404(path):
         thread.join(timeout=2)
 
 
+@pytest.mark.parametrize("path", ["/api/gpus?bad=query", "/api/gpus;bad"])
+def test_http_get_api_gpus_noncanonical_route_returns_json_404_without_listing(path):
+    server = make_server()
+    list_calls = []
+
+    def fail_list_gpus():
+        list_calls.append(True)
+        raise AssertionError("list_gpus should not run for noncanonical route")
+
+    server.list_gpus = fail_list_gpus  # type: ignore[method-assign]
+    httpd, thread, base = _start_http_server(server)
+
+    try:
+        status_code, payload = _request_json("GET", f"{base}{path}")
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status_code == 404
+    assert payload == {"error": {"message": "Unknown endpoint"}}
+    assert list_calls == []
+
+
 @pytest.mark.parametrize("data", [None, b"{bad json"])
 def test_http_post_unknown_api_route_returns_json_404_before_body_parse(data):
     server = make_server()
