@@ -717,6 +717,35 @@ def test_jsonrpc_start_keep_unsupported_platform_returns_public_code(monkeypatch
         server.shutdown()
 
 
+def test_jsonrpc_start_keep_unavailable_mps_returns_public_code(monkeypatch):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.MACM)
+
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    monkeypatch.setattr(
+        macm_module.torch.backends.mps,
+        "is_available",
+        lambda: False,
+    )
+
+    server = KeepGPUServer()
+    req = {
+        "id": 1,
+        "method": "start_keep",
+        "params": {"job_id": "mps-unavailable", "gpu_ids": [0]},
+    }
+
+    try:
+        resp = _handle_request(server, req)
+
+        assert "error" in resp
+        assert resp["error"]["code"] == JSONRPC_STARTUP_UNAVAILABLE
+        assert "PyTorch MPS backend is not available" in resp["error"]["message"]
+        assert server.status()["active_jobs"] == []
+    finally:
+        server.shutdown()
+
+
 def test_jsonrpc_start_keep_zero_visible_gpus_returns_public_code(monkeypatch):
     import torch
 
@@ -1381,6 +1410,42 @@ def test_mcp_tools_call_startup_unavailable_returns_tool_error():
     assert result["isError"] is True
     assert "No usable GPUs are available" in result["content"][0]["text"]
     assert server.status()["active_jobs"] == []
+
+
+def test_mcp_tools_call_unavailable_mps_returns_tool_error(monkeypatch):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.MACM)
+
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    monkeypatch.setattr(
+        macm_module.torch.backends.mps,
+        "is_available",
+        lambda: False,
+    )
+
+    server = KeepGPUServer()
+    req = {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+            "name": "start_keep",
+            "arguments": {"job_id": "tool-mps-unavailable", "gpu_ids": [0]},
+        },
+    }
+
+    try:
+        resp = _handle_request(server, req)
+
+        assert resp["jsonrpc"] == "2.0"
+        assert resp["id"] == 4
+        assert "result" in resp
+        result = resp["result"]
+        assert result["isError"] is True
+        assert "PyTorch MPS backend is not available" in result["content"][0]["text"]
+        assert server.status()["active_jobs"] == []
+    finally:
+        server.shutdown()
 
 
 def test_mcp_tools_call_out_of_range_gpu_ids_returns_tool_error(monkeypatch):

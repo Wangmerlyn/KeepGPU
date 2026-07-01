@@ -68,6 +68,10 @@ class GlobalGPUController:
         self.vram_to_keep = vram_to_keep
         gpu_ids = validate_gpu_ids(gpu_ids)
         self.computing_platform = get_platform()
+        controller_unavailable_errors = (
+            VisibleRankValidationError,
+            DeviceEnumerationUnavailableError,
+        )
         if self.computing_platform == ComputingPlatform.CUDA:
             from keep_gpu.single_gpu_controller.cuda_gpu_controller import (
                 CudaGPUController,
@@ -83,9 +87,14 @@ class GlobalGPUController:
         elif self.computing_platform == ComputingPlatform.MACM:
             from keep_gpu.single_gpu_controller.macm_gpu_controller import (
                 MacMGPUController,
+                MPSBackendUnavailableError,
             )
 
             controller_cls = MacMGPUController
+            controller_unavailable_errors = (
+                *controller_unavailable_errors,
+                MPSBackendUnavailableError,
+            )
         else:
             raise UnsupportedControllerPlatformError(
                 f"GlobalGPUController not implemented for platform {self.computing_platform}"
@@ -121,9 +130,7 @@ class GlobalGPUController:
                 )
                 for i in self.gpu_ids
             ]
-        except VisibleRankValidationError as exc:
-            raise NoGPUAvailableError(str(exc)) from exc
-        except DeviceEnumerationUnavailableError as exc:
+        except controller_unavailable_errors as exc:
             raise NoGPUAvailableError(str(exc)) from exc
 
     def keep(self) -> None:

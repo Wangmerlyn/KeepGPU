@@ -3,7 +3,10 @@ import time
 import pytest
 import torch
 
-from keep_gpu.global_gpu_controller.global_gpu_controller import GlobalGPUController
+from keep_gpu.global_gpu_controller.global_gpu_controller import (
+    GlobalGPUController,
+    NoGPUAvailableError,
+)
 from keep_gpu.utilities import platform_manager as pm
 
 
@@ -130,6 +133,26 @@ def test_global_controller_rejects_explicit_rocm_id_outside_visible_count(
         GlobalGPUController(gpu_ids=[2], vram_to_keep="8MB")
 
     assert instances == []
+
+
+def test_global_controller_reports_unavailable_mps_as_startup_unavailable(
+    monkeypatch,
+):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.MACM)
+
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    monkeypatch.setattr(
+        macm_module.torch.backends.mps,
+        "is_available",
+        lambda: False,
+    )
+
+    with pytest.raises(
+        NoGPUAvailableError,
+        match="PyTorch MPS backend is not available",
+    ):
+        GlobalGPUController(gpu_ids=[0], vram_to_keep=4)
 
 
 def test_global_release_attempts_all_controllers_and_reports_failures():

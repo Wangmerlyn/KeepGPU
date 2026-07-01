@@ -102,8 +102,9 @@ Successful direct-method responses are KeepGPU JSON-RPC envelopes with
 For direct JSON-RPC calls, public validation failures and unknown parameters
 return JSON-RPC `-32602 Invalid params`. Expected startup-unavailable
 conditions, such as an unsupported controller platform, no usable visible GPUs,
-or failed CUDA/ROCm visible-device enumeration during `start_keep` or
-`list_gpus`, return `-32000` with the startup message. Unexpected server
+failed CUDA/ROCm visible-device enumeration during `start_keep` or `list_gpus`,
+or an unavailable PyTorch MPS backend during `start_keep`, return `-32000` with
+the startup message. Unexpected server
 failures use `-32603 Internal error`.
 
 Explicit `gpu_ids` that are validly shaped but outside the service process's
@@ -114,8 +115,9 @@ returns `-32602`, while MCP `tools/call` returns a tool result with
 MCP `tools/call` responses keep protocol envelopes successful for normal tool
 results, public tool-input validation failures, and expected hardware/platform
 startup-unavailable failures, including failed CUDA/ROCm device enumeration
-during `start_keep` or `list_gpus`. Those tool-level failures return
-`result.isError=true` with the message in tool content. Protocol shape errors,
+during `start_keep` or `list_gpus` and unavailable PyTorch MPS backends during
+`start_keep`. Those tool-level failures return `result.isError=true` with the
+message in tool content. Protocol shape errors,
 such as unknown tools, still return JSON-RPC errors such as `-32602`, and
 unexpected internal controller/runtime failures return JSON-RPC
 `-32603 Internal error`.

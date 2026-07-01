@@ -20,6 +20,10 @@ from keep_gpu.utilities.session_config import (
 logger = setup_logger(__name__)
 
 
+class MPSBackendUnavailableError(RuntimeError):
+    """PyTorch MPS cannot be used for a Mac M keep session."""
+
+
 class MacMGPUController(BaseGPUController):
     def __init__(
         self,
@@ -34,8 +38,14 @@ class MacMGPUController(BaseGPUController):
         busy_threshold = validate_busy_threshold(busy_threshold)
         iterations = validate_positive_integer(iterations, "iterations")
         rank = validate_visible_rank(rank, 1)
-        if not torch.backends.mps.is_available():
-            raise RuntimeError("PyTorch MPS backend is not available")
+        try:
+            mps_available = torch.backends.mps.is_available()
+        except RuntimeError as exc:
+            raise MPSBackendUnavailableError(
+                f"PyTorch MPS backend availability check failed: {exc}"
+            ) from exc
+        if not mps_available:
+            raise MPSBackendUnavailableError("PyTorch MPS backend is not available")
 
         self.rank = rank
         self.device = torch.device("mps")
