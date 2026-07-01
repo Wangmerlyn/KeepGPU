@@ -167,13 +167,24 @@ def _is_keepgpu_service_argv(
 
 
 def _build_service_pid_record(host: str, port: int, pid: int) -> Dict[str, Any]:
+    uid = _process_uid(pid)
+    start_time = _process_start_identity(pid)
+    if (
+        not isinstance(uid, int)
+        or isinstance(uid, bool)
+        or not isinstance(start_time, str)
+        or not start_time
+    ):
+        raise RuntimeError(
+            f"Cannot verify KeepGPU service daemon ownership for pid={pid}"
+        )
     return {
         "pid": pid,
         "host": host,
         "port": port,
         "argv": _service_command(host, port),
-        "uid": _process_uid(pid),
-        "start_time": _process_start_identity(pid),
+        "uid": uid,
+        "start_time": start_time,
         "created_at": time.time(),
     }
 
@@ -220,6 +231,44 @@ def _write_service_pid(host: str, port: int, pid: int) -> None:
 
 def _clear_service_pid(host: str, port: int) -> None:
     _service_pid_path(host, port).unlink(missing_ok=True)
+
+
+def _terminate_spawned_service_process(process: subprocess.Popen) -> None:
+    try:
+        process.terminate()
+    except Exception:
+        logger.debug("Failed to send SIGTERM to spawned service process", exc_info=True)
+    try:
+        process.wait(timeout=1.0)
+        return
+    except subprocess.TimeoutExpired:
+        try:
+            process.kill()
+            process.wait(timeout=1.0)
+        except Exception:
+            logger.debug("Failed to kill spawned service process", exc_info=True)
+    except Exception:
+        logger.debug("Failed to wait for spawned service process", exc_info=True)
+
+
+def _snapshot_service_pid_file(host: str, port: int) -> Optional[bytes]:
+    try:
+        return _service_pid_path(host, port).read_bytes()
+    except FileNotFoundError:
+        return None
+    except OSError:
+        logger.debug("Failed to snapshot service PID file", exc_info=True)
+        raise
+
+
+def _restore_service_pid_file(host: str, port: int, snapshot: Optional[bytes]) -> None:
+    if snapshot is None:
+        _clear_service_pid(host, port)
+        return
+    try:
+        _service_pid_path(host, port).write_bytes(snapshot)
+    except OSError:
+        logger.debug("Failed to restore service PID file", exc_info=True)
 
 
 def _pid_alive(pid: int) -> bool:
@@ -428,6 +477,7 @@ def _service_available(host: str, port: int) -> bool:
 
 def _start_service_process(host: str, port: int) -> int:
     log_path = _service_log_path(host, port)
+    prior_pid_file = _snapshot_service_pid_file(host, port)
     with log_path.open("ab") as log_file:
         popen_kwargs = {
             "stdin": subprocess.DEVNULL,
@@ -440,7 +490,12 @@ def _start_service_process(host: str, port: int) -> int:
             popen_kwargs["start_new_session"] = True
 
         process = subprocess.Popen(_service_command(host, port), **popen_kwargs)
-    _write_service_pid(host, port, process.pid)
+    try:
+        _write_service_pid(host, port, process.pid)
+    except Exception:
+        _terminate_spawned_service_process(process)
+        _restore_service_pid_file(host, port, prior_pid_file)
+        raise
     return process.pid
 
 
