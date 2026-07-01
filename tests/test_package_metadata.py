@@ -146,6 +146,20 @@ def test_readme_stays_a_compact_front_door():
     assert "https://keepgpu.readthedocs.io/en/latest/citation/" in readme
 
 
+def test_citation_page_matches_current_zenodo_concept_doi_metadata():
+    citation = (PROJECT_ROOT / "docs/citation.md").read_text(encoding="utf-8")
+
+    assert "10.5281/zenodo.17129114" in citation
+    assert "Wangmerlyn/KeepGPU: KeepGPU v0.5.1" in citation
+    assert "year         = {2026}" in citation
+    assert "Wang Siyuan" in citation
+    assert "shiyaorui" in citation
+    assert "Liu Yida" in citation
+    assert "ChitandaErumanga" in citation
+    assert "Yin, Yuqi" not in citation
+    assert "year         = {2025}" not in citation
+
+
 def test_public_docs_do_not_regress_to_cuda_only_or_experimental_mcp():
     public_docs = {
         "index": (PROJECT_ROOT / "docs/index.md").read_text(encoding="utf-8"),
