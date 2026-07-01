@@ -823,7 +823,7 @@ def _call_keepgpu_method(
             return server.list_gpus()
     except SessionInputError as exc:
         raise JSONRPCError(JSONRPC_INVALID_PARAMS, str(exc)) from exc
-    except SessionStartupUnavailable as exc:
+    except (SessionStartupUnavailable, DeviceEnumerationUnavailableError) as exc:
         raise JSONRPCError(JSONRPC_STARTUP_UNAVAILABLE, str(exc)) from exc
     raise JSONRPCError(JSONRPC_METHOD_NOT_FOUND, f"Unknown method: {method}")
 
