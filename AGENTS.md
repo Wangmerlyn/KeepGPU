@@ -180,8 +180,9 @@ This file defines how coding agents should work in this repository.
   (wrong `jsonrpc`, mismatched `id`, `id: null` responses to a request with a
   concrete id, response IDs that compare equal but use an invalid JSON-RPC id
   type such as float or boolean, missing `result`, non-object direct-method
-  `result`, or non-object `error`) instead of treating them as successful empty
-  responses or leaking tracebacks.
+  `result`, non-object `error`, or missing/non-string `error.message`) instead
+  of treating them as successful empty responses, real service errors, or
+  leaking tracebacks.
 - CLI commands that consume service-specific JSON-RPC results must validate
   required result fields before rendering user-facing output; malformed
   method-specific payloads should become clean `ServiceResponseError` messages,
@@ -232,8 +233,8 @@ This file defines how coding agents should work in this repository.
 - If `keep-gpu start` auto-starts a service daemon and the following
   `start_keep` RPC returns expected startup-unavailable JSON-RPC code
   `-32000` before creating a session, the CLI must best-effort stop that
-  just-created daemon. Do not stop already-running daemons, malformed success
-  payloads, or unrelated RPC failures.
+  just-created daemon. Do not stop already-running daemons, malformed JSON-RPC
+  envelopes, malformed success payloads, or unrelated RPC failures.
 - If service auto-start itself times out before the health check succeeds, the
   CLI must best-effort stop the just-started managed daemon and preserve the
   auto-start timeout error.
