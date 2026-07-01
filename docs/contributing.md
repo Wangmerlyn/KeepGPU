@@ -101,7 +101,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
 - Keep README as a concise front door. Put detailed interface examples,
   platform caveats, sentinel-value explanations, and contracts in the focused
   docs pages. Use `docs/index.md` for detailed navigation, keep full citation
-  metadata in `docs/citation.md`, and avoid badge clutter beyond PyPI/docs.
+  metadata in `docs/citation.md`, and avoid badge clutter beyond PyPI, docs
+  status, and Zenodo DOI.
 
 ## MCP server
 
