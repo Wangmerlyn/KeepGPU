@@ -355,6 +355,34 @@ def test_get_gpu_info_nvml_normalizes_out_of_range_utilization(monkeypatch, gpu_
     assert dummy_nvml.shutdown_calls == 1
 
 
+@pytest.mark.parametrize(
+    ("total", "used", "expected_total", "expected_used"),
+    [
+        (-1, 0, None, 0),
+        (1024, -1, 1024, None),
+        (1024, 2048, 1024, None),
+    ],
+)
+def test_get_gpu_info_nvml_normalizes_invalid_memory(
+    monkeypatch, total, used, expected_total, expected_used
+):
+    dummy_nvml = MultiGPUDummyNVML(count=1)
+
+    def get_memory_info(_handle):
+        return DummyNVMLMemory(total=total, used=used)
+
+    dummy_nvml.nvmlDeviceGetMemoryInfo = get_memory_info
+    monkeypatch.setitem(sys.modules, "pynvml", dummy_nvml)
+    _install_cuda_gpu_info_mocks(monkeypatch, count=1)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["memory_total"] == expected_total
+    assert infos[0]["memory_used"] == expected_used
+    assert dummy_nvml.shutdown_calls == 1
+
+
 def test_get_gpu_info_nvml_maps_cuda_visible_devices_to_visible_ordinals(
     monkeypatch,
 ):
@@ -646,6 +674,37 @@ def test_get_gpu_info_rocm_normalizes_out_of_range_utilization(monkeypatch, gpu_
     assert len(infos) == 1
     assert infos[0]["utilization"] is None
     assert dummy_rocm.queried_indexes == [0]
+    assert dummy_rocm.shutdown_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("free", "total", "expected_total", "expected_used"),
+    [
+        (200, 100, 100, None),
+        (-1, 100, 100, None),
+        (0, -1, None, None),
+        (True, 100, 100, None),
+        (0, True, None, None),
+    ],
+)
+def test_get_gpu_info_rocm_normalizes_invalid_memory(
+    monkeypatch, free, total, expected_total, expected_used
+):
+    monkeypatch.delenv("ROCR_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("HIP_VISIBLE_DEVICES", raising=False)
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    dummy_rocm, dummy_cuda = _install_rocm_gpu_info_mocks(
+        monkeypatch,
+        count=1,
+        util_by_index={0: 42},
+    )
+    dummy_cuda.mem_get_info = lambda: (free, total)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["memory_total"] == expected_total
+    assert infos[0]["memory_used"] == expected_used
     assert dummy_rocm.shutdown_calls == 1
 
 
@@ -1157,6 +1216,122 @@ def test_get_gpu_info_mps(monkeypatch):
             "memory_allocated": 128,
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("free", "total", "expected_total", "expected_used"),
+    [
+        (-1, 100, 100, None),
+        (True, 100, 100, None),
+        (0, True, None, None),
+    ],
+)
+def test_get_gpu_info_torch_fallback_normalizes_invalid_memory(
+    monkeypatch, free, total, expected_total, expected_used
+):
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    dummy_cuda = _install_cuda_gpu_info_mocks(monkeypatch, count=1)
+    dummy_cuda.mem_get_info = lambda: (free, total)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["memory_total"] == expected_total
+    assert infos[0]["memory_used"] == expected_used
+
+
+def test_get_gpu_info_mps_normalizes_invalid_memory(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    monkeypatch.setitem(sys.modules, "rocm_smi", None)
+
+    class DummyCuda:
+        @staticmethod
+        def is_available():
+            return False
+
+    class DummyMPSBackend:
+        @staticmethod
+        def is_available():
+            return True
+
+    class DummyMPS:
+        @staticmethod
+        def current_allocated_memory():
+            return -1
+
+        @staticmethod
+        def driver_allocated_memory():
+            return 2048
+
+        @staticmethod
+        def recommended_max_memory():
+            return 1024
+
+    dummy_torch = type(
+        "T",
+        (),
+        {
+            "cuda": DummyCuda,
+            "backends": type("Backends", (), {"mps": DummyMPSBackend}),
+            "mps": DummyMPS,
+            "version": type("V", (), {"hip": None}),
+        },
+    )
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["memory_total"] == 1024
+    assert infos[0]["memory_used"] is None
+    assert infos[0]["memory_allocated"] is None
+
+
+def test_get_gpu_info_mps_rejects_coercible_memory_values(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pynvml", None)
+    monkeypatch.setitem(sys.modules, "rocm_smi", None)
+
+    class DummyCuda:
+        @staticmethod
+        def is_available():
+            return False
+
+    class DummyMPSBackend:
+        @staticmethod
+        def is_available():
+            return True
+
+    class DummyMPS:
+        @staticmethod
+        def current_allocated_memory():
+            return True
+
+        @staticmethod
+        def driver_allocated_memory():
+            return "2048"
+
+        @staticmethod
+        def recommended_max_memory():
+            return 4096.9
+
+    dummy_torch = type(
+        "T",
+        (),
+        {
+            "cuda": DummyCuda,
+            "backends": type("Backends", (), {"mps": DummyMPSBackend}),
+            "mps": DummyMPS,
+            "version": type("V", (), {"hip": None}),
+        },
+    )
+    monkeypatch.setattr(gpu_info, "torch", dummy_torch)
+
+    infos = gpu_info.get_gpu_info()
+
+    assert len(infos) == 1
+    assert infos[0]["memory_total"] is None
+    assert infos[0]["memory_used"] is None
+    assert infos[0]["memory_allocated"] is None
 
 
 def test_get_gpu_info_mps_allows_missing_memory_methods(monkeypatch):

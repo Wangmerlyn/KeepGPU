@@ -18,7 +18,11 @@ from keep_gpu.utilities.rocm_visibility import (
     resolve_rocm_visible_rank_to_smi_index,
     rocm_monitor_device_count,
 )
-from keep_gpu.utilities.session_config import normalize_utilization_percent
+from keep_gpu.utilities.session_config import (
+    normalize_memory_byte_pair,
+    normalize_memory_bytes,
+    normalize_utilization_percent,
+)
 
 logger = setup_logger(__name__)
 
@@ -82,6 +86,17 @@ def _torch_cuda_visible_ordinals_startable(count: int) -> bool:
                 logger.debug("Torch CUDA device restore failed: %s", exc)
 
 
+def _normalize_free_total_memory_bytes(
+    free: Any, total: Any
+) -> tuple[Optional[int], Optional[int]]:
+    memory_total = normalize_memory_bytes(total)
+    free_bytes = normalize_memory_bytes(free)
+    memory_used = None
+    if memory_total is not None and free_bytes is not None:
+        memory_used = memory_total - free_bytes
+    return normalize_memory_byte_pair(memory_total, memory_used)
+
+
 def _nvml_physical_id(pynvml, handle, fallback: Optional[int] = None) -> Optional[int]:
     if fallback is not None:
         return fallback
@@ -114,14 +129,15 @@ def _nvml_info_for_handle(
     mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
     util = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
     utilization = normalize_utilization_percent(util)
+    memory_total, memory_used = normalize_memory_byte_pair(mem.total, mem.used)
     name = decode_nvml_text(pynvml.nvmlDeviceGetName(handle))
     info: Dict[str, Any] = {
         "id": visible_id,
         "visible_id": visible_id,
         "platform": "cuda",
         "name": name,
-        "memory_total": int(mem.total),
-        "memory_used": int(mem.used),
+        "memory_total": memory_total,
+        "memory_used": memory_used,
         "utilization": int(utilization) if utilization is not None else None,
     }
     if physical_id is not None:
@@ -273,9 +289,9 @@ def _query_rocm() -> List[Dict[str, Any]]:
 
             try:
                 free, total = torch.cuda.mem_get_info()
-                used = total - free
             except Exception:
-                total = used = None
+                free = total = None
+            memory_total, memory_used = _normalize_free_total_memory_bytes(free, total)
 
             try:
                 name = torch.cuda.get_device_name(idx)
@@ -287,8 +303,8 @@ def _query_rocm() -> List[Dict[str, Any]]:
                 "visible_id": idx,
                 "platform": "rocm",
                 "name": name,
-                "memory_total": int(total) if total is not None else None,
-                "memory_used": int(used) if used is not None else None,
+                "memory_total": memory_total,
+                "memory_used": memory_used,
                 "utilization": int(util) if util is not None else None,
             }
             if physical_id is not None:
@@ -322,9 +338,9 @@ def _query_torch() -> List[Dict[str, Any]]:
             torch.cuda.set_device(idx)
             try:
                 free, total = torch.cuda.mem_get_info()
-                used = total - free
             except Exception:
-                total = used = None
+                free = total = None
+            memory_total, memory_used = _normalize_free_total_memory_bytes(free, total)
             try:
                 name = torch.cuda.get_device_name(idx)
             except Exception:
@@ -339,8 +355,8 @@ def _query_torch() -> List[Dict[str, Any]]:
                         else "rocm"
                     ),
                     "name": name,
-                    "memory_total": int(total) if total is not None else None,
-                    "memory_used": int(used) if used is not None else None,
+                    "memory_total": memory_total,
+                    "memory_used": memory_used,
                     "utilization": None,
                 }
             )
@@ -356,11 +372,11 @@ def _query_torch() -> List[Dict[str, Any]]:
     return infos
 
 
-def _safe_mps_memory_value(method_name: str) -> int | None:
+def _safe_mps_memory_value(method_name: str) -> Any | None:
     try:
         mps = getattr(torch, "mps")
         method = getattr(mps, method_name)
-        return int(method())
+        return method()
     except Exception as exc:
         logger.debug("MPS memory query %s failed: %s", method_name, exc)
         return None
@@ -377,6 +393,16 @@ def _query_mps() -> List[Dict[str, Any]]:
     current_allocated = _safe_mps_memory_value("current_allocated_memory")
     driver_allocated = _safe_mps_memory_value("driver_allocated_memory")
     recommended_max = _safe_mps_memory_value("recommended_max_memory")
+    current_allocated = normalize_memory_bytes(current_allocated)
+    driver_allocated = normalize_memory_bytes(driver_allocated)
+    recommended_max = normalize_memory_bytes(recommended_max)
+    memory_used_source = (
+        driver_allocated if driver_allocated is not None else current_allocated
+    )
+    memory_total, memory_used = normalize_memory_byte_pair(
+        recommended_max,
+        memory_used_source,
+    )
 
     return [
         {
@@ -384,10 +410,8 @@ def _query_mps() -> List[Dict[str, Any]]:
             "visible_id": 0,
             "platform": "macm",
             "name": "Apple Silicon GPU",
-            "memory_total": recommended_max,
-            "memory_used": (
-                driver_allocated if driver_allocated is not None else current_allocated
-            ),
+            "memory_total": memory_total,
+            "memory_used": memory_used,
             "utilization": None,
             "memory_allocated": current_allocated,
         }

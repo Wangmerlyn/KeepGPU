@@ -1516,6 +1516,45 @@ def test_list_gpus_rejects_malformed_payloads(monkeypatch, payload):
                     "visible_id": 0,
                     "platform": "cuda",
                     "name": "GPU 0",
+                    "memory_total": -1,
+                    "memory_used": 0,
+                    "utilization": None,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": -1,
+                    "utilization": None,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 2048,
+                    "utilization": None,
+                }
+            ]
+        },
+        {
+            "gpus": [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "cuda",
+                    "name": "GPU 0",
                     "memory_total": 1024,
                     "memory_used": 512,
                     "utilization": False,

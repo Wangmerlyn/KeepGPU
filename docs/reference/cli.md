@@ -131,7 +131,10 @@ lists. Malformed JSON-RPC service envelopes, including missing or non-string
 `error.message`, are reported as JSON error objects instead of empty success
 results; malformed GPU records are reported the same way. `utilization` is
 either `null` or a finite number from `0` to `100`;
-out-of-range telemetry is unavailable, not idle.
+out-of-range telemetry is unavailable, not idle. Memory fields are
+non-negative integers or `null`; invalid counters and impossible
+`memory_used > memory_total` pairs are unavailable telemetry, not displayed
+usage.
 The machine JSON stream is plain JSON without Rich color or highlighting, even
 when the command runs under a pseudo-TTY or forced-color terminal.
 Invalid endpoint values, including non-integer or out-of-range ports, are

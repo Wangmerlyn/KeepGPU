@@ -430,9 +430,10 @@ This file defines how coding agents should work in this repository.
 - `KeepGPUServer.list_gpus()` must validate GPU records before any REST,
   direct JSON-RPC, or MCP response advertises them: required `id`/`visible_id`
   fields are matching plain non-negative integers, visible ordinals are unique,
-  `platform`/`name` are strings, `memory_total` and `memory_used` are integers
-  or null, and `utilization` is finite numeric `0..100` or null. Malformed
-  records from telemetry helpers are internal server failures.
+  `platform`/`name` are strings, `memory_total` and `memory_used` are
+  non-negative integers or null, `memory_used` does not exceed `memory_total`
+  when both are known, and `utilization` is finite numeric `0..100` or null.
+  Malformed records from telemetry helpers are internal server failures.
 - REST session creation with explicit `gpu_ids` must validate the whole
   `list_gpus()` response envelope and records before deriving allowed visible
   IDs. Malformed listing payloads are structured JSON `500` internal failures,

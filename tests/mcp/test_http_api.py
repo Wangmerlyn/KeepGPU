@@ -1927,6 +1927,48 @@ def test_http_get_api_gpus_enumeration_unavailable_returns_json_503(monkeypatch)
                     "visible_id": 0,
                     "platform": "CUDA",
                     "name": "GPU 0",
+                    "memory_total": -1,
+                    "memory_used": 0,
+                    "utilization": None,
+                }
+            ],
+            "memory_total",
+        ),
+        (
+            [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "CUDA",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": -1,
+                    "utilization": None,
+                }
+            ],
+            "memory_used",
+        ),
+        (
+            [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "CUDA",
+                    "name": "GPU 0",
+                    "memory_total": 1024,
+                    "memory_used": 2048,
+                    "utilization": None,
+                }
+            ],
+            "memory_used",
+        ),
+        (
+            [
+                {
+                    "id": 0,
+                    "visible_id": 0,
+                    "platform": "CUDA",
+                    "name": "GPU 0",
                     "memory_total": None,
                     "memory_used": None,
                     "utilization": 101,

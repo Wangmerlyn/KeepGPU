@@ -60,6 +60,7 @@ from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     JOB_ID_PATTERN_TEXT,
     PUBLIC_INTERVAL_MAX_SECONDS,
+    is_memory_byte_pair_or_none,
     is_utilization_percent_or_none,
     validate_busy_threshold,
     validate_gpu_ids,
@@ -199,10 +200,6 @@ def _plain_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _int_or_none(value: Any) -> bool:
-    return value is None or _plain_int(value)
-
-
 def _raise_malformed_gpu_record(index: int, message: str) -> None:
     raise RuntimeError(f"Malformed list_gpus response: GPU record {index} {message}")
 
@@ -236,10 +233,15 @@ def _validate_list_gpus_records(infos: Any) -> None:
         for field in ("memory_total", "memory_used"):
             if field not in record:
                 _raise_malformed_gpu_record(index, f"missing {field!r}")
-            if not _int_or_none(record[field]):
-                _raise_malformed_gpu_record(
-                    index, f"{field!r} must be an integer or null"
-                )
+        if not is_memory_byte_pair_or_none(
+            record["memory_total"],
+            record["memory_used"],
+        ):
+            _raise_malformed_gpu_record(
+                index,
+                "'memory_total' and 'memory_used' must be non-negative integers "
+                "or null, and 'memory_used' must not exceed 'memory_total'",
+            )
         if "utilization" not in record:
             _raise_malformed_gpu_record(index, "missing 'utilization'")
         if not is_utilization_percent_or_none(record["utilization"]):
