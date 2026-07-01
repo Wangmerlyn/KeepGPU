@@ -121,6 +121,35 @@ def test_macm_keep_rejects_restart_while_previous_thread_is_stopping():
         ctrl.keep()
 
 
+def test_macm_keep_raises_when_startup_allocation_fails(monkeypatch):
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    monkeypatch.setattr(
+        macm_module.torch.backends.mps,
+        "is_available",
+        lambda: True,
+    )
+
+    ctrl = MacMGPUController(
+        rank=0,
+        interval=0.01,
+        vram_to_keep=4,
+        busy_threshold=-1,
+        iterations=1,
+    )
+
+    def fail_allocation(*_args, **_kwargs):
+        raise RuntimeError("mps startup allocation failed")
+
+    monkeypatch.setattr(macm_module.torch, "rand", fail_allocation)
+
+    with pytest.raises(RuntimeError, match="mps startup allocation failed"):
+        ctrl.keep()
+
+    assert ctrl._thread is None
+    assert ctrl._stop_evt is None
+
+
 def test_macm_unknown_utilization_backs_off_when_threshold_enabled():
     assert MacMGPUController._should_run_batch(None, 10) is False
 
