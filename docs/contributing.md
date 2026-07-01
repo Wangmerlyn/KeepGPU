@@ -97,7 +97,9 @@ expectations so you can get productive quickly and avoid surprises in CI.
 - API reference pages are resolved from the checkout's `src/` tree, so docs-only
   builds do not need `pip install .`.
 - Internal agent plans and skill reports under `docs/plans/` and `docs/skills/`
-  stay in the repository but are excluded from the published MkDocs site.
+  are excluded from the published MkDocs site. Keep active plans and durable
+  design records, but prune completed transient implementation plans once their
+  outcomes are captured in tests, public docs, or `AGENTS.md`.
 - Keep README as a concise front door. Put detailed interface examples,
   platform caveats, sentinel-value explanations, and contracts in the focused
   docs pages. Use `docs/index.md` for detailed navigation, keep full citation

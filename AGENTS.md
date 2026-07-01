@@ -23,7 +23,9 @@ This file defines how coding agents should work in this repository.
 - Before starting complex work, capture background, goal, solution, and todo items in a Markdown plan under `docs/plans/`.
 - Implementations must follow the plan and its todo items; update the plan document when tasks or scope change.
 - `docs/plans/` and `docs/skills/` are internal source artifacts and are
-  excluded from the public MkDocs site.
+  excluded from the public MkDocs site. Keep active plans and durable design
+  records, but prune completed transient implementation plans once their
+  outcomes are captured in tests, public docs, or this file.
 - If requirements are unclear during planning, ask the user early and proceed only after confirmation.
 - If a plan-related subagent exists, prefer calling it to draft/refine the plan.
 
