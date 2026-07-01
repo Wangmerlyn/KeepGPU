@@ -314,13 +314,13 @@ class MacMGPUController(BaseGPUController):
     def _run_batch(self, tensor: torch.Tensor) -> None:
         stop_evt = self._stop_evt
 
-        tic = time.time()
+        tic = time.monotonic()
         for _ in range(self.iterations):
             torch.relu_(tensor)
             if stop_evt is not None and stop_evt.is_set():
                 break
         torch.mps.synchronize()
-        toc = time.time()
+        toc = time.monotonic()
 
         logger.debug(
             "rank %s: elementwise batch done - avg %.2f ms",
