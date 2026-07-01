@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ROOT_REQUIREMENTS_INSTALL_RE = re.compile(
     r"\b(?:python\s+-m\s+)?pip\s+install\s+-r\s+(?:\./)?requirements\.txt\b"
@@ -45,9 +47,16 @@ def _bounds_below_mkdocs_two(requirement: str) -> bool:
 
 
 def _workflow_action_ref(workflow: str, action: str) -> str:
-    match = re.search(rf"uses:\s*{re.escape(action)}@v[0-9]+\b", workflow)
-    assert match is not None, f"missing workflow action: {action}"
-    return match.group(0).removeprefix("uses:").strip()
+    action_pattern = re.escape(action)
+    for line in workflow.splitlines():
+        active_line = line.split("#", 1)[0].strip()
+        match = re.match(
+            rf"-?\s*uses\s*:\s*['\"]?({action_pattern}@[^\s'\"]+)['\"]?\s*$",
+            active_line,
+        )
+        if match is not None:
+            return match.group(1)
+    raise AssertionError(f"missing workflow action: {action}")
 
 
 def test_precommit_workflow_does_not_install_runtime_package():
@@ -84,8 +93,38 @@ def test_precommit_workflow_uses_current_core_action_majors():
         python_workflow, "actions/setup-python"
     )
 
-    assert f"uses: {expected_checkout}" in precommit_workflow
-    assert f"uses: {expected_setup_python}" in precommit_workflow
+    assert (
+        _workflow_action_ref(precommit_workflow, "actions/checkout")
+        == expected_checkout
+    )
+    assert (
+        _workflow_action_ref(precommit_workflow, "actions/setup-python")
+        == expected_setup_python
+    )
+
+
+def test_workflow_action_ref_ignores_comments_and_allows_spacing():
+    workflow = """
+    steps:
+      - name: stale note
+        # uses: actions/checkout@v99
+      - uses:    actions/checkout@v4
+    """
+
+    assert _workflow_action_ref(workflow, "actions/checkout") == "actions/checkout@v4"
+
+
+def test_workflow_action_ref_requires_active_uses_line():
+    workflow = """
+    steps:
+      - name: stale note
+        # uses: actions/setup-python@v5
+    """
+
+    with pytest.raises(
+        AssertionError, match="missing workflow action: actions/setup-python"
+    ):
+        _workflow_action_ref(workflow, "actions/setup-python")
 
 
 def test_python_workflow_does_not_install_root_requirements_file():
