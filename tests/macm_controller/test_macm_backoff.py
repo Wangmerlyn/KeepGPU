@@ -184,6 +184,39 @@ def test_macm_keep_raises_when_startup_allocation_fails(monkeypatch):
     assert ctrl._stop_evt is None
 
 
+def test_macm_keep_clears_state_when_thread_start_fails(monkeypatch):
+    import keep_gpu.single_gpu_controller.macm_gpu_controller as macm_module
+
+    monkeypatch.setattr(
+        macm_module.torch.backends.mps,
+        "is_available",
+        lambda: True,
+    )
+
+    class FailingThread:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self):
+            raise RuntimeError("thread start failed")
+
+    monkeypatch.setattr(macm_module.threading, "Thread", FailingThread)
+
+    ctrl = MacMGPUController(
+        rank=0,
+        interval=0.01,
+        vram_to_keep=4,
+        busy_threshold=-1,
+        iterations=1,
+    )
+
+    with pytest.raises(RuntimeError, match="thread start failed"):
+        ctrl.keep()
+
+    assert ctrl._thread is None
+    assert ctrl._stop_evt is None
+
+
 def test_macm_unknown_utilization_backs_off_when_threshold_enabled():
     assert MacMGPUController._should_run_batch(None, 10) is False
 

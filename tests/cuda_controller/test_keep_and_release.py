@@ -58,6 +58,34 @@ def test_cuda_keep_raises_when_startup_allocation_fails(monkeypatch):
     assert ctrl._stop_evt is None
 
 
+def test_cuda_keep_clears_state_when_thread_start_fails(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "device_count", lambda: 1)
+
+    class FailingThread:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def start(self):
+            raise RuntimeError("thread start failed")
+
+    monkeypatch.setattr(cuda_module.threading, "Thread", FailingThread)
+
+    ctrl = CudaGPUController(
+        rank=0,
+        interval=0.01,
+        vram_to_keep=4,
+        busy_threshold=-1,
+    )
+
+    with pytest.raises(RuntimeError, match="thread start failed"):
+        ctrl.keep()
+
+    assert ctrl._thread is None
+    assert ctrl._stop_evt is None
+
+
 def test_cuda_keep_returns_when_startup_defers_for_unknown_utilization(monkeypatch):
     import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
 
