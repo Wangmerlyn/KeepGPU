@@ -854,6 +854,8 @@ def _validate_stop_keep_result(result: Dict[str, Any]) -> Dict[str, Any]:
 
 def _require_clean_stop_keep_for_service_stop(result: Dict[str, Any]) -> None:
     incomplete = []
+    if result["stopped"]:
+        incomplete.append(f"stopped: {', '.join(result['stopped'])}")
     if result["timed_out"]:
         incomplete.append(f"timed out: {', '.join(result['timed_out'])}")
     if result["failed"]:
@@ -864,6 +866,20 @@ def _require_clean_stop_keep_for_service_stop(result: Dict[str, Any]) -> None:
             f"({'; '.join(incomplete)}). Resolve those sessions first, or use "
             "`keep-gpu service-stop --force` for an unresponsive auto-started daemon."
         )
+
+
+def _require_no_active_jobs_for_service_stop(status: Dict[str, Any]) -> None:
+    active_jobs = status.get("active_jobs", [])
+    if not active_jobs:
+        return
+    job_ids = ", ".join(
+        job["job_id"] for job in active_jobs if isinstance(job.get("job_id"), str)
+    )
+    detail = f" Active jobs: {job_ids}." if job_ids else ""
+    raise RuntimeError(
+        "Tracked keep sessions detected."
+        f"{detail} Stop sessions first (`keep-gpu stop --all`) or re-run with --force."
+    )
 
 
 def _validate_list_gpus_result(result: Dict[str, Any]) -> Dict[str, Any]:
@@ -1316,14 +1332,13 @@ def service_stop(
                 "For an unresponsive auto-started daemon, run `keep-gpu service-stop --force`."
             ) from exc
 
-        active_jobs = status.get("active_jobs", [])
-        if active_jobs:
-            raise RuntimeError(
-                "Tracked keep sessions detected. Stop sessions first (`keep-gpu stop --all`) or re-run with --force."
-            )
+        _require_no_active_jobs_for_service_stop(status)
         stop_result = _rpc_call("stop_keep", {}, host, port, timeout=45.0)
         stop_result = _validate_stop_keep_result(stop_result)
         _require_clean_stop_keep_for_service_stop(stop_result)
+        status = _rpc_call("status", {}, host, port)
+        status = _validate_status_result(status, single_job=False)
+        _require_no_active_jobs_for_service_stop(status)
 
         stopped = _stop_service_process(host, port)
         if not stopped:
