@@ -81,7 +81,12 @@ class MacMGPUController(BaseGPUController):
             name=f"gpu-keeper-macm-{self.rank}",
             daemon=True,
         )
-        self._thread.start()
+        try:
+            self._thread.start()
+        except Exception:  # noqa: BLE001 - preserve original thread-start failure
+            self._thread = None
+            self._stop_evt = None
+            raise
         startup_timeout = 5.0
         if not startup_evt.wait(startup_timeout):
             stop_evt = self._stop_evt
