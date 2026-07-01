@@ -301,7 +301,7 @@ class CudaGPUController(BaseGPUController):
                     continue
                 record_worker_failure(e)
                 return
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - surface backend startup failure
                 record_worker_failure(exc)
                 return
         if matrix is None:
