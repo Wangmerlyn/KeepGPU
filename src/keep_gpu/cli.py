@@ -503,9 +503,19 @@ def _ensure_service_running(host: str, port: int, auto_start: bool = True) -> bo
     if _service_available(host, port):
         return False
 
-    stale_pid = _read_service_pid(host, port)
-    if stale_pid and not _pid_alive(stale_pid):
-        _clear_service_pid(host, port)
+    pid_record = _read_service_pid_record(host, port)
+    if pid_record is not None:
+        pid = pid_record["pid"]
+        if not _pid_alive(pid):
+            _clear_service_pid(host, port)
+        elif _record_matches_running_process(pid_record, host, port):
+            log_path = _service_log_path(host, port)
+            raise RuntimeError(
+                f"KeepGPU service daemon pid={pid} is already running at "
+                f"{host}:{port}, but its health check failed. Inspect the service "
+                f"log at {log_path} or run `keep-gpu service-stop --force` before "
+                "auto-starting another daemon."
+            )
 
     if not auto_start:
         raise RuntimeError(

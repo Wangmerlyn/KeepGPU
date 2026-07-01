@@ -706,12 +706,12 @@ def test_http_json_request_reports_invalid_utf8_as_service_response_error(monkey
 
 
 def test_ensure_service_running_stops_auto_started_process_on_health_timeout(
-    monkeypatch,
+    monkeypatch, tmp_path
 ):
     stopped = []
 
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
     monkeypatch.setattr(cli, "_service_available", lambda host, port: False)
-    monkeypatch.setattr(cli, "_read_service_pid", lambda host, port: None)
     monkeypatch.setattr(cli, "_start_service_process", lambda host, port: 4321)
     monkeypatch.setattr(cli.time, "sleep", lambda seconds: None)
 
@@ -724,6 +724,66 @@ def test_ensure_service_running_stops_auto_started_process_on_health_timeout(
         cli._ensure_service_running("127.0.0.1", 8765)
 
     assert stopped == [("127.0.0.1", 8765, 1.0)]
+
+
+def test_ensure_service_running_clears_dead_pid_record_before_auto_start(
+    monkeypatch, tmp_path
+):
+    starts = []
+
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli, "_service_available", lambda host, port: len(starts) > 0)
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+    cli._write_service_pid("127.0.0.1", 8765, 4321)
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: False)
+    monkeypatch.setattr(
+        cli, "_start_service_process", lambda host, port: starts.append((host, port))
+    )
+
+    auto_started = cli._ensure_service_running("127.0.0.1", 8765)
+
+    assert auto_started is True
+    assert starts == [("127.0.0.1", 8765)]
+    assert not cli._service_pid_path("127.0.0.1", 8765).exists()
+
+
+def test_ensure_service_running_refuses_to_spawn_over_live_managed_pid(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    monkeypatch.setattr(cli, "_service_available", lambda host, port: False)
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+    cli._write_service_pid("127.0.0.1", 8765, 4321)
+    pid_path = cli._service_pid_path("127.0.0.1", 8765)
+    original_record = pid_path.read_text(encoding="utf-8")
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: pid == 4321)
+    monkeypatch.setattr(
+        cli,
+        "_process_cmdline",
+        lambda pid: cli._service_command("127.0.0.1", 8765),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_start_service_process",
+        lambda host, port: (_ for _ in ()).throw(
+            AssertionError("auto-start must not overwrite a live PID record")
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_stop_service_process",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("timeout cleanup should not run without auto-start")
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="health check failed") as exc_info:
+        cli._ensure_service_running("127.0.0.1", 8765)
+
+    assert str(cli._service_log_path("127.0.0.1", 8765)) in str(exc_info.value)
+    assert pid_path.read_text(encoding="utf-8") == original_record
 
 
 def test_status_outputs_single_decoded_json_object(monkeypatch):
