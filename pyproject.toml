@@ -9,7 +9,7 @@ name = "keep_gpu"
 dynamic = ["version"]  # Let setuptools read the version dynamically
 description = "KeepGPU is a polite GPU keeper with CLI, service, and MCP interfaces"
 readme = {file = "README.md", content-type = "text/markdown"}
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.14"
 
 authors = [
   {name = "Siyuan Wang", email = "sywang0227@gmail.com"},
@@ -22,7 +22,12 @@ maintainers = [
   {name= "Yiduck Liu", email = "geodesicseiran@gmail.com"}
 ]
 classifiers = [
-
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
 ]
 license = "MIT"
 dependencies = [

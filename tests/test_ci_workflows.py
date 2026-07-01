@@ -9,6 +9,7 @@ ROOT_REQUIREMENTS_INSTALL_RE = re.compile(
 )
 MKDOCS_MAJOR_TWO_BOUND_RE = re.compile(r"<\s*2(?:\.0+)?(?:\s|,|$)")
 YAML_BLOCK_SCALAR_START_RE = re.compile(r":\s*[|>][-+0-9]*\s*$")
+PYTHON_VERSION_MATRIX_RE = re.compile(r"python-version:\s*\[([^\]]+)\]")
 
 
 def _installs_root_requirements_file(workflow: str) -> bool:
@@ -75,19 +76,31 @@ def _workflow_action_ref(workflow: str, action: str) -> str:
     raise AssertionError(f"missing workflow action: {action}")
 
 
+def _python_version_matrix(workflow: str) -> list[str]:
+    match = PYTHON_VERSION_MATRIX_RE.search(workflow)
+    if match is None:
+        raise AssertionError("missing python-version matrix")
+    return [
+        version.strip().strip("\"'")
+        for version in match.group(1).split(",")
+        if version.strip()
+    ]
+
+
+def _normalized_pip_install_commands(workflow: str) -> list[str]:
+    pip_install_commands = re.findall(
+        r"^\s*(?:python\s+-m\s+)?pip\s+install\b.*$", workflow, re.MULTILINE
+    )
+    return [re.sub(r"\s+", " ", command.strip()) for command in pip_install_commands]
+
+
 def test_precommit_workflow_does_not_install_runtime_package():
     workflow_path = PROJECT_ROOT / ".github/workflows/pre-commit.yaml"
     if not workflow_path.exists():
         workflow_path = PROJECT_ROOT / ".github/workflows/pre-commit.yml"
     workflow = workflow_path.read_text(encoding="utf-8")
-    pip_install_commands = re.findall(
-        r"^\s*(?:python\s+-m\s+)?pip\s+install\b.*$", workflow, re.MULTILINE
-    )
-    normalized_commands = [
-        re.sub(r"\s+", " ", command.strip()) for command in pip_install_commands
-    ]
 
-    assert normalized_commands == [
+    assert _normalized_pip_install_commands(workflow) == [
         "python -m pip install --upgrade pip",
         "pip install pre-commit",
     ]
@@ -162,6 +175,30 @@ def test_python_workflow_does_not_install_root_requirements_file():
     workflow = workflow_path.read_text(encoding="utf-8")
 
     assert not _installs_root_requirements_file(workflow)
+
+
+def test_python_workflow_tests_supported_floor_and_latest_advertised_version():
+    workflow_path = PROJECT_ROOT / ".github/workflows/python-app.yml"
+    if not workflow_path.exists():
+        workflow_path = PROJECT_ROOT / ".github/workflows/python-app.yaml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+
+    assert _python_version_matrix(workflow) == ["3.9", "3.13"]
+
+
+def test_python_workflow_restores_metadata_setuptools_after_torch_install():
+    workflow_path = PROJECT_ROOT / ".github/workflows/python-app.yml"
+    if not workflow_path.exists():
+        workflow_path = PROJECT_ROOT / ".github/workflows/python-app.yaml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+
+    assert _normalized_pip_install_commands(workflow) == [
+        "python -m pip install --upgrade pip",
+        "pip install pytest",
+        "pip install torch --index-url https://download.pytorch.org/whl/cpu",
+        'pip install "setuptools>=77,<82"',
+        "pip install -e .",
+    ]
 
 
 def test_root_requirements_guard_allows_harmless_references():

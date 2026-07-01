@@ -1,5 +1,5 @@
-# This workflow installs Python dependencies and runs tests on the supported floor
-# plus the default development version.
+# This workflow installs Python dependencies and runs tests on the supported
+# floor plus the latest Python version advertised in package classifiers.
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
 name: Python application
@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10"]
+        python-version: ["3.9", "3.13"]
 
     steps:
     - uses: actions/checkout@v4
@@ -32,6 +32,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest
         pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install "setuptools>=77,<82"
         pip install -e .
     - name: Test with pytest
       run: |
