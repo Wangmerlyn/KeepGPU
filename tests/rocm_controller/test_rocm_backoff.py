@@ -515,6 +515,73 @@ def test_rocm_records_post_start_allocation_runtime_error_as_failure(monkeypatch
     )
 
 
+def test_rocm_sets_startup_event_when_recording_failure_without_error_list(
+    monkeypatch,
+):
+    import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
+
+    ctrl = RocmGPUController.__new__(RocmGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.iterations = 1
+    ctrl.max_allocation_retries = None
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopWaitForbidden()
+    startup_evt = threading.Event()
+
+    monkeypatch.setattr(rocm_module.torch.cuda, "set_device", lambda _rank: None)
+    monkeypatch.setattr(ctrl, "_query_utilization", lambda: 0)
+
+    def fail_allocation(*args, **kwargs):
+        raise RuntimeError("rocm allocation exploded")
+
+    monkeypatch.setattr(rocm_module.torch, "rand", fail_allocation)
+
+    ctrl._keep_loop(startup_evt=startup_evt, startup_errors=None)
+
+    assert startup_evt.is_set()
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert (
+        str(error)
+        == "rank 0: unexpected ROCm keep worker failure: rocm allocation exploded"
+    )
+
+
+def test_rocm_sets_startup_event_when_retry_exhausts_without_error_list(monkeypatch):
+    import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
+
+    ctrl = RocmGPUController.__new__(RocmGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.iterations = 1
+    ctrl.max_allocation_retries = 1
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopWaitForbidden()
+    startup_evt = threading.Event()
+
+    monkeypatch.setattr(rocm_module.torch.cuda, "set_device", lambda _rank: None)
+    monkeypatch.setattr(ctrl, "_query_utilization", lambda: 0)
+
+    def fail_allocation(*args, **kwargs):
+        raise RuntimeError("ROCm out of memory")
+
+    monkeypatch.setattr(rocm_module.torch, "rand", fail_allocation)
+
+    ctrl._keep_loop(startup_evt=startup_evt, startup_errors=None)
+
+    assert startup_evt.is_set()
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "rank 0: failed to allocate tensor after 1 attempts"
+
+
 def test_rocm_records_unexpected_post_start_allocation_failure(monkeypatch):
     import keep_gpu.single_gpu_controller.rocm_gpu_controller as rocm_module
 

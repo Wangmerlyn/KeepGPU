@@ -1,3 +1,4 @@
+import threading
 import time
 
 import pytest
@@ -283,6 +284,39 @@ def test_cuda_records_post_start_allocation_runtime_error_as_failure(monkeypatch
 
     ctrl._keep_loop()
 
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert (
+        str(error)
+        == "rank 0: unexpected CUDA keep worker failure: illegal memory access"
+    )
+
+
+def test_cuda_sets_startup_event_when_recording_failure_without_error_list(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    ctrl = CudaGPUController.__new__(CudaGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.relu_iterations = 1
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopWaitForbidden()
+    startup_evt = threading.Event()
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", lambda _rank: None)
+    monkeypatch.setattr(ctrl, "_monitor_utilization", lambda _rank: 0)
+
+    def fail_allocation(*args, **kwargs):
+        raise RuntimeError("illegal memory access")
+
+    monkeypatch.setattr(cuda_module.torch, "rand", fail_allocation)
+
+    ctrl._keep_loop(startup_evt=startup_evt, startup_errors=None)
+
+    assert startup_evt.is_set()
     error = ctrl.allocation_status()
     assert isinstance(error, RuntimeError)
     assert (

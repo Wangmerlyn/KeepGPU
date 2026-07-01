@@ -30,6 +30,8 @@ real progress safely or intentionally deferred work for eco-safe backoff.
       failure.
 - [x] Add public `keep()` coverage for eco-safe deferral, recoverable OOM retry,
       and bounded ROCm OOM exhaustion.
+- [x] Resolve review feedback so failure paths always signal any startup event,
+      including internal calls without a `startup_errors` list.
 - [x] Update CUDA and ROCm startup handshakes.
 - [x] Update `AGENTS.md` and architecture docs with the explicit first-allocation
       startup contract.

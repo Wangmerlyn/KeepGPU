@@ -225,11 +225,11 @@ class CudaGPUController(BaseGPUController):
             failure = RuntimeError(
                 f"rank {self.rank}: unexpected CUDA keep worker failure: {exc}"
             )
-            if startup_confirmed or startup_errors is None:
-                self._failure_exc = failure
-            else:
+            if not startup_confirmed and startup_errors is not None:
                 startup_errors.append(failure)
-                confirm_startup()
+            else:
+                self._failure_exc = failure
+            confirm_startup()
             logger.exception("%s", failure)
 
         stop_evt = self._stop_evt
