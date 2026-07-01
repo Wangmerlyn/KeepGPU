@@ -1,5 +1,14 @@
+const SERVER_STARTUP_STOP_WAIT_TIMEOUT_MS = 10000
 const SERVER_RELEASE_TIMEOUT_MS = 10000
 export const REQUEST_TIMEOUT_MS = SERVER_RELEASE_TIMEOUT_MS + 5000
+export const STOP_REQUEST_TIMEOUT_MS =
+  SERVER_STARTUP_STOP_WAIT_TIMEOUT_MS + SERVER_RELEASE_TIMEOUT_MS + 5000
+
+function timeoutForMethod(method) {
+  return String(method).toUpperCase() === "DELETE"
+    ? STOP_REQUEST_TIMEOUT_MS
+    : REQUEST_TIMEOUT_MS
+}
 
 function cleanMessage(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null
@@ -43,7 +52,10 @@ export function formatApiErrorMessage(responseBody, status) {
 
 export async function requestJson(method, path, body) {
   const controller = new AbortController()
-  const timeout = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const timeout = globalThis.setTimeout(
+    () => controller.abort(),
+    timeoutForMethod(method)
+  )
   const hasBody = arguments.length >= 3
 
   try {
