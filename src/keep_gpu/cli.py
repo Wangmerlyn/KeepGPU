@@ -980,19 +980,19 @@ def serve(
         DEFAULT_SERVICE_HOST,
         help="Host interface for KeepGPU local service.",
     ),
-    port: int = typer.Option(
-        DEFAULT_SERVICE_PORT,
+    port: str = typer.Option(
+        str(DEFAULT_SERVICE_PORT),
         help="Port for KeepGPU local service.",
     ),
 ):
     """Run KeepGPU local service (HTTP + JSON-RPC + dashboard)."""
-    from keep_gpu.mcp.server import KeepGPUServer, run_http
-
     try:
         host, port = _validate_cli_service_endpoint(host, port)
     except typer.BadParameter as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
         raise typer.Exit(code=1) from exc
+
+    from keep_gpu.mcp.server import KeepGPUServer, run_http
 
     console.print(f"[bold cyan]Service URL:[/bold cyan] http://{host}:{port}/")
     console.print(
@@ -1029,8 +1029,8 @@ def start(
         "--host",
         help="KeepGPU service host.",
     ),
-    port: int = typer.Option(
-        DEFAULT_SERVICE_PORT,
+    port: str = typer.Option(
+        str(DEFAULT_SERVICE_PORT),
         "--port",
         help="KeepGPU service port.",
     ),
@@ -1193,7 +1193,7 @@ def list_gpus(
 @app.command("service-stop")
 def service_stop(
     host: str = typer.Option(DEFAULT_SERVICE_HOST, "--host", help="Service host."),
-    port: int = typer.Option(DEFAULT_SERVICE_PORT, "--port", help="Service port."),
+    port: str = typer.Option(str(DEFAULT_SERVICE_PORT), "--port", help="Service port."),
     force: bool = typer.Option(
         False,
         "--force",

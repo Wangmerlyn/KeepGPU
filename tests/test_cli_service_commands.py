@@ -1,3 +1,4 @@
+import builtins
 import json
 import re
 
@@ -396,6 +397,49 @@ def test_start_command_rejects_invalid_port_before_auto_start(monkeypatch):
     assert called == {"ensure": False, "rpc": False}
 
 
+def test_start_command_rejects_non_integer_port_before_auto_start(monkeypatch):
+    called = {"ensure": False, "rpc": False}
+
+    monkeypatch.setattr(
+        cli,
+        "_ensure_service_running",
+        lambda *args, **kwargs: called.__setitem__("ensure", True),
+    )
+    monkeypatch.setattr(
+        cli,
+        "_rpc_call",
+        lambda *args, **kwargs: called.__setitem__("rpc", True),
+    )
+
+    result = runner.invoke(cli.app, ["start", "--port", "abc"])
+
+    assert result.exit_code == 1
+    assert "port must be an integer between 1 and 65535" in result.output
+    assert "Traceback" not in result.output
+    assert called == {"ensure": False, "rpc": False}
+
+
+@pytest.mark.parametrize("invalid_port", ["abc", "0"])
+def test_serve_rejects_invalid_port_before_server_import(monkeypatch, invalid_port):
+    original_import = builtins.__import__
+    imported = {"server": False}
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "keep_gpu.mcp.server":
+            imported["server"] = True
+            raise AssertionError("server should not be imported before validation")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    result = runner.invoke(cli.app, ["serve", "--port", invalid_port])
+
+    assert result.exit_code == 1
+    assert "port must be an integer between 1 and 65535" in result.output
+    assert "Traceback" not in result.output
+    assert imported["server"] is False
+
+
 def test_validate_cli_service_host_delegates_to_shared_validator():
     assert cli._validate_cli_service_host("localhost") == "localhost"
 
@@ -591,6 +635,28 @@ def test_service_stop_rejects_invalid_host_before_daemon_operations(monkeypatch)
     assert result.exit_code == 1
     assert "host must be a DNS hostname or IPv4 address" in result.output
     assert called == {"available": False, "stop": False}
+
+
+def test_service_stop_rejects_non_integer_port_before_daemon_operations(monkeypatch):
+    called = {"rpc": False, "stop": False}
+
+    def fake_rpc(*args, **kwargs):
+        called["rpc"] = True
+        return {}
+
+    def fake_stop(*args, **kwargs):
+        called["stop"] = True
+        return True
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+    monkeypatch.setattr(cli, "_stop_service_process", fake_stop)
+
+    result = runner.invoke(cli.app, ["service-stop", "--port", "abc", "--force"])
+
+    assert result.exit_code == 1
+    assert "port must be an integer between 1 and 65535" in result.output
+    assert "Traceback" not in result.output
+    assert called == {"rpc": False, "stop": False}
 
 
 def test_http_json_request_wraps_malformed_url_as_service_unreachable():
