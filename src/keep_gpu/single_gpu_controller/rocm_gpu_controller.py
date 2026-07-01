@@ -218,6 +218,27 @@ class RocmGPUController(BaseGPUController):
         startup_evt: Optional[threading.Event] = None,
         startup_errors: Optional[list[Exception]] = None,
     ) -> None:
+        startup_confirmed = startup_evt is None
+
+        def confirm_startup() -> None:
+            nonlocal startup_confirmed
+            if startup_confirmed:
+                return
+            startup_confirmed = True
+            assert startup_evt is not None
+            startup_evt.set()
+
+        def record_worker_failure(exc: Exception) -> None:
+            failure = RuntimeError(
+                f"rank {self.rank}: unexpected ROCm keep worker failure: {exc}"
+            )
+            if startup_confirmed or startup_errors is None:
+                self._failure_exc = failure
+            else:
+                startup_errors.append(failure)
+                confirm_startup()
+            logger.exception("%s", failure)
+
         stop_evt = self._stop_evt
         if stop_evt is None:
             exc = RuntimeError(f"rank {self.rank}: stop event not initialized")
@@ -251,12 +272,11 @@ class RocmGPUController(BaseGPUController):
             if startup_evt is not None:
                 startup_evt.set()
             return
-        if startup_evt is not None:
-            startup_evt.set()
         while not stop_evt.is_set():
             try:
                 util = self._query_utilization()
                 if not self._should_run_batch(util, self.busy_threshold):
+                    confirm_startup()
                     logger.debug(
                         "rank %s: GPU utilization unavailable or busy (%s), deferring allocation",
                         self.rank,
@@ -271,6 +291,7 @@ class RocmGPUController(BaseGPUController):
                     dtype=torch.float32,
                     requires_grad=False,
                 )
+                confirm_startup()
                 break
             except RuntimeError as exc:
                 attempts += 1
@@ -286,27 +307,27 @@ class RocmGPUController(BaseGPUController):
                     exc,
                 )
                 if "out of memory" not in str(exc).lower():
-                    self._failure_exc = RuntimeError(
-                        f"rank {self.rank}: unexpected ROCm keep worker failure: {exc}"
-                    )
-                    logger.exception("%s", self._failure_exc)
+                    record_worker_failure(exc)
                     return
                 if (
                     self.max_allocation_retries is not None
                     and attempts >= self.max_allocation_retries
                 ):
-                    self._failure_exc = RuntimeError(
+                    failure = RuntimeError(
                         f"rank {self.rank}: failed to allocate tensor after {attempts} attempts"
                     )
-                    logger.error("%s", self._failure_exc)
+                    if startup_confirmed or startup_errors is None:
+                        self._failure_exc = failure
+                    else:
+                        startup_errors.append(failure)
+                        confirm_startup()
+                    logger.error("%s", failure)
                     return
+                confirm_startup()
                 if stop_evt.wait(self.interval):
                     return
             except Exception as exc:
-                self._failure_exc = RuntimeError(
-                    f"rank {self.rank}: unexpected ROCm keep worker failure: {exc}"
-                )
-                logger.exception("%s", self._failure_exc)
+                record_worker_failure(exc)
                 return
 
         if tensor is None:

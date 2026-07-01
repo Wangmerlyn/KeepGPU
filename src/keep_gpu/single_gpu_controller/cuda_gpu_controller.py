@@ -211,6 +211,27 @@ class CudaGPUController(BaseGPUController):
         startup_errors: Optional[list[Exception]] = None,
     ) -> None:
         """Internal: run workloads until stop event is set."""
+        startup_confirmed = startup_evt is None
+
+        def confirm_startup() -> None:
+            nonlocal startup_confirmed
+            if startup_confirmed:
+                return
+            startup_confirmed = True
+            assert startup_evt is not None
+            startup_evt.set()
+
+        def record_worker_failure(exc: Exception) -> None:
+            failure = RuntimeError(
+                f"rank {self.rank}: unexpected CUDA keep worker failure: {exc}"
+            )
+            if startup_confirmed or startup_errors is None:
+                self._failure_exc = failure
+            else:
+                startup_errors.append(failure)
+                confirm_startup()
+            logger.exception("%s", failure)
+
         stop_evt = self._stop_evt
         if stop_evt is None:
             exc = RuntimeError(f"rank {self.rank}: stop event not initialized")
@@ -248,13 +269,12 @@ class CudaGPUController(BaseGPUController):
             if startup_evt is not None:
                 startup_evt.set()
             return
-        if startup_evt is not None:
-            startup_evt.set()
         matrix = None
         while not stop_evt.is_set():
             try:
                 gpu_utilization = self._monitor_utilization(self.rank)
                 if not self._should_run_batch(gpu_utilization, self.busy_threshold):
+                    confirm_startup()
                     logger.debug(
                         "rank %s: GPU utilization unavailable or busy (%s), deferring allocation",
                         self.rank,
@@ -269,23 +289,19 @@ class CudaGPUController(BaseGPUController):
                     dtype=torch.float32,
                     requires_grad=False,
                 )
+                confirm_startup()
                 break
             except RuntimeError as e:
                 logger.error("rank %s: failed to allocate matrix: %s", self.rank, e)
                 if "out of memory" in str(e).lower():
+                    confirm_startup()
                     if stop_evt.wait(self.interval):
                         return
                     continue
-                self._failure_exc = RuntimeError(
-                    f"rank {self.rank}: unexpected CUDA keep worker failure: {e}"
-                )
-                logger.exception("%s", self._failure_exc)
+                record_worker_failure(e)
                 return
             except Exception as exc:
-                self._failure_exc = RuntimeError(
-                    f"rank {self.rank}: unexpected CUDA keep worker failure: {exc}"
-                )
-                logger.exception("%s", self._failure_exc)
+                record_worker_failure(exc)
                 return
         if matrix is None:
             logger.error("rank %s: failed to allocate matrix, exiting loop", self.rank)

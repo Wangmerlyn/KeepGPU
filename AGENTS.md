@@ -315,9 +315,11 @@ This file defines how coding agents should work in this repository.
   Non-OOM allocation or steady-state `RuntimeError` failures after startup must
   be retained as runtime failures.
 - Single-GPU `keep()` must not report success until fatal backend startup setup
-  has succeeded. CUDA/ROCm worker startup failures such as `set_device` errors
-  and MPS first-allocation setup failures must propagate synchronously so
-  services cannot register false active sessions.
+  has succeeded. CUDA/ROCm worker startup failures such as `set_device` errors,
+  first permitted non-OOM allocation failures, and MPS first-allocation setup
+  failures must propagate synchronously so services cannot register false active
+  sessions. Eco-safe busy/unknown-telemetry deferral and recoverable OOM retries
+  may still complete startup without allocating.
 - Single-GPU `keep()` must reject a restart while a previous worker thread is
   still alive with its stop event already set; returning success in that state
   hides a stopping keeper as if a fresh keep succeeded.
