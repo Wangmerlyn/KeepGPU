@@ -1308,13 +1308,16 @@ def test_mcp_initialized_notification_has_no_response():
     assert resp is None
 
 
-def test_mcp_initialized_notification_with_bad_version_has_no_response():
+def test_mcp_initialized_notification_with_bad_version_is_invalid_request():
     server = make_server()
     req = {"jsonrpc": "1.0", "method": "notifications/initialized"}
 
     resp = _handle_request(server, req)
 
-    assert resp is None
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] is None
+    assert resp["error"]["code"] == JSONRPC_INVALID_REQUEST
+    assert resp["error"]["message"] == "JSON-RPC version must be 2.0."
 
 
 def test_mcp_tools_list_exposes_keepgpu_actions():
@@ -1759,6 +1762,34 @@ def test_mcp_stdio_parse_errors_are_jsonrpc_errors():
     assert response["id"] is None
     assert response["error"]["code"] == -32700
     assert "Expecting property name" in response["error"]["message"]
+
+
+def test_mcp_stdio_bad_version_notification_is_invalid_request_error():
+    request = {"jsonrpc": "1.0", "method": "notifications/initialized"}
+    env = os.environ.copy()
+    repo_root = Path(__file__).resolve().parents[2]
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(repo_root / "src"), env.get("PYTHONPATH", "")]
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "keep_gpu.mcp.server"],
+        input=json.dumps(request) + "\n",
+        text=True,
+        capture_output=True,
+        timeout=5,
+        env=env,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    stdout_lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    assert len(stdout_lines) == 1
+    response = json.loads(stdout_lines[0])
+    assert response["jsonrpc"] == "2.0"
+    assert response["id"] is None
+    assert response["error"]["code"] == JSONRPC_INVALID_REQUEST
+    assert response["error"]["message"] == "JSON-RPC version must be 2.0."
 
 
 def test_mcp_stdio_non_object_messages_are_invalid_request_errors():

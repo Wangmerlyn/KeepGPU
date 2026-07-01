@@ -16,8 +16,9 @@ the existing behavior that valid string and integer ids are echoed in responses.
 
 - Add MCP server tests for invalid JSON-RPC id types.
 - Keep valid integer and string id behavior unchanged.
-- Preserve id-less notification handling: id-less `notifications/*` messages do
-  not receive responses, and missing-id requests receive `id: null` errors.
+- Preserve id-less notification handling: valid or omitted-version id-less
+  `notifications/*` messages do not receive responses, while explicit invalid
+  JSON-RPC versions and missing-id requests receive `id: null` errors.
 - Update `_handle_request` so the response id is assigned only after the raw id
   passes JSON-RPC id validation.
 

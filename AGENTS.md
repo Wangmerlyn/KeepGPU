@@ -126,8 +126,9 @@ This file defines how coding agents should work in this repository.
   (`initialize`, `notifications/initialized`, `tools/list`, `tools/call`) while
   preserving legacy direct JSON-RPC method calls for local scripts.
 - JSON-RPC handlers must reject explicit request versions other than `"2.0"`
-  with `-32600 Invalid Request` for request messages while preserving
-  omitted-version legacy/internal calls and silent id-less notifications.
+  with `-32600 Invalid Request` before applying notification silence, including
+  id-less notifications, while preserving omitted-version legacy/internal calls
+  and silent valid or omitted-version id-less notifications.
 - JSON-RPC error envelopes must use `id: null` when the request id is missing or
   has an invalid response-id type, and must echo only valid non-boolean string or
   integer ids.
