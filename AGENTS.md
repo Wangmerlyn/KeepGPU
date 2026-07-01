@@ -302,6 +302,9 @@ This file defines how coding agents should work in this repository.
 - The dashboard request wrapper must prefer structured REST `error.message`
   strings over raw JSON bodies so users see actionable start/refresh/release
   failures instead of protocol payloads.
+- Dashboard stop requests must use a timeout that covers the backend startup
+  stop wait plus release timeout and a small client buffer; shorter dashboard
+  refresh/start requests should keep their modest timeout.
 - Dashboard stop-result formatting must preserve non-empty backend `message`
   fields when no stop outcome lists are populated.
 - Public `interval` values must be finite positive seconds, including fractional seconds, capped by the Python runtime wait limit; reject `NaN`, `Infinity`, and oversized values before creating or mutating session state so keep loops cannot spin, crash, or wedge.

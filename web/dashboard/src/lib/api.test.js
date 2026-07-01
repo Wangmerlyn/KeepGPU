@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { formatApiErrorMessage, requestJson } from "./api"
+import {
+  REQUEST_TIMEOUT_MS,
+  STOP_REQUEST_TIMEOUT_MS,
+  formatApiErrorMessage,
+  requestJson
+} from "./api"
 
 describe("formatApiErrorMessage", () => {
   it("uses structured REST error messages instead of raw JSON", () => {
@@ -125,6 +130,37 @@ describe("formatApiErrorMessage", () => {
     await expect(requestJson("GET", "/api/sessions")).rejects.toThrow(
       "Request timed out"
     )
+  })
+
+  it("uses an extended timeout for stop requests", async () => {
+    const timeoutDelays = []
+    vi.stubGlobal(
+      "setTimeout",
+      vi.fn((_callback, delay) => {
+        timeoutDelays.push(delay)
+        return 1
+      })
+    )
+    vi.stubGlobal("clearTimeout", vi.fn())
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ ok: true })
+      }))
+    )
+
+    await requestJson("GET", "/api/sessions")
+    await requestJson("DELETE", "/api/sessions/job-a")
+    await requestJson("delete", "/api/sessions/job-b")
+
+    expect(STOP_REQUEST_TIMEOUT_MS).toBe(25000)
+    expect(timeoutDelays).toEqual([
+      REQUEST_TIMEOUT_MS,
+      STOP_REQUEST_TIMEOUT_MS,
+      STOP_REQUEST_TIMEOUT_MS
+    ])
+    expect(timeoutDelays[1]).toBeGreaterThan(REQUEST_TIMEOUT_MS)
   })
 })
 

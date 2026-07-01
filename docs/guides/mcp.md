@@ -249,6 +249,8 @@ http://127.0.0.1:8765/
 The dashboard provides live telemetry, tracked session state, and start/stop controls.
 Its packaged static assets are self-contained and do not fetch remote fonts,
 CDN scripts, or other runtime network assets.
+Stop controls use a longer client timeout than ordinary refresh/start requests
+so the backend can return structured startup-wait plus release-timeout payloads.
 Telemetry refresh is manual by default. The **Auto refresh** toggle enables
 10-second polling while the tab is visible and pauses when the tab is hidden.
 Telemetry cards show the visible ordinal to type into the start form before any

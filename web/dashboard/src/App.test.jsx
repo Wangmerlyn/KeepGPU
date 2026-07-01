@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 
 import App from "./App"
-import { REQUEST_TIMEOUT_MS } from "./lib/api"
+import { REQUEST_TIMEOUT_MS, STOP_REQUEST_TIMEOUT_MS } from "./lib/api"
 
 describe("REQUEST_TIMEOUT_MS", () => {
-  it("gives stop requests time to return backend timeout payloads", () => {
-    expect(REQUEST_TIMEOUT_MS).toBeGreaterThan(10000)
+  it("keeps normal requests modest while stop requests can return timeout payloads", () => {
+    expect(REQUEST_TIMEOUT_MS).toBe(15000)
+    expect(STOP_REQUEST_TIMEOUT_MS).toBeGreaterThan(20000)
   })
 })
 
