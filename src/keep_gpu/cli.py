@@ -179,14 +179,19 @@ def _read_service_pid_record(host: str, port: int) -> Optional[Dict[str, Any]]:
         payload = json.loads(raw)
     except (OSError, json.JSONDecodeError, ValueError):
         return None
-    if isinstance(payload, int):
+    if isinstance(payload, int) and not isinstance(payload, bool) and payload > 0:
         return {"pid": payload, "legacy": True}
     if not isinstance(payload, dict):
         return None
-    try:
-        payload["pid"] = int(payload["pid"])
-        payload["port"] = int(payload["port"])
-    except (KeyError, TypeError, ValueError):
+    pid = payload.get("pid")
+    port_value = payload.get("port")
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return None
+    if (
+        not isinstance(port_value, int)
+        or isinstance(port_value, bool)
+        or port_value <= 0
+    ):
         return None
     return payload
 

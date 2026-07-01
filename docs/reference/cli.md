@@ -126,7 +126,9 @@ reported as JSON errors before RPC.
 Stops the ownership-verified local daemon process created by auto-start logic.
 Invalid endpoint values are rejected locally before service checks or
 ownership-verified stop operations. Non-force shutdown requires session checks
-to finish cleanly with no timed-out or failed stops.
+to finish cleanly with no timed-out or failed stops. Malformed PID records with
+float or boolean PID/port values are ignored rather than coerced before
+signaling.
 
 | Option | Description |
 | --- | --- |

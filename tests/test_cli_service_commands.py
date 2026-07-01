@@ -2144,6 +2144,73 @@ def test_stop_service_process_requires_structured_ownership_record(
     assert not cli._service_pid_path("127.0.0.1", 8765).exists()
 
 
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    [
+        ("pid", 4321.9),
+        ("pid", True),
+        ("port", 8765.0),
+        ("port", True),
+    ],
+)
+def test_stop_service_process_rejects_coerced_ownership_record_numbers(
+    monkeypatch, tmp_path, field, invalid_value
+):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    payload = {
+        "pid": 4321,
+        "host": "127.0.0.1",
+        "port": 8765,
+        "argv": cli._service_command("127.0.0.1", 8765),
+        "uid": 1000,
+        "start_time": "12345",
+    }
+    payload[field] = invalid_value
+    cli._service_pid_path("127.0.0.1", 8765).write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        cli, "_process_cmdline", lambda pid: cli._service_command("127.0.0.1", 8765)
+    )
+    monkeypatch.setattr(cli, "_process_uid", lambda pid: 1000)
+    monkeypatch.setattr(cli, "_process_start_identity", lambda pid: "12345")
+
+    alive = {"value": True}
+    monkeypatch.setattr(cli, "_pid_alive", lambda pid: alive["value"])
+    kills = []
+
+    def fake_kill(pid, sig):
+        kills.append((pid, sig))
+        alive["value"] = False
+
+    monkeypatch.setattr(cli.os, "kill", fake_kill)
+
+    stopped = cli._stop_service_process("127.0.0.1", 8765, timeout=0.5)
+
+    assert stopped is False
+    assert kills == []
+
+
+@pytest.mark.parametrize("invalid_port", [0, -1])
+def test_read_service_pid_record_rejects_non_positive_port(
+    monkeypatch, tmp_path, invalid_port
+):
+    monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
+    payload = {
+        "pid": 4321,
+        "host": "127.0.0.1",
+        "port": invalid_port,
+        "argv": cli._service_command("127.0.0.1", 8765),
+        "uid": 1000,
+        "start_time": "12345",
+    }
+    cli._service_pid_path("127.0.0.1", 8765).write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+    assert cli._read_service_pid_record("127.0.0.1", 8765) is None
+
+
 def test_stop_service_process_rejects_record_missing_identity(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "_runtime_dir", lambda: tmp_path)
     payload = {
