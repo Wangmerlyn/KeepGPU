@@ -321,6 +321,9 @@ This file defines how coding agents should work in this repository.
   sessions. Eco-safe busy/unknown-telemetry deferral and recoverable OOM retries
   may still complete startup without allocating; recoverable OOM retries must
   clear the backend cache before sleeping and retrying.
+- Internal single-GPU startup paths that receive a `startup_evt` must always
+  signal it before returning, and paths without a `startup_errors` list must
+  retain the failure detail in `allocation_status()`.
 - Single-GPU `keep()` must reject a restart while a previous worker thread is
   still alive with its stop event already set; returning success in that state
   hides a stopping keeper as if a fresh keep succeeded.

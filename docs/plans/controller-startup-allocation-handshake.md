@@ -34,6 +34,8 @@ real progress safely or intentionally deferred work for eco-safe backoff.
       including internal calls without a `startup_errors` list.
 - [x] Resolve review feedback so recoverable CUDA and ROCm startup OOM retries
       clear the backend cache before sleeping and retrying.
+- [x] Resolve local review feedback so pre-stopped startup paths still signal
+      waiters and ROCm no-error-list setup failures retain failure details.
 - [x] Update CUDA and ROCm startup handshakes.
 - [x] Update `AGENTS.md` and architecture docs with the explicit first-allocation
       startup contract.

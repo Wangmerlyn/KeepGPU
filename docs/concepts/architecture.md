@@ -123,7 +123,9 @@ Elementwise keep-alive batches:
 - Fatal backend startup errors are reported before `keep()` returns, including a
   first permitted non-OOM allocation failure. Recoverable later runtime errors
   are logged, and recoverable startup or runtime allocation failures retry after
-  clearing the device cache.
+  clearing the device cache. Internal startup waiters are always signaled before
+  the worker returns, and no-error-list internal paths retain failure details in
+  `allocation_status()`.
 
 ## Platform detection
 

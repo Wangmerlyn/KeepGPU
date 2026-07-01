@@ -45,6 +45,14 @@ class _StopWaitForbidden:
         raise AssertionError("fatal worker failures should stop immediately")
 
 
+class _StopAlreadySet:
+    def is_set(self):
+        return True
+
+    def wait(self, _timeout):
+        raise AssertionError("pre-stopped workers should not wait")
+
+
 def test_negative_busy_threshold_disables_backoff_without_gpu():
     assert CudaGPUController._should_run_batch(0, -1) is True
     assert CudaGPUController._should_run_batch(100, -1) is True
@@ -323,6 +331,30 @@ def test_cuda_sets_startup_event_when_recording_failure_without_error_list(monke
         str(error)
         == "rank 0: unexpected CUDA keep worker failure: illegal memory access"
     )
+
+
+def test_cuda_preserves_failure_when_stopped_before_startup_allocation(monkeypatch):
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    ctrl = CudaGPUController.__new__(CudaGPUController)
+    ctrl.rank = 0
+    ctrl.device = "cuda:0"
+    ctrl.interval = 0.01
+    ctrl.busy_threshold = -1
+    ctrl.relu_iterations = 1
+    ctrl._num_elements = 4
+    ctrl._failure_exc = None
+    ctrl._stop_evt = _StopAlreadySet()
+    startup_evt = threading.Event()
+
+    monkeypatch.setattr(cuda_module.torch.cuda, "set_device", lambda _rank: None)
+
+    ctrl._keep_loop(startup_evt=startup_evt, startup_errors=None)
+
+    assert startup_evt.is_set()
+    error = ctrl.allocation_status()
+    assert isinstance(error, RuntimeError)
+    assert str(error) == "rank 0: stopped before CUDA startup allocation"
 
 
 def test_cuda_retries_post_start_allocation_oom_without_failure(monkeypatch):
