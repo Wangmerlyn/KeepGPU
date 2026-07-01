@@ -40,6 +40,13 @@ from keep_gpu.utilities.session_config import (
 DEFAULT_SERVICE_HOST = "127.0.0.1"
 DEFAULT_SERVICE_PORT = 8765
 JSONRPC_STARTUP_UNAVAILABLE = -32000
+STATUS_SESSION_STATES = (
+    "active",
+    "starting",
+    "stopping",
+    "runtime_failed",
+    "stop_failed",
+)
 ROOT_BLOCKING_OPTION_LABELS = {
     "gpu_ids": "--gpu-ids",
     "vram": "--vram",
@@ -765,19 +772,26 @@ def _validate_status_params(params: Dict[str, Any], method: str, prefix: str) ->
             raise _malformed_method_result(method, f"{prefix}.{field}: {exc}") from exc
 
 
+def _validate_status_state(state: str, method: str, field: str) -> None:
+    if state not in STATUS_SESSION_STATES:
+        allowed = ", ".join(STATUS_SESSION_STATES)
+        raise _malformed_method_result(method, f"{field} must be one of: {allowed}")
+
+
 def _validate_status_session_record(
     record: Dict[str, Any], method: str, prefix: str
 ) -> None:
     try:
         job_id = _require_string_field(record, "job_id", method)
         params = _require_dict_field(record, "params", method)
-        _require_string_field(record, "state", method)
+        state = _require_string_field(record, "state", method)
         _require_nullable_string_field(record, "last_error", method)
     except ServiceResponseError as exc:
         detail = str(exc).split(": ", 1)[-1]
         raise _malformed_method_result(method, f"{prefix}.{detail}") from exc
     _validate_result_job_id(job_id, method, f"{prefix}.job_id")
     _validate_status_params(params, method, f"{prefix}.params")
+    _validate_status_state(state, method, f"{prefix}.state")
 
 
 def _validate_status_result(

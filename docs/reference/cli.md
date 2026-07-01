@@ -81,6 +81,8 @@ envelopes, including missing or non-string `error.message`, and malformed status
 job records are reported as JSON error objects instead of empty success results.
 When `--job-id` is supplied, the returned `job_id` must match the requested
 target or the response is rejected as malformed.
+Status record `state` values are validated against the known lifecycle states:
+`active`, `starting`, `stopping`, `runtime_failed`, and `stop_failed`.
 The machine JSON stream is plain JSON without Rich color or highlighting, even
 when the command runs under a pseudo-TTY or forced-color terminal.
 Started sessions with terminal worker allocation/runtime failures remain listed

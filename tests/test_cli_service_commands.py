@@ -19,6 +19,20 @@ def _single_decoded_json_object(output):
     return payload
 
 
+def _status_session_record(state="active"):
+    return {
+        "job_id": "job-1",
+        "params": {
+            "gpu_ids": [0],
+            "vram": "1GiB",
+            "interval": 60,
+            "busy_threshold": 25,
+        },
+        "state": state,
+        "last_error": None,
+    }
+
+
 def _force_color_console(monkeypatch):
     output = StringIO()
     monkeypatch.setattr(
@@ -1024,6 +1038,42 @@ def test_status_rejects_malformed_active_job_entries(monkeypatch, payload):
     assert result.exit_code == 1
     decoded = _single_decoded_json_object(result.output)
     assert "Malformed status response" in decoded["error"]
+    assert "Traceback" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("command", "expected_params", "payload", "field"),
+    [
+        (
+            ["status"],
+            {},
+            {"active_jobs": [_status_session_record("weird")]},
+            "active_jobs[0].state",
+        ),
+        (
+            ["status", "--job-id", "job-1"],
+            {"job_id": "job-1"},
+            {"active": True, **_status_session_record("weird")},
+            "result.state",
+        ),
+    ],
+)
+def test_status_rejects_unknown_session_state(
+    monkeypatch, command, expected_params, payload, field
+):
+    def fake_rpc(method, params, host, port):
+        assert method == "status"
+        assert params == expected_params
+        return payload
+
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, command)
+
+    assert result.exit_code == 1
+    decoded = _single_decoded_json_object(result.output)
+    assert "Malformed status response" in decoded["error"]
+    assert f"{field} must be one of" in decoded["error"]
     assert "Traceback" not in result.output
 
 
