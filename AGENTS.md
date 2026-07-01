@@ -319,7 +319,8 @@ This file defines how coding agents should work in this repository.
   first permitted non-OOM allocation failures, and MPS first-allocation setup
   failures must propagate synchronously so services cannot register false active
   sessions. Eco-safe busy/unknown-telemetry deferral and recoverable OOM retries
-  may still complete startup without allocating.
+  may still complete startup without allocating; recoverable OOM retries must
+  clear the backend cache before sleeping and retrying.
 - Single-GPU `keep()` must reject a restart while a previous worker thread is
   still alive with its stop event already set; returning success in that state
   hides a stopping keeper as if a fresh keep succeeded.

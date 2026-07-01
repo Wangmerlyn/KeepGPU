@@ -294,6 +294,7 @@ class CudaGPUController(BaseGPUController):
             except RuntimeError as e:
                 logger.error("rank %s: failed to allocate matrix: %s", self.rank, e)
                 if "out of memory" in str(e).lower():
+                    torch.cuda.empty_cache()
                     confirm_startup()
                     if stop_evt.wait(self.interval):
                         return

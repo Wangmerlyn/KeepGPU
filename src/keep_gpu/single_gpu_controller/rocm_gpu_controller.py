@@ -323,6 +323,7 @@ class RocmGPUController(BaseGPUController):
                     confirm_startup()
                     logger.error("%s", failure)
                     return
+                torch.cuda.empty_cache()
                 confirm_startup()
                 if stop_evt.wait(self.interval):
                     return
