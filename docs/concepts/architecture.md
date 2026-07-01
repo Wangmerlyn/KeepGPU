@@ -126,6 +126,9 @@ Elementwise keep-alive batches:
   clearing the device cache. Internal startup waiters are always signaled before
   the worker returns, and no-error-list internal paths retain failure details in
   `allocation_status()`.
+- If startup fails before a worker is running, controller state and any
+  initialized vendor telemetry library are cleared before the original failure
+  is re-raised.
 
 ## Platform detection
 
