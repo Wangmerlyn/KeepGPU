@@ -229,7 +229,8 @@ This file defines how coding agents should work in this repository.
   records with visible ordinal metadata. Service-returned job IDs must satisfy
   the shared URL-path-safe job-id contract. Known nested `status.params` fields
   must match the public session contract while extra fields remain
-  forward-compatible.
+  forward-compatible. Session `state` values in status records must be one of
+  `active`, `starting`, `stopping`, `runtime_failed`, or `stop_failed`.
 - Targeted CLI service commands must reject success payloads for the wrong
   session: `keep-gpu status --job-id X` requires response `job_id == X`, and
   `keep-gpu stop --job-id X` requires every `stopped`, `timed_out`, `failed`,
