@@ -144,6 +144,11 @@ def _allow_methods(headers):
 
 
 def _send_raw_http_json_request(httpd, request: bytes):
+    status_code, _headers, body = _send_raw_http_response(httpd, request)
+    return status_code, json.loads(body.decode("utf-8")) if body else {}
+
+
+def _send_raw_http_response(httpd, request: bytes):
     host, port = httpd.server_address
     with socket.create_connection((host, port), timeout=2.0) as sock:
         sock.settimeout(2.0)
@@ -164,9 +169,14 @@ def _send_raw_http_json_request(httpd, request: bytes):
     response = b"".join(chunks)
     assert response
     header_bytes, body = response.split(b"\r\n\r\n", 1)
-    status_line = header_bytes.splitlines()[0].decode("iso-8859-1")
+    header_lines = header_bytes.splitlines()
+    status_line = header_lines[0].decode("iso-8859-1")
     status_code = int(status_line.split()[1])
-    return status_code, json.loads(body.decode("utf-8")) if body else {}
+    headers = {}
+    for raw_line in header_lines[1:]:
+        name, value = raw_line.decode("iso-8859-1").split(":", 1)
+        headers[name.strip().lower()] = value.strip()
+    return status_code, headers, body
 
 
 def _raw_post_with_content_length(httpd, path: str, content_length: str):
@@ -218,6 +228,17 @@ def _raw_http_json_request(httpd, method: str, target: str, payload=None):
         "\r\n"
     ).encode("ascii") + body
     return _send_raw_http_json_request(httpd, request)
+
+
+def _raw_http_response(httpd, method: str, target: str):
+    host, port = httpd.server_address
+    request = (
+        f"{method} {target} HTTP/1.1\r\n"
+        f"Host: {host}:{port}\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+    ).encode("ascii")
+    return _send_raw_http_response(httpd, request)
 
 
 @pytest.mark.parametrize(
@@ -1025,6 +1046,34 @@ def test_http_missing_static_asset_returns_404_not_dashboard_index(path):
     }
 
 
+@pytest.mark.parametrize(
+    "target",
+    [
+        "/assets/../index.html",
+        "/assets/%2e%2e/index.html",
+        "/assets%2F%2e%2e/index.html",
+    ],
+)
+def test_http_normalized_asset_escape_returns_404_not_dashboard_index(target):
+    server = make_server()
+    httpd, thread, _base = _start_http_server(server)
+
+    try:
+        status, headers, body = _raw_http_response(httpd, "GET", target)
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers["content-type"] == "application/json"
+    assert b"<html" not in body.lower()
+    assert json.loads(body.decode("utf-8")) == {
+        "error": {"message": "Static asset not found"}
+    }
+
+
 @pytest.mark.parametrize("path", ["/assets/missing.js", "/missing.keepgpu-test.js"])
 def test_http_head_missing_static_asset_returns_json_404_without_body(path):
     server = make_server()
@@ -1040,6 +1089,31 @@ def test_http_head_missing_static_asset_returns_json_404_without_body(path):
 
     assert status == 404
     assert headers.get_content_type() == "application/json"
+    assert body == b""
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "/assets/../index.html",
+        "/assets/%2e%2e/index.html",
+        "/assets%2F%2e%2e/index.html",
+    ],
+)
+def test_http_head_normalized_asset_escape_returns_404_without_body(target):
+    server = make_server()
+    httpd, thread, _base = _start_http_server(server)
+
+    try:
+        status, headers, body = _raw_http_response(httpd, "HEAD", target)
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        server.shutdown()
+        thread.join(timeout=2)
+
+    assert status == 404
+    assert headers["content-type"] == "application/json"
     assert body == b""
 
 

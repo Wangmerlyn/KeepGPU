@@ -13,8 +13,9 @@ instead of dashboard HTML. `/api/sessions/{job_id}` uses one raw path component;
 extra raw path segments are unknown endpoints. Noncanonical raw aliases such as
 `//api/sessions` and encoded leading-slash aliases such as `/%2Fapi/gpus` are
 also unknown endpoints and do not start or stop sessions.
-Missing packaged asset URLs also return JSON `404` responses instead of the
-dashboard shell.
+Missing packaged asset URLs, including raw `/assets/*` requests that normalize
+outside the packaged asset directory, also return JSON `404` responses instead
+of the dashboard shell.
 
 ## Start service
 
