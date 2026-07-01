@@ -180,7 +180,12 @@ This file defines how coding agents should work in this repository.
   REST `/api/gpus` `503` behavior; malformed GPU listing payloads remain
   internal service contract errors. CUDA/ROCm `torch.cuda.device_count()`
   failures are enumeration-unavailable errors, not successful empty GPU lists.
-- CLI service JSON commands (`status`, `stop`, `list-gpus`) must print structured JSON objects that downstream tools can parse with one decode, including `{"error": "..."}` objects for service/runtime errors after CLI parsing succeeds.
+- CLI service JSON commands (`status`, `stop`, `list-gpus`) must print
+  structured JSON objects that downstream tools can parse with one decode,
+  including `{"error": "..."}` objects for service/runtime errors after CLI
+  parsing succeeds. These machine JSON paths must bypass Rich color/highlight
+  rendering so pseudo-TTY or forced-color environments cannot inject ANSI escapes
+  into the JSON stream.
 - CLI service RPC clients must reject malformed JSON-RPC service envelopes
   (wrong `jsonrpc`, mismatched `id`, `id: null` responses to a request with a
   concrete id, response IDs that compare equal but use an invalid JSON-RPC id

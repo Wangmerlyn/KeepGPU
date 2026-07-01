@@ -79,6 +79,8 @@ Prints a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
 envelopes, including missing or non-string `error.message`, and malformed status
 job records are reported as JSON error objects instead of empty success results.
+The machine JSON stream is plain JSON without Rich color or highlighting, even
+when the command runs under a pseudo-TTY or forced-color terminal.
 Started sessions with terminal worker allocation/runtime failures remain listed
 as `state="runtime_failed"` with `last_error` and can still be stopped. Normal
 busy-GPU or unavailable-telemetry backoff keeps the session active; it is not a
@@ -109,6 +111,8 @@ service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
 envelopes, including missing or non-string `error.message`, and malformed stop
 result records are reported as JSON error objects instead of empty success
 results.
+The machine JSON stream is plain JSON without Rich color or highlighting, even
+when the command runs under a pseudo-TTY or forced-color terminal.
 
 ### `keep-gpu list-gpus`
 
@@ -128,6 +132,8 @@ lists. Malformed JSON-RPC service envelopes, including missing or non-string
 results; malformed GPU records are reported the same way. `utilization` is
 either `null` or a finite number from `0` to `100`;
 out-of-range telemetry is unavailable, not idle.
+The machine JSON stream is plain JSON without Rich color or highlighting, even
+when the command runs under a pseudo-TTY or forced-color terminal.
 Invalid endpoint values, including non-integer or out-of-range ports, are
 reported as JSON errors before RPC.
 

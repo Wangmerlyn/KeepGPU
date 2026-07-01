@@ -7,6 +7,11 @@
 that string as data and emits a top-level JSON string, so callers must decode
 twice and tools such as `jq` cannot index the output directly.
 
+A later audit found that `console.print_json(data=result)` still routes machine
+JSON through Rich rendering. In pseudo-TTY or forced-color environments, Rich can
+inject ANSI styling into otherwise structured JSON, breaking a single
+`json.loads()` call again.
+
 ## Goal
 
 Emit structured JSON objects from service CLI commands so one `json.loads()` or
@@ -18,7 +23,9 @@ one shell JSON tool invocation sees the expected object.
   `list-gpus` that require a single JSON decode to return a dict.
 - Update the existing stop-all fallback test to single-decode the command
   output.
-- Print decoded result objects with `console.print_json(data=result)`.
+- Print decoded result objects with a small `_print_machine_json()` helper that
+  serializes with stdlib `json.dumps()` and writes directly to the console stream
+  without Rich color/highlight rendering.
 - After CodeRabbit review, print `{"error": "..."}` JSON objects for
   `RuntimeError` paths in the same CLI commands.
 - Document in `AGENTS.md`, README, and CLI docs that these CLI commands emit
@@ -29,11 +36,12 @@ one shell JSON tool invocation sees the expected object.
 - [x] Add RED tests for single-decode structured JSON output.
 - [x] Implement minimal CLI output changes.
 - [x] Add RED tests and implementation for single-decode JSON error objects.
+- [x] Add RED tests and implementation for ANSI-free machine JSON output under
+      forced-color consoles.
 - [x] Update `AGENTS.md`, README, CLI docs, and this plan.
 - [x] Run targeted tests, full tests, docs build, pre-commit, and local
       subagent review before PR.
-- [ ] Open PR, resolve review comments, wait for clean checks, squash merge, and
-      clean the worktree.
+- [x] Original PR was opened, reviewed, merged, and the worktree was cleaned.
 
 ## Verification
 
@@ -57,3 +65,14 @@ one shell JSON tool invocation sees the expected object.
   and the plan had the previous full-suite count. Wording now limits JSON error
   objects to service/runtime errors after CLI parsing succeeds, and verification
   records the final 249-test full-suite run.
+- Follow-up ANSI RED:
+  `PYTHONPATH=src pytest tests/test_cli_service_commands.py::test_service_json_commands_stay_plain_json_when_console_color_is_enabled tests/test_cli_service_commands.py::test_service_json_errors_stay_plain_json_when_console_color_is_enabled -q`
+  failed with all four cases containing ANSI escape sequences from Rich
+  rendering under a forced-color console.
+- Follow-up ANSI GREEN:
+  `PYTHONPATH=src pytest tests/test_cli_service_commands.py::test_service_json_commands_stay_plain_json_when_console_color_is_enabled tests/test_cli_service_commands.py::test_service_json_errors_stay_plain_json_when_console_color_is_enabled -q`
+  passed with 4 tests after `_print_machine_json()` wrote stdlib JSON directly
+  to the console stream.
+- CLI service command slice:
+  `PYTHONPATH=src pytest tests/test_cli_service_commands.py -q` passed with 230
+  tests.

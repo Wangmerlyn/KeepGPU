@@ -108,6 +108,8 @@ Torch can select; nullable memory fields mean memory telemetry is unavailable
 after selection succeeds. `status`, `stop`, and `list-gpus` print JSON objects,
 including `{"error": "..."}` for service/runtime errors after CLI parsing
 succeeds, that can be parsed directly with `jq` or a single `json.loads()` call.
+The machine JSON stream is plain JSON without Rich color or highlighting, even
+when the command runs under a pseudo-TTY or forced-color terminal.
 Malformed JSON-RPC service envelopes, including missing or non-string
 `error.message`, and malformed method-specific result records are reported as
 JSON error objects instead of empty success results.
