@@ -289,6 +289,9 @@ When no stop outcome list is populated, the dashboard preserves the backend
 message, for example a missing targeted `job_id`.
 When REST calls fail, the footer uses the structured backend `error.message`
 instead of showing the raw JSON error payload.
+Malformed successful refresh payloads, such as missing `/api/gpus.gpus` or a
+non-array `/api/sessions.active_jobs`, are shown as refresh warnings without
+clearing the last good telemetry or session list.
 
 ## Remote and security notes
 
