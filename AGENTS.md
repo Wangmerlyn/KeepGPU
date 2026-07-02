@@ -223,9 +223,9 @@ This file defines how coding agents should work in this repository.
   method-specific payloads should become clean `ServiceResponseError` messages,
   not `KeyError`, tracebacks, or partial success text.
 - Keep `_rpc_call()` limited to generic JSON-RPC envelope validation; validate
-  method-specific `status`, `stop_keep`, and `list_gpus` result payloads at CLI
-  call sites before reading fields or triggering daemon stop side effects, while
-  allowing extra result fields for forward compatibility.
+  method-specific `start_keep`, `status`, `stop_keep`, and `list_gpus` result
+  payloads at CLI call sites before reading fields or triggering daemon stop
+  side effects, while allowing extra result fields for forward compatibility.
 - CLI method-specific result validation must include nested records consumed by
   downstream tools: `status.active_jobs` entries, disjoint `stop_keep` job-id
   outcome lists whose `errors` keys exactly match `failed`, and `list_gpus` GPU

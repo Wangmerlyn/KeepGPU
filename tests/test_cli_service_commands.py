@@ -69,7 +69,7 @@ def test_start_command_uses_rpc(monkeypatch):
 
     def fake_rpc(method, params, host, port):
         called["rpc"] = (method, params, host, port)
-        return {"job_id": "job-123"}
+        return {"job_id": "custom-job"}
 
     monkeypatch.setattr(cli, "_ensure_service_running", fake_ensure)
     monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
@@ -145,6 +145,24 @@ def test_start_command_rejects_malformed_job_id_result(
 
     assert result.exit_code == 1
     assert expected_message in " ".join(result.output.split())
+    assert "Traceback" not in result.output
+
+
+def test_start_command_rejects_mismatched_job_id_result(monkeypatch):
+    def fake_rpc(method, params, host, port):
+        assert method == "start_keep"
+        assert params["job_id"] == "job-1"
+        return {"job_id": "job-2"}
+
+    monkeypatch.setattr(cli, "_ensure_service_running", lambda *args, **kwargs: None)
+    monkeypatch.setattr(cli, "_rpc_call", fake_rpc)
+
+    result = runner.invoke(cli.app, ["start", "--job-id", "job-1"])
+
+    assert result.exit_code == 1
+    normalized_output = " ".join(result.output.split())
+    assert "Malformed start_keep response" in normalized_output
+    assert "result.job_id must match requested job_id" in normalized_output
     assert "Traceback" not in result.output
 
 
