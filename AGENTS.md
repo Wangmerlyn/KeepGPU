@@ -379,7 +379,9 @@ This file defines how coding agents should work in this repository.
   still alive and explicitly stopping.
 - `GlobalGPUController.keep()` must best-effort release a child controller that
   fails after leaving `_thread` or `_stop_evt` worker state, then roll back
-  previously-started children while preserving the original startup error.
+  children newly started by the current keep attempt while preserving the
+  original startup error. It must not release children that were already running
+  before that keep attempt began.
 - Internal single-GPU startup paths that receive a `startup_evt` must always
   signal it before returning, and paths without a `startup_errors` list must
   retain the failure detail in `allocation_status()`.

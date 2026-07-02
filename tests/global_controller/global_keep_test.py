@@ -65,6 +65,48 @@ def test_global_keep_rolls_back_started_controllers(monkeypatch):
     assert instances[1].released is False
 
 
+def test_global_keep_does_not_roll_back_already_running_controller(monkeypatch):
+    monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
+
+    instances = []
+
+    class RunningThread:
+        @staticmethod
+        def is_alive():
+            return True
+
+    class DummyController:
+        def __init__(self, *, rank, interval, vram_to_keep, busy_threshold):
+            self.rank = rank
+            self.keep_calls = 0
+            self.released = False
+            self._thread = RunningThread() if rank == 0 else None
+            self._stop_evt = object() if rank == 0 else None
+            instances.append(self)
+
+        def keep(self):
+            self.keep_calls += 1
+            if self.rank == 1:
+                raise RuntimeError("rank 1 failed to start")
+
+        def release(self):
+            self.released = True
+
+    import keep_gpu.single_gpu_controller.cuda_gpu_controller as cuda_module
+
+    monkeypatch.setattr(cuda_module, "CudaGPUController", DummyController)
+
+    controller = GlobalGPUController(gpu_ids=[0, 1], vram_to_keep="8MB")
+
+    with pytest.raises(RuntimeError, match="rank 1 failed to start"):
+        controller.keep()
+
+    assert instances[0].keep_calls == 1
+    assert instances[0].released is False
+    assert instances[1].released is False
+
+
 def test_global_keep_releases_failed_controller_with_worker_state(monkeypatch):
     monkeypatch.setattr(pm, "_cached_platform", pm.ComputingPlatform.CUDA)
     monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
