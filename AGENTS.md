@@ -164,8 +164,10 @@ This file defines how coding agents should work in this repository.
   responses instead of serving the dashboard/static fallback or
   `BaseHTTPRequestHandler` HTML errors. Exact API endpoints such as `/api/gpus`
   must not accept params, query strings, or fragments unless the handler
-  explicitly documents those components. Canonical API paths may still validate
-  encoded `job_id` path components normally.
+  explicitly documents those components; `/api/gpus?...` and
+  `/api/sessions?...` are unknown endpoints, not valid collection routes.
+  Canonical API paths may still validate encoded `job_id` path components
+  normally.
 - Implemented HTTP verb handlers (`do_POST`, `do_DELETE`, and future siblings)
   must call the shared unsupported-method helper before local unknown-endpoint
   404 branches, so known paths never regress to 404 or body-parse errors solely

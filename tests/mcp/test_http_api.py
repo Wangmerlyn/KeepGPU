@@ -2669,37 +2669,26 @@ def test_http_delete_rejects_extra_session_path_segment_without_stopping_session
         thread.join(timeout=2)
 
 
-def test_http_delete_rejects_query_shaped_collection_path_without_stopping_sessions():
+@pytest.mark.parametrize("method", ["GET", "POST", "DELETE", "OPTIONS"])
+@pytest.mark.parametrize("path", ["/api/sessions?bad=query", "/api/sessions;bad"])
+def test_http_api_sessions_noncanonical_collection_route_returns_json_404_without_side_effects(
+    method, path
+):
     server = make_server()
     active_job_id = server.start_keep(job_id="active-job")["job_id"]
     controller = server._sessions[active_job_id].controller
     httpd, thread, base = _start_http_server(server)
 
     try:
-        status_code, payload = _request_json("DELETE", f"{base}/api/sessions?bad=query")
+        data = b"{}" if method == "POST" else None
+        status_code, headers, body = _request_http_response(
+            method, f"{base}{path}", data
+        )
+        payload = json.loads(body.decode("utf-8"))
 
-        assert status_code == 400
-        assert "session path" in payload["error"]["message"]
-        assert server.status(active_job_id)["active"] is True
-        assert controller.released is False
-    finally:
-        httpd.shutdown()
-        httpd.server_close()
-        server.shutdown()
-        thread.join(timeout=2)
-
-
-def test_http_delete_rejects_parameterized_collection_path_without_stopping_sessions():
-    server = make_server()
-    active_job_id = server.start_keep(job_id="active-job")["job_id"]
-    controller = server._sessions[active_job_id].controller
-    httpd, thread, base = _start_http_server(server)
-
-    try:
-        status_code, payload = _request_json("DELETE", f"{base}/api/sessions;bad")
-
-        assert status_code == 400
-        assert "session path" in payload["error"]["message"]
+        assert status_code == 404
+        assert payload == {"error": {"message": "Unknown endpoint"}}
+        assert _allow_methods(headers) == set()
         assert server.status(active_job_id)["active"] is True
         assert controller.released is False
     finally:

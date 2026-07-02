@@ -184,6 +184,9 @@ instead of dropping the connection. Encoded noncanonical spellings such as
 unknown API routes and return JSON `404` responses rather than the dashboard
 HTML shell. Raw leading-double-slash API aliases such as `//api/sessions` are
 also unknown routes and do not start or stop sessions.
+Exact API collection routes such as `/api/gpus` and `/api/sessions` do not
+accept query strings or path parameters unless documented; query-shaped
+collection URLs return JSON `404` responses.
 The dashboard consumes those JSON objects and displays `error.message` when it is
 present, falling back to the plain response body or HTTP status only when needed.
 Direct JSON-RPC service calls report the same expected hardware/platform
