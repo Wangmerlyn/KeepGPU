@@ -111,7 +111,8 @@ expectations so you can get productive quickly and avoid surprises in CI.
   platform caveats, sentinel-value explanations, and contracts in the focused
   docs pages. Use `docs/index.md` for detailed navigation, keep full citation
   metadata in `docs/citation.md`, and avoid badge clutter beyond PyPI, docs
-  status, and Zenodo DOI.
+  status, and Zenodo DOI. Link the PyPI badge to the canonical
+  `https://pypi.org/project/keep-gpu/` project page.
 
 ## MCP server
 

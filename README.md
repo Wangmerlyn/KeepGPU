@@ -1,6 +1,6 @@
 # KeepGPU
 
-[![PyPI Version](https://img.shields.io/pypi/v/keep-gpu.svg)](https://pypi.python.org/pypi/keep-gpu)
+[![PyPI Version](https://img.shields.io/pypi/v/keep-gpu.svg)](https://pypi.org/project/keep-gpu/)
 [![Docs Status](https://readthedocs.org/projects/keepgpu/badge/?version=latest)](https://keepgpu.readthedocs.io/en/latest/?version=latest)
 [![DOI](https://zenodo.org/badge/987167271.svg)](https://doi.org/10.5281/zenodo.17129114)
 
