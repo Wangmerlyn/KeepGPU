@@ -50,6 +50,8 @@ startup unavailability before creating a session, the CLI best-effort stops the
 just-created daemon instead of leaving it idle.
 Malformed JSON-RPC service envelopes, including missing or non-string
 `error.message`, are response errors and do not trigger this rollback.
+When `--job-id` is supplied, the successful `start_keep` response must echo the
+requested `job_id` or the response is rejected as malformed.
 The same best-effort cleanup runs when auto-start times out before the service
 passes its health check. Auto-start refuses to overwrite an ownership-verified
 live daemon PID record when that daemon's health endpoint is unavailable; inspect

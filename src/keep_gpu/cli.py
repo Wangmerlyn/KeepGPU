@@ -879,6 +879,25 @@ def _validate_stop_keep_result(
     return result
 
 
+def _validate_start_keep_result(
+    result: Dict[str, Any], *, expected_job_id: Optional[str] = None
+) -> str:
+    result_job_id = result.get("job_id")
+    if result_job_id is None:
+        raise ServiceResponseError(
+            "Malformed JSON-RPC response: start_keep result must include job_id"
+        )
+    try:
+        result_job_id = validate_job_id(result_job_id)
+    except ValueError as exc:
+        raise ServiceResponseError(f"Malformed JSON-RPC response: {exc}") from exc
+    if expected_job_id is not None and result_job_id != expected_job_id:
+        raise _malformed_method_result(
+            "start_keep", "result.job_id must match requested job_id"
+        )
+    return result_job_id
+
+
 def _require_clean_stop_keep_for_service_stop(result: Dict[str, Any]) -> None:
     incomplete = []
     if result["stopped"]:
@@ -1215,15 +1234,7 @@ def start(
             host,
             port,
         )
-        result_job_id = result.get("job_id")
-        if result_job_id is None:
-            raise ServiceResponseError(
-                "Malformed JSON-RPC response: start_keep result must include job_id"
-            )
-        try:
-            result_job_id = validate_job_id(result_job_id)
-        except ValueError as exc:
-            raise ServiceResponseError(f"Malformed JSON-RPC response: {exc}") from exc
+        result_job_id = _validate_start_keep_result(result, expected_job_id=job_id)
         if auto_started:
             console.print(
                 f"[bold cyan]Auto-started KeepGPU service[/bold cyan] at http://{host}:{port}/"
