@@ -31,9 +31,9 @@ keep-gpu start --gpu-ids 0 --vram 1GiB --interval 60 --busy-threshold 25
 If this invocation auto-starts the service but session creation fails with an
 expected startup-unavailable error before a session is created, `start`
 best-effort stops the just-created daemon so it does not remain idle.
-Malformed JSON-RPC service envelopes, including missing or non-string
-`error.message`, are reported as response errors and do not trigger this
-startup-unavailable rollback.
+Malformed JSON-RPC service envelopes, including missing/non-integer
+`error.code` or missing/non-string `error.message`, are reported as response
+errors and do not trigger this startup-unavailable rollback.
 If auto-start times out before the service becomes healthy, the CLI applies the
 same best-effort cleanup to the daemon it just started.
 
@@ -110,9 +110,10 @@ including `{"error": "..."}` for service/runtime errors after CLI parsing
 succeeds, that can be parsed directly with `jq` or a single `json.loads()` call.
 The machine JSON stream is plain JSON without Rich color or highlighting, even
 when the command runs under a pseudo-TTY or forced-color terminal.
-Malformed JSON-RPC service envelopes, including missing or non-string
-`error.message`, and malformed method-specific result records are reported as
-JSON error objects instead of empty success results.
+Malformed JSON-RPC service envelopes, including missing/non-integer
+`error.code` or missing/non-string `error.message`, and malformed
+method-specific result records are reported as JSON error objects instead of
+empty success results.
 CLI service commands send explicit JSON-RPC 2.0 request envelopes to the local
 `/rpc` endpoint; omitted-version direct calls remain only a compatibility path
 for legacy local scripts.

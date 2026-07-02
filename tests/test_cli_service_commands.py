@@ -2007,6 +2007,30 @@ def test_rpc_call_rejects_error_envelope_without_string_message(monkeypatch, err
         cli._rpc_call("status", {}, "127.0.0.1", 8765)
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        {"message": "missing code"},
+        {"code": None, "message": "null code"},
+        {"code": "bad", "message": "string code"},
+        {"code": True, "message": "bool code"},
+        {"code": 1.0, "message": "float code"},
+    ],
+)
+def test_rpc_call_rejects_error_envelope_without_integer_code(monkeypatch, error):
+    monkeypatch.setattr(cli.time, "time", lambda: 1.0)
+    monkeypatch.setattr(
+        cli,
+        "_http_json_request",
+        lambda *args, **kwargs: {"jsonrpc": "2.0", "id": 1000, "error": error},
+    )
+
+    with pytest.raises(
+        cli.ServiceResponseError, match=re.escape("error.code must be an integer")
+    ):
+        cli._rpc_call("status", {}, "127.0.0.1", 8765)
+
+
 def test_rpc_call_rejects_error_envelope_with_null_id(monkeypatch):
     monkeypatch.setattr(cli.time, "time", lambda: 1.0)
     monkeypatch.setattr(

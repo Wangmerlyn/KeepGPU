@@ -214,9 +214,9 @@ This file defines how coding agents should work in this repository.
   (wrong `jsonrpc`, mismatched `id`, `id: null` responses to a request with a
   concrete id, response IDs that compare equal but use an invalid JSON-RPC id
   type such as float or boolean, missing `result`, non-object direct-method
-  `result`, non-object `error`, or missing/non-string `error.message`) instead
-  of treating them as successful empty responses, real service errors, or
-  leaking tracebacks.
+  `result`, non-object `error`, missing/non-integer `error.code`, or
+  missing/non-string `error.message`) instead of treating them as successful
+  empty responses, real service errors, or leaking tracebacks.
 - CLI service RPC clients must send explicit JSON-RPC 2.0 request envelopes
   (`jsonrpc: "2.0"`) instead of relying on the server's omitted-version legacy
   direct-call compatibility path.

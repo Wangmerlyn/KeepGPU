@@ -680,7 +680,9 @@ def _rpc_call(
             raise ServiceResponseError("Malformed JSON-RPC response: mismatched id")
         code = error.get("code")
         if isinstance(code, bool) or not isinstance(code, int):
-            code = None
+            raise ServiceResponseError(
+                "Malformed JSON-RPC response: error.code must be an integer"
+            )
         message = error.get("message")
         if not isinstance(message, str):
             raise ServiceResponseError(
