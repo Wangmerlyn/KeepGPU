@@ -199,6 +199,9 @@ arbitrary runtime failures remain `-32603 Internal error`. CLI service commands
 send explicit JSON-RPC 2.0
 request envelopes to `/rpc`; omitted-version direct calls are retained only for
 legacy local scripts.
+Omitted direct-call `params` are treated as `{}` for compatibility, but explicit
+`params: null` or any other non-object `params` value returns `-32602 Invalid
+params` before method side effects.
 
 | Endpoint | Method | Purpose |
 | --- | --- | --- |

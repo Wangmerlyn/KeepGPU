@@ -998,6 +998,21 @@ def test_jsonrpc_stop_keep_rejects_empty_job_id_without_stopping_sessions():
     assert controller.released is False
 
 
+def test_jsonrpc_stop_keep_rejects_null_params_without_stopping_sessions():
+    server = make_server()
+    active_job_id = server.start_keep(job_id="active-job")["job_id"]
+    controller = server._sessions[active_job_id].controller
+    req = {"id": 1, "method": "stop_keep", "params": None}
+
+    resp = _handle_request(server, req)
+
+    assert "error" in resp
+    assert resp["error"]["code"] == JSONRPC_INVALID_PARAMS
+    assert resp["error"]["message"] == "params must be an object"
+    assert server.status(active_job_id)["active"] is True
+    assert controller.released is False
+
+
 def test_stop_all():
     server = make_server()
     job_a = server.start_keep()["job_id"]
