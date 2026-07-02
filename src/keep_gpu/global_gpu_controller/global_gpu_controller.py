@@ -20,6 +20,13 @@ from keep_gpu.utilities.session_config import (
 logger = setup_logger(__name__)
 
 
+def _controller_has_worker_state(ctrl) -> bool:
+    return (
+        getattr(ctrl, "_thread", None) is not None
+        or getattr(ctrl, "_stop_evt", None) is not None
+    )
+
+
 class ControllerStartupUnavailable(Exception):
     """Expected hardware/platform unavailability during controller startup."""
 
@@ -139,6 +146,16 @@ class GlobalGPUController:
             try:
                 ctrl.keep()
             except Exception:
+                if _controller_has_worker_state(ctrl):
+                    try:
+                        ctrl.release()
+                    except Exception as cleanup_exc:
+                        logger.warning(
+                            "Failed to clean up failed controller rank %s after start "
+                            "failure: %s",
+                            getattr(ctrl, "rank", "unknown"),
+                            cleanup_exc,
+                        )
                 for started_ctrl in reversed(started):
                     try:
                         started_ctrl.release()

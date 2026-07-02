@@ -43,8 +43,9 @@ CLI args ──▶ GlobalGPUController ──▶ [backend controller rank=0]
 1. The CLI (or your Python code) instantiates `GlobalGPUController`; invalid
    local inputs fail before backend discovery.
 2. During `keep()` / `__enter__`, `GlobalGPUController` starts each worker.
-   If a later worker fails to start, already-started workers are released before
-   the original start error is re-raised.
+   If a later worker fails to start, any failed worker that left partial worker
+   state is best-effort released, then already-started workers are released
+   before the original start error is re-raised.
 3. Each CUDA worker:
    - Has already validated its direct visible `rank` against the current CUDA
      device count before `torch.device`, `set_device`, telemetry, or allocation

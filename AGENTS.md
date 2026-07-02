@@ -374,6 +374,9 @@ This file defines how coding agents should work in this repository.
 - Failed single-GPU startup paths must clear any vendor-library initialization
   and stale `_thread`/`_stop_evt` state before re-raising unless a real worker is
   still alive and explicitly stopping.
+- `GlobalGPUController.keep()` must best-effort release a child controller that
+  fails after leaving `_thread` or `_stop_evt` worker state, then roll back
+  previously-started children while preserving the original startup error.
 - Internal single-GPU startup paths that receive a `startup_evt` must always
   signal it before returning, and paths without a `startup_errors` list must
   retain the failure detail in `allocation_status()`.
