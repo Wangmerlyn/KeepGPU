@@ -48,8 +48,9 @@ GPUs; explicit empty or whitespace-only values are invalid.
 If `start` auto-starts the service and the service then reports expected
 startup unavailability before creating a session, the CLI best-effort stops the
 just-created daemon instead of leaving it idle.
-Malformed JSON-RPC service envelopes, including missing or non-string
-`error.message`, are response errors and do not trigger this rollback.
+Malformed JSON-RPC service envelopes, including missing/non-integer
+`error.code` or missing/non-string `error.message`, are response errors and do
+not trigger this rollback.
 When `--job-id` is supplied, the successful `start_keep` response must echo the
 requested `job_id` or the response is rejected as malformed.
 The same best-effort cleanup runs when auto-start times out before the service
@@ -79,8 +80,9 @@ the service log at
 
 Prints a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
-envelopes, including missing or non-string `error.message`, and malformed status
-job records are reported as JSON error objects instead of empty success results.
+envelopes, including missing/non-integer `error.code` or missing/non-string
+`error.message`, and malformed status job records are reported as JSON error
+objects instead of empty success results.
 When `--job-id` is supplied, the returned `job_id` must match the requested
 target or the response is rejected as malformed.
 Status record `state` values are validated against the known lifecycle states:
@@ -118,10 +120,10 @@ reported as JSON errors and do not trigger daemon stop fallback based on message
 text.
 The output is a directly parseable JSON object, including `{"error": "..."}` for
 service/runtime errors after CLI parsing succeeds. Malformed JSON-RPC service
-envelopes, including missing or non-string `error.message`, and malformed stop
-result records are reported as JSON error objects instead of empty success
-results. When `--job-id` is supplied, all returned outcome and error job IDs
-must match the requested target.
+envelopes, including missing/non-integer `error.code` or missing/non-string
+`error.message`, and malformed stop result records are reported as JSON error
+objects instead of empty success results. When `--job-id` is supplied, all
+returned outcome and error job IDs must match the requested target.
 The machine JSON stream is plain JSON without Rich color or highlighting, even
 when the command runs under a pseudo-TTY or forced-color terminal.
 
@@ -138,9 +140,10 @@ Torch can select; nullable memory fields mean memory telemetry is unavailable
 after selection succeeds. Service/runtime errors after CLI parsing succeeds are
 reported as `{"error": "..."}`. CUDA/ROCm visible-device enumeration failures
 are reported as startup-unavailable errors instead of successful empty GPU
-lists. Malformed JSON-RPC service envelopes, including missing or non-string
-`error.message`, are reported as JSON error objects instead of empty success
-results; malformed GPU records are reported the same way. `utilization` is
+lists. Malformed JSON-RPC service envelopes, including missing/non-integer
+`error.code` or missing/non-string `error.message`, are reported as JSON error
+objects instead of empty success results; malformed GPU records are reported the
+same way. `utilization` is
 either `null` or a finite number from `0` to `100`;
 out-of-range telemetry is unavailable, not idle. Memory fields are
 non-negative integers or `null`; invalid counters and impossible
