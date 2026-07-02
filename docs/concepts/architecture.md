@@ -130,6 +130,9 @@ Elementwise keep-alive batches:
 - If startup fails before a worker is running, controller state and any
   initialized vendor telemetry library are cleared before the original failure
   is re-raised.
+- During multi-device startup, rollback releases only controllers started by the
+  current `GlobalGPUController.keep()` call; already-running children are left
+  alone if a later child fails.
 
 ## Platform detection
 

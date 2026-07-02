@@ -27,6 +27,11 @@ def _controller_has_worker_state(ctrl) -> bool:
     )
 
 
+def _controller_worker_alive(ctrl) -> bool:
+    thread = getattr(ctrl, "_thread", None)
+    return thread is not None and thread.is_alive()
+
+
 class ControllerStartupUnavailable(Exception):
     """Expected hardware/platform unavailability during controller startup."""
 
@@ -143,6 +148,7 @@ class GlobalGPUController:
     def keep(self) -> None:
         started = []
         for ctrl in self.controllers:
+            already_running = _controller_worker_alive(ctrl)
             try:
                 ctrl.keep()
             except Exception:
@@ -166,7 +172,8 @@ class GlobalGPUController:
                             cleanup_exc,
                         )
                 raise
-            started.append(ctrl)
+            if not already_running:
+                started.append(ctrl)
 
     @staticmethod
     def parse_size(text: str) -> int:
