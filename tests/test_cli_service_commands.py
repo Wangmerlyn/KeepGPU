@@ -390,6 +390,8 @@ def test_start_command_rejects_non_integer_busy_threshold_before_auto_start(
     ("args", "message"),
     [
         (["--job-id", "bad/id"], "job_id must be a URL-path-safe non-empty string"),
+        (["--job-id", "."], "job_id must be a URL-path-safe non-empty string"),
+        (["--job-id", ".."], "job_id must be a URL-path-safe non-empty string"),
         (["--vram", "not-a-size"], "invalid format"),
         (["--vram", ("9" * 500) + "GiB"], "vram must be no more than"),
         (["--interval", str(10**1000)], "interval must be no more than"),
@@ -571,7 +573,7 @@ def test_stop_rejects_job_id_with_all_before_rpc(monkeypatch):
     assert called["stop_all"] is False
 
 
-@pytest.mark.parametrize("job_id", ["", "   ", "bad/id"])
+@pytest.mark.parametrize("job_id", ["", "   ", ".", "..", "bad/id"])
 def test_status_rejects_invalid_job_id_before_rpc(monkeypatch, job_id):
     def fake_rpc(*args, **kwargs):
         raise AssertionError("RPC should not be called")
@@ -585,7 +587,7 @@ def test_status_rejects_invalid_job_id_before_rpc(monkeypatch, job_id):
     assert payload["error"] == "job_id must be a URL-path-safe non-empty string"
 
 
-@pytest.mark.parametrize("job_id", ["", "   ", "bad/id"])
+@pytest.mark.parametrize("job_id", ["", "   ", ".", "..", "bad/id"])
 def test_stop_rejects_invalid_job_id_before_rpc_or_fallback(monkeypatch, job_id):
     def fake_rpc(*args, **kwargs):
         raise AssertionError("RPC should not be called")

@@ -2525,13 +2525,16 @@ def test_http_post_rejects_invalid_job_id_without_creating_session():
         thread.join(timeout=2)
 
 
-def test_http_get_rejects_invalid_decoded_job_id_path():
+@pytest.mark.parametrize("job_id_path", ["bad%3Fjob", "%2E", "%2E%2E"])
+def test_http_get_rejects_invalid_decoded_job_id_path(job_id_path):
     server = make_server()
     active_job_id = server.start_keep(job_id="active-job")["job_id"]
     httpd, thread, base = _start_http_server(server)
 
     try:
-        status_code, payload = _request_json("GET", f"{base}/api/sessions/bad%3Fjob")
+        status_code, payload = _request_json(
+            "GET", f"{base}/api/sessions/{job_id_path}"
+        )
 
         assert status_code == 400
         assert "job_id" in payload["error"]["message"]
