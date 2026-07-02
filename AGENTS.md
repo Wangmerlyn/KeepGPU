@@ -321,6 +321,9 @@ This file defines how coding agents should work in this repository.
 - The dashboard request wrapper must prefer structured REST `error.message`
   strings over raw JSON bodies so users see actionable start/refresh/release
   failures instead of protocol payloads.
+- Dashboard refresh must treat malformed successful `/api/gpus` and
+  `/api/sessions` list payloads as refresh warnings without replacing the last
+  known good dashboard state with empty or malformed data.
 - Dashboard stop requests must use a timeout that covers the backend startup
   stop wait plus release timeout and a small client buffer; shorter dashboard
   refresh/start requests should keep their modest timeout.

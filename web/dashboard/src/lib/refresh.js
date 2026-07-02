@@ -14,24 +14,43 @@ export function formatRefreshWarningMessage(error) {
   return `Refresh warning: ${message || "unknown error"}`
 }
 
+function readRefreshList(result, fieldName, malformedMessage) {
+  if (result.status === "rejected") {
+    return {
+      items: null,
+      warning: formatRefreshWarningMessage(result.reason)
+    }
+  }
+  const items = result.value?.[fieldName]
+  if (!Array.isArray(items)) {
+    return {
+      items: null,
+      warning: formatRefreshWarningMessage(new Error(malformedMessage))
+    }
+  }
+  return { items, warning: null }
+}
+
 export async function fetchDashboardPayloads(requestJson) {
   const [gpuResult, sessionResult] = await Promise.allSettled([
     requestJson("GET", "/api/gpus"),
     requestJson("GET", "/api/sessions")
   ])
+  const gpuPayload = readRefreshList(
+    gpuResult,
+    "gpus",
+    "malformed GPU list response"
+  )
+  const sessionPayload = readRefreshList(
+    sessionResult,
+    "active_jobs",
+    "malformed session list response"
+  )
 
   return {
-    gpus: gpuResult.status === "fulfilled" ? gpuResult.value?.gpus ?? [] : null,
-    sessions:
-      sessionResult.status === "fulfilled"
-        ? sessionResult.value?.active_jobs ?? []
-        : null,
-    warning:
-      gpuResult.status === "rejected"
-        ? formatRefreshWarningMessage(gpuResult.reason)
-        : sessionResult.status === "rejected"
-          ? formatRefreshWarningMessage(sessionResult.reason)
-          : null
+    gpus: gpuPayload.items,
+    sessions: sessionPayload.items,
+    warning: gpuPayload.warning ?? sessionPayload.warning
   }
 }
 

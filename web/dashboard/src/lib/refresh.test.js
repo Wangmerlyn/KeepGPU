@@ -78,6 +78,36 @@ describe("dashboard refresh helpers", () => {
     })
   })
 
+  it("warns without replacing telemetry when the GPU payload is malformed", async () => {
+    const requestJson = async (_method, path) => {
+      if (path === "/api/gpus") {
+        return {}
+      }
+      return { active_jobs: [{ job_id: "job-a" }] }
+    }
+
+    await expect(fetchDashboardPayloads(requestJson)).resolves.toEqual({
+      gpus: null,
+      sessions: [{ job_id: "job-a" }],
+      warning: "Refresh warning: malformed GPU list response"
+    })
+  })
+
+  it("warns without replacing sessions when the session payload is malformed", async () => {
+    const requestJson = async (_method, path) => {
+      if (path === "/api/sessions") {
+        return { active_jobs: {} }
+      }
+      return { gpus: [{ id: 0, utilization: 12 }] }
+    }
+
+    await expect(fetchDashboardPayloads(requestJson)).resolves.toEqual({
+      gpus: [{ id: 0, utilization: 12 }],
+      sessions: null,
+      warning: "Refresh warning: malformed session list response"
+    })
+  })
+
   it("preserves mutation result messages when follow-up refresh warns", () => {
     expect(nextRefreshMessage({ userInitiated: true })).toBe("Dashboard refreshed.")
     expect(nextRefreshMessage({ warning: "Refresh warning: telemetry unavailable" })).toBe(
