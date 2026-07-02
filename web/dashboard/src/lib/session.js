@@ -1,4 +1,18 @@
 const INTEGER_PATTERN = /^\d+$/
+const INTERVAL_NUMBER_PATTERN =
+  /^-?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?$/
+const BUSY_THRESHOLD_PATTERN = /^-?[0-9]+$/
+const NUMERIC_TOKEN_ERROR = "Use plain ASCII numbers without leading plus signs."
+const BUSY_THRESHOLD_ERROR =
+  "Busy threshold must be -1 or an integer between 0 and 100"
+
+function isSignedZeroInteger(value) {
+  return (
+    value.startsWith("-") &&
+    BUSY_THRESHOLD_PATTERN.test(value) &&
+    Number(value) === 0
+  )
+}
 
 export function parseGpuIds(raw) {
   const value = raw.trim()
@@ -24,6 +38,14 @@ export function parsePositiveNumber(value, fieldName) {
   if (normalized === "") {
     throw new Error(`${fieldName} must be finite and positive`)
   }
+  if (
+    typeof normalized === "string" &&
+    !INTERVAL_NUMBER_PATTERN.test(normalized)
+  ) {
+    throw new Error(
+      `${fieldName} must be finite and positive. ${NUMERIC_TOKEN_ERROR}`
+    )
+  }
   const parsed = Number(normalized)
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(`${fieldName} must be finite and positive`)
@@ -33,15 +55,21 @@ export function parsePositiveNumber(value, fieldName) {
 
 export function parseBusyThreshold(value) {
   if (typeof value === "boolean") {
-    throw new Error("Busy threshold must be -1 or an integer between 0 and 100")
+    throw new Error(BUSY_THRESHOLD_ERROR)
   }
   const normalized = typeof value === "string" ? value.trim() : value
   if (normalized === "") {
-    throw new Error("Busy threshold must be -1 or an integer between 0 and 100")
+    throw new Error(BUSY_THRESHOLD_ERROR)
+  }
+  if (
+    typeof normalized === "string" &&
+    (!BUSY_THRESHOLD_PATTERN.test(normalized) || isSignedZeroInteger(normalized))
+  ) {
+    throw new Error(`${BUSY_THRESHOLD_ERROR}. ${NUMERIC_TOKEN_ERROR}`)
   }
   const parsed = Number(normalized)
   if (!Number.isInteger(parsed) || (parsed !== -1 && (parsed < 0 || parsed > 100))) {
-    throw new Error("Busy threshold must be -1 or an integer between 0 and 100")
+    throw new Error(BUSY_THRESHOLD_ERROR)
   }
   return parsed
 }

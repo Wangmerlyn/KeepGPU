@@ -153,6 +153,10 @@ The dashboard provides:
 - session creation form,
 - single-session and stop-all controls.
 
+The start form follows the same numeric token rules as the CLI: use plain ASCII
+digits, omit leading plus signs, and use `-1` only for the busy-threshold
+unconditional mode.
+
 Telemetry refresh is manual by default so an idle browser tab does not keep
 probing GPU backends. Use **Refresh Now** for a one-shot update, or enable
 **Auto refresh** for 10-second polling while the tab is visible.
