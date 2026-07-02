@@ -48,7 +48,8 @@ This file defines how coding agents should work in this repository.
   caveats, sentinel-value explanations, and long citation metadata in `docs/`,
   not in README. Keep `docs/citation.md` aligned with the current Zenodo
   concept DOI metadata. Avoid badge clutter; keep badges to PyPI, docs status,
-  and the Zenodo DOI badge.
+  and the Zenodo DOI badge. The PyPI badge should target the canonical
+  `https://pypi.org/project/keep-gpu/` project URL.
 - First-run CLI examples in `README.md` and `docs/getting-started.md` should
   prefer explicit `--gpu-ids 0` unless the text is intentionally demonstrating
   the all-visible-GPUs default.
