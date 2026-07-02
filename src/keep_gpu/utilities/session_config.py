@@ -6,6 +6,7 @@ from typing import Any, List, Optional, Tuple, Union
 JOB_ID_PATTERN_TEXT = r"^[A-Za-z0-9._~-]+$"
 _JOB_ID_PATTERN = re.compile(JOB_ID_PATTERN_TEXT)
 DEFAULT_BUSY_THRESHOLD = 25
+MAX_GPU_IDS = 64
 PUBLIC_INTERVAL_MAX_SECONDS = int(threading.TIMEOUT_MAX)
 
 
@@ -83,7 +84,7 @@ def validate_gpu_ids(gpu_ids: Any) -> Optional[List[int]]:
         raise ValueError("gpu_ids must be a list of integers")
     if not gpu_ids:
         raise ValueError("gpu_ids must select at least one GPU")
-    if len(gpu_ids) > 64:
+    if len(gpu_ids) > MAX_GPU_IDS:
         raise ValueError("gpu_ids has too many items")
     if any(not _is_plain_int(gpu_id) or gpu_id < 0 for gpu_id in gpu_ids):
         raise ValueError("gpu_ids must contain non-negative integers")

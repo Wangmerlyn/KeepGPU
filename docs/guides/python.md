@@ -85,9 +85,10 @@ with GlobalGPUController(
 
 - Each `CudaGPUController` runs in its own thread.
 - `gpu_ids=None` means all visible GPUs. Explicit values are visible device
-  ordinals after CUDA or ROCm visibility filtering. Empty, duplicate, or
-  out-of-range lists are invalid, and startup raises `ValueError` if the
-  resolved selection contains zero devices.
+  ordinals after CUDA or ROCm visibility filtering. Empty, duplicate,
+  or out-of-range lists are invalid; lists with more than 64 entries are also
+  invalid. Startup raises `ValueError` if the resolved selection contains zero
+  devices.
 - Local constructor inputs (`gpu_ids`, `interval`, `busy_threshold`, and
   `vram_to_keep`) are validated before platform/backend discovery. Visible-count
   checks for explicit IDs still require device discovery.

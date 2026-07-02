@@ -392,6 +392,9 @@ This file defines how coding agents should work in this repository.
 - MCP tool schemas that expose `job_id` must reuse the shared
   `JOB_ID_PATTERN_TEXT` contract from `session_config.py`, so generated clients
   see the same non-empty URL-path-safe shape enforced at runtime.
+- MCP `start_keep` schemas that expose `gpu_ids` must advertise the shared
+  `MAX_GPU_IDS` limit from `session_config.py` as `maxItems`, so generated
+  clients see the same list-size cap enforced at runtime.
 - Stop requests must not miss starting sessions. Targeted stops wait for the
   matching startup before returning `not found`; stop-all records its initial
   active/starting boundary first, waits only for starts in that boundary, and

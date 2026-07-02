@@ -5,15 +5,15 @@ module exposes the Typer entry point, while the controllers and utilities power
 both the command-line and Python recipes.
 
 For global sessions, `gpu_ids=None` means all visible GPUs. Explicit values are
-visible device ordinals after CUDA or ROCm visibility filtering. Passing an
-empty, duplicate, or out-of-range list is invalid, and startup raises
-`ValueError` if discovery resolves to zero devices. Telemetry may expose
-metadata such as `physical_id`, but those fields are not accepted as selection
-IDs. On CUDA, NVML telemetry records are returned only when Torch CUDA can start
-the same visible ordinal set, so NVML-only devices are not exposed as public
-`gpu_ids`. On ROCm, telemetry records are returned only for visible ordinals
-that Torch can select; nullable memory fields mean memory telemetry is
-unavailable after successful selection.
+visible device ordinals after CUDA or ROCm visibility filtering. Empty,
+duplicate, or out-of-range lists are invalid; lists with more than 64 entries
+are also invalid. Startup raises `ValueError` if discovery resolves to zero
+devices. Telemetry may expose metadata such as `physical_id`, but those fields
+are not accepted as selection IDs. On CUDA, NVML telemetry records are returned
+only when Torch CUDA can start the same visible ordinal set, so NVML-only
+devices are not exposed as public `gpu_ids`. On ROCm, telemetry records are
+returned only for visible ordinals that Torch can select; nullable memory fields
+mean memory telemetry is unavailable after successful selection.
 
 `GlobalGPUController` validates local constructor inputs (`gpu_ids`, `interval`,
 `busy_threshold`, and `vram_to_keep`) before platform or hardware probing.

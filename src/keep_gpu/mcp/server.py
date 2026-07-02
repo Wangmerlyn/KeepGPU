@@ -61,6 +61,7 @@ from keep_gpu.utilities.platform_manager import DeviceEnumerationUnavailableErro
 from keep_gpu.utilities.session_config import (
     DEFAULT_BUSY_THRESHOLD,
     JOB_ID_PATTERN_TEXT,
+    MAX_GPU_IDS,
     PUBLIC_INTERVAL_MAX_SECONDS,
     is_memory_byte_or_none,
     is_memory_byte_pair_or_none,
@@ -95,6 +96,7 @@ MCP_TOOLS: List[Dict[str, Any]] = [
                     "type": ["array", "null"],
                     "items": {"type": "integer", "minimum": 0},
                     "minItems": 1,
+                    "maxItems": MAX_GPU_IDS,
                     "uniqueItems": True,
                     "description": "Visible GPU ordinals; null or omitted uses all.",
                 },
