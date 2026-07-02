@@ -395,9 +395,30 @@ def test_start_command_rejects_non_integer_busy_threshold_before_auto_start(
         (["--vram", "not-a-size"], "invalid format"),
         (["--vram", ("9" * 500) + "GiB"], "vram must be no more than"),
         (["--interval", str(10**1000)], "interval must be no more than"),
-        (["--interval", f"+{10**1000}"], "interval must be no more than"),
+        (["--interval", f"+{10**1000}"], "interval must be finite and positive"),
         (["--interval", "NaN"], "interval must be finite and positive"),
         (["--interval", "Infinity"], "interval must be finite and positive"),
+        (["--interval", "1_000"], "interval must be finite and positive"),
+        (
+            ["--busy-threshold", "１２"],
+            "busy_threshold must be -1 or an integer between 0 and 100",
+        ),
+        (
+            ["--busy-threshold", "1_0"],
+            "busy_threshold must be -1 or an integer between 0 and 100",
+        ),
+        (
+            ["--gpu-ids", "１２３"],
+            "Invalid characters in --gpu-ids '１２３'",
+        ),
+        (
+            ["--gpu-ids", "1_000"],
+            "Invalid characters in --gpu-ids '1_000'",
+        ),
+        (
+            ["--gpu-ids", "-0"],
+            "Invalid characters in --gpu-ids '-0'",
+        ),
     ],
 )
 def test_start_command_rejects_local_inputs_before_auto_start(
@@ -2223,6 +2244,51 @@ def test_blocking_mode_rejects_non_integer_busy_threshold_without_usage(monkeypa
     assert result.exit_code == 1
     assert "busy_threshold must be -1 or an integer between 0 and 100" in result.output
     assert "Usage:" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (["--gpu-ids", "1_000"], "Invalid characters in --gpu-ids '1_000'"),
+        (["--gpu-ids", "１２３"], "Invalid characters in --gpu-ids '１２３'"),
+        (["--gpu-ids", "+0"], "Invalid characters in --gpu-ids '+0'"),
+        (["--interval", "1_000"], "interval must be finite and positive"),
+        (["--interval", "+1"], "interval must be finite and positive"),
+        (
+            ["--busy-threshold", "1_0"],
+            "busy_threshold must be -1 or an integer between 0 and 100",
+        ),
+        (
+            ["--busy-threshold", "+25"],
+            "busy_threshold must be -1 or an integer between 0 and 100",
+        ),
+        (
+            ["--threshold", "1_0"],
+            "threshold must be an integer utilization value or a VRAM size",
+        ),
+        (
+            ["--threshold", "+25"],
+            "threshold must be an integer utilization value or a VRAM size",
+        ),
+        (
+            ["--threshold", "１２"],
+            "threshold must be an integer utilization value or a VRAM size",
+        ),
+    ],
+)
+def test_blocking_mode_rejects_non_canonical_numeric_tokens(monkeypatch, args, message):
+    monkeypatch.setattr(
+        cli,
+        "_run_blocking",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("blocking runner should not be called")
+        ),
+    )
+
+    result = runner.invoke(cli.app, args)
+
+    assert result.exit_code == 1
+    assert message in result.output
 
 
 def test_invalid_root_interval_before_subcommand_is_rejected(monkeypatch):

@@ -48,6 +48,10 @@ value is invalid.
 limit; fractional seconds such as `0.5` are accepted. `--vram` keeps integer
 and digit-only values as bytes, accepts human units, and rejects
 byte-equivalent requests above 1 PiB.
+CLI numeric tokens use plain ASCII spellings; typo-like forms such as leading
+plus signs, `1_000`, or full-width digits are rejected before daemon auto-start
+or RPC. Only documented negative sentinels such as `--busy-threshold -1` are
+accepted.
 
 ### Check status
 
@@ -162,10 +166,10 @@ summary averages and do not draw an idle-looking utilization fill.
 
 | Option | Meaning | Default |
 | --- | --- | --- |
-| `--gpu-ids` | Comma-separated unique non-negative visible device ordinals. Omit to use all visible devices; explicit empty or whitespace-only values are invalid. Startup fails if all-visible resolution finds no GPUs or if an explicit ordinal is out of range. | all |
+| `--gpu-ids` | Comma-separated unique non-negative visible device ordinals using plain ASCII digits. Omit to use all visible devices; explicit empty or whitespace-only values are invalid. Startup fails if all-visible resolution finds no GPUs or if an explicit ordinal is out of range. | all |
 | `--vram` | Per-GPU memory target (`512MB`, `1GiB`, or bare bytes), capped at 1 PiB byte-equivalent. | `1GiB` |
 | `--interval` | Finite positive seconds between keep-alive cycles, including fractional values, capped by the Python runtime wait limit. | `300` |
-| `--busy-threshold` / `--util-threshold` | `0..100` backs off when utilization exceeds this value or telemetry is unavailable; `-1` disables utilization backoff. | `25` |
+| `--busy-threshold` / `--util-threshold` | ASCII `0..100` backs off when utilization exceeds this value or telemetry is unavailable; `-1` disables utilization backoff. | `25` |
 | `--job-id` | Optional URL-path-safe session id. Invalid IDs are rejected before service auto-start. | auto |
 
 ## Remote sessions

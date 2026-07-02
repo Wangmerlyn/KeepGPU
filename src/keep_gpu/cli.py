@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import signal
 import subprocess
@@ -54,6 +55,10 @@ ROOT_BLOCKING_OPTION_LABELS = {
     "busy_threshold": "--busy-threshold/--util-threshold",
     "interval": "--interval",
 }
+_CLI_INTEGER_TOKEN_RE = re.compile(r"-?[0-9]+")
+_CLI_NUMBER_TOKEN_RE = re.compile(
+    r"-?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?"
+)
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -61,6 +66,29 @@ app = typer.Typer(
 )
 console = Console()
 logger = setup_logger(__name__)
+
+
+def _is_signed_zero_integer_token(token: str) -> bool:
+    return (
+        token.startswith("-")
+        and _CLI_INTEGER_TOKEN_RE.fullmatch(token) is not None
+        and int(token) == 0
+    )
+
+
+def _is_invalid_gpu_id_token(token: str) -> bool:
+    if not _CLI_INTEGER_TOKEN_RE.fullmatch(token):
+        return True
+    return _is_signed_zero_integer_token(token)
+
+
+def _looks_like_numeric_cli_token(token: str) -> bool:
+    return bool(token) and (
+        token[0] in "+-"
+        or any(ch.isdigit() for ch in token)
+        or "_" in token
+        or "." in token
+    )
 
 
 class ServiceUnreachableError(RuntimeError):
@@ -311,11 +339,21 @@ def _apply_legacy_threshold(
     if legacy_threshold is None:
         return vram_value, busy_threshold, None
 
+    normalized = legacy_threshold.strip()
+    if _CLI_INTEGER_TOKEN_RE.fullmatch(
+        normalized
+    ) and not _is_signed_zero_integer_token(normalized):
+        return vram_value, int(normalized), "busy"
     try:
-        parsed_threshold = int(legacy_threshold)
-    except ValueError:
-        return legacy_threshold, busy_threshold, "vram"
-    return vram_value, parsed_threshold, "busy"
+        parse_vram_to_elements(normalized)
+    except (TypeError, ValueError) as exc:
+        if any(ch.isalpha() for ch in normalized):
+            raise typer.BadParameter(str(exc)) from exc
+        if _looks_like_numeric_cli_token(normalized):
+            raise typer.BadParameter(
+                "threshold must be an integer utilization value or a VRAM size"
+            ) from exc
+    return legacy_threshold, busy_threshold, "vram"
 
 
 def _parse_gpu_ids(gpu_ids: Optional[str]) -> Optional[List[int]]:
@@ -326,7 +364,10 @@ def _parse_gpu_ids(gpu_ids: Optional[str]) -> Optional[List[int]]:
             "gpu_ids must not be empty; omit --gpu-ids to use all visible GPUs"
         )
     try:
-        parsed = [int(i.strip()) for i in gpu_ids.split(",")]
+        tokens = [i.strip() for i in gpu_ids.split(",")]
+        if any(_is_invalid_gpu_id_token(token) for token in tokens):
+            raise ValueError
+        parsed = [int(token) for token in tokens]
     except ValueError as exc:
         raise typer.BadParameter(
             f"Invalid characters in --gpu-ids '{gpu_ids}'. "
@@ -343,7 +384,7 @@ def _validate_cli_interval(interval: Any) -> Union[int, float]:
         raise typer.BadParameter("interval must be finite and positive")
     if isinstance(interval, str):
         normalized = interval.strip()
-        if not normalized:
+        if not normalized or not _CLI_NUMBER_TOKEN_RE.fullmatch(normalized):
             raise typer.BadParameter("interval must be finite and positive")
         try:
             try:
@@ -371,7 +412,11 @@ def _validate_cli_vram(vram: str) -> str:
 def _validate_cli_busy_threshold(busy_threshold: Any) -> int:
     if isinstance(busy_threshold, str):
         normalized = busy_threshold.strip()
-        if not normalized:
+        if (
+            not normalized
+            or not _CLI_INTEGER_TOKEN_RE.fullmatch(normalized)
+            or _is_signed_zero_integer_token(normalized)
+        ):
             raise typer.BadParameter(
                 "busy_threshold must be -1 or an integer between 0 and 100"
             )
@@ -1137,6 +1182,11 @@ def main(
         interval = _validate_cli_interval(interval)
         busy_threshold = _validate_cli_busy_threshold(busy_threshold)
         _parse_gpu_ids(gpu_ids)
+        legacy_vram, legacy_busy_threshold, _ = _apply_legacy_threshold(
+            vram, legacy_threshold, busy_threshold
+        )
+        _validate_cli_vram(legacy_vram)
+        _validate_cli_busy_threshold(legacy_busy_threshold)
         _run_blocking(interval, gpu_ids, vram, legacy_threshold, busy_threshold)
     except typer.BadParameter as exc:
         console.print(f"[bold red]Error: {exc}[/bold red]")
