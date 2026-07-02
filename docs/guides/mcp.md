@@ -53,6 +53,9 @@ tool names:
 modify the returned tool metadata without mutating the server's shared MCP tool
 registry.
 
+Use MCP `ping` for cheap liveness checks instead of polling GPU or session
+endpoints when you only need to know whether the service is responsive.
+
 Minimal client config:
 
 ```yaml

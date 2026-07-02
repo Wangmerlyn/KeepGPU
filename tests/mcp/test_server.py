@@ -1356,6 +1356,32 @@ def test_mcp_initialize_returns_server_capabilities():
     assert result["serverInfo"]["version"]
 
 
+def test_mcp_ping_returns_empty_result_without_touching_service_state(monkeypatch):
+    def fail_direct_dispatch(*args, **kwargs):
+        raise AssertionError("ping must not dispatch KeepGPU methods")
+
+    class RuntimeHookController(DummyController):
+        def runtime_error(self):
+            raise AssertionError("ping must not refresh session runtime health")
+
+    monkeypatch.setattr(server_module, "_call_keepgpu_method", fail_direct_dispatch)
+    monkeypatch.setattr(
+        server_module,
+        "get_gpu_info",
+        lambda: (_ for _ in ()).throw(AssertionError("ping must not enumerate GPUs")),
+    )
+    server = KeepGPUServer(
+        controller_factory=cast(Any, lambda **kwargs: RuntimeHookController(**kwargs))
+    )
+    job_id = server.start_keep(job_id="ping-existing-session", gpu_ids=[0])["job_id"]
+    req = {"jsonrpc": "2.0", "id": 99, "method": "ping"}
+
+    resp = _handle_request(server, req)
+
+    assert resp == {"jsonrpc": "2.0", "id": 99, "result": {}}
+    assert server._sessions[job_id].controller.released is False
+
+
 def test_mcp_initialized_notification_has_no_response():
     server = make_server()
     req = {"jsonrpc": "2.0", "method": "notifications/initialized"}

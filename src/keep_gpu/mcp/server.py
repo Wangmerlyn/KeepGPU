@@ -5,6 +5,7 @@ Supports MCP/JSON-RPC over stdio/HTTP and REST-style HTTP endpoints.
 MCP protocol methods:
   - initialize
   - notifications/initialized
+  - ping
   - tools/list
   - tools/call
 
@@ -962,7 +963,9 @@ def _handle_request(server: KeepGPUServer, payload: Any) -> Optional[Dict[str, A
             )
         if not isinstance(params, dict):
             raise JSONRPCError(JSONRPC_INVALID_PARAMS, "params must be an object")
-        if method == "initialize":
+        if method == "ping":
+            result = {}
+        elif method == "initialize":
             result = _mcp_initialize_result(params)
         elif method == "tools/list":
             result = {"tools": copy.deepcopy(MCP_TOOLS)}
