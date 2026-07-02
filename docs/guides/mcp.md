@@ -166,6 +166,8 @@ for `status` and `stop_keep`. Custom IDs must be non-empty strings containing
 only letters, digits, `.`, `_`, `-`, or `~`; invalid IDs return an error before
 session state changes. The MCP tool schemas advertise the same `job_id`
 pattern, so clients can reject invalid custom IDs before making a tool call.
+For `start_keep`, the `gpu_ids` schema also advertises the runtime list limit
+of at most 64 unique visible ordinals.
 
 Status calls show reserved jobs as `state="starting"` while controller startup
 is still in progress. That includes both `status(job_id)` and the all-session

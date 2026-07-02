@@ -5,6 +5,7 @@ import pytest
 
 from keep_gpu.utilities import session_config
 from keep_gpu.utilities.session_config import (
+    MAX_GPU_IDS,
     PUBLIC_INTERVAL_MAX_SECONDS,
     is_memory_byte_or_none,
     is_memory_byte_pair_or_none,
@@ -57,6 +58,12 @@ def test_validate_gpu_ids_rejects_empty_list():
 def test_validate_gpu_ids_rejects_duplicates():
     with pytest.raises(ValueError, match="gpu_ids must not contain duplicate values"):
         validate_gpu_ids([0, 1, 0])
+
+
+def test_validate_gpu_ids_enforces_public_item_limit():
+    assert validate_gpu_ids(list(range(MAX_GPU_IDS))) == list(range(MAX_GPU_IDS))
+    with pytest.raises(ValueError, match="gpu_ids has too many items"):
+        validate_gpu_ids(list(range(MAX_GPU_IDS + 1)))
 
 
 def test_validate_visible_rank_accepts_visible_ordinal():
