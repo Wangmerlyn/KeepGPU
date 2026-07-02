@@ -129,8 +129,10 @@ This file defines how coding agents should work in this repository.
   when telemetry is unavailable unless users explicitly choose
   `busy_threshold=-1`.
 - Keep the MCP server compatible with standard MCP lifecycle/tool methods
-  (`initialize`, `notifications/initialized`, `tools/list`, `tools/call`) while
-  preserving legacy direct JSON-RPC method calls for local scripts.
+  (`initialize`, `notifications/initialized`, `ping`, `tools/list`,
+  `tools/call`) while preserving legacy direct JSON-RPC method calls for local
+  scripts. `ping` must stay a cheap liveness utility that does not touch GPU
+  telemetry or session runtime-health hooks.
 - MCP `tools/list` responses must be read-only snapshots from the caller's
   perspective; local embedding callers must not be able to mutate the server's
   shared tool registry through a returned response object.
