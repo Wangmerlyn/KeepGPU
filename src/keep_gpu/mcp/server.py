@@ -1073,7 +1073,7 @@ class _JSONRPCHandler(BaseHTTPRequestHandler):
             route_paths = cls._route_path_candidates(raw_parsed.path)
             if any(cls._is_api_path(path) for path in route_paths):
                 return True
-        if parsed.path == "/api/gpus" and bool(
+        if parsed.path in ("/api/gpus", "/api/sessions") and bool(
             parsed.params or parsed.query or parsed.fragment
         ):
             return True
