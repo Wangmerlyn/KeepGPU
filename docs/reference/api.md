@@ -65,8 +65,8 @@ crash.
 
 For service session IDs, `job_id=None` is the only omitted/all-sessions
 sentinel. Custom IDs must be non-empty strings containing only letters, digits,
-`.`, `_`, `-`, or `~`; invalid values raise `ValueError` before session state
-changes.
+`.`, `_`, `-`, or `~`, and may not be standalone `.` or `..`; invalid values
+raise `ValueError` before session state changes.
 
 ::: keep_gpu.cli
     options:

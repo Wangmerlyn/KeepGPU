@@ -178,7 +178,8 @@ ownership record.
 
 Only omitted/`null` `job_id` values mean generated IDs or all-sessions, depending
 on the method. Custom IDs must be non-empty strings containing only letters,
-digits, `.`, `_`, `-`, or `~`; invalid REST path IDs return `400` before acting.
+digits, `.`, `_`, `-`, or `~`, and may not be standalone `.` or `..`; invalid
+REST path IDs return `400` before acting.
 Supported REST route/method errors are JSON objects: validation errors return
 `400`, unknown API routes return `404`, expected startup-unavailable session
 creation returns `503`, and unexpected service/runtime failures return `500`

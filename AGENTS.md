@@ -397,10 +397,14 @@ This file defines how coding agents should work in this repository.
   no-active-session status check before signaling; use `--force` for
   unresponsive auto-started daemons.
 - Treat custom `job_id` values as reserved from the moment startup begins; duplicate starts must fail before another controller can begin keep-alive work.
-- Keep custom `job_id` validation centralized in `session_config.py`: only `None` means omitted/all-sessions, and custom IDs must be non-empty URL-path-safe strings before any session state changes.
+- Keep custom `job_id` validation centralized in `session_config.py`: only
+  `None` means omitted/all-sessions, and custom IDs must be non-empty
+  URL-path-safe strings before any session state changes. Standalone `.` and
+  `..` are reserved dot segments, not valid custom IDs.
 - MCP tool schemas that expose `job_id` must reuse the shared
   `JOB_ID_PATTERN_TEXT` contract from `session_config.py`, so generated clients
-  see the same non-empty URL-path-safe shape enforced at runtime.
+  see the same non-empty URL-path-safe shape, including dot-segment reservation,
+  enforced at runtime.
 - MCP `start_keep` schemas that expose `gpu_ids` must advertise the shared
   `MAX_GPU_IDS` limit from `session_config.py` as `maxItems`, so generated
   clients see the same list-size cap enforced at runtime.

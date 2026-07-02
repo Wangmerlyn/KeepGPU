@@ -939,7 +939,9 @@ def test_jsonrpc_start_keep_defaults_to_eco_safe_busy_threshold():
     assert status["params"]["busy_threshold"] == 25
 
 
-@pytest.mark.parametrize("job_id", ["", " ", 123, "job/123", "job?123", "job#123"])
+@pytest.mark.parametrize(
+    "job_id", ["", " ", 123, ".", "..", "job/123", "job?123", "job#123"]
+)
 def test_start_keep_rejects_invalid_job_id_before_starting_controller(job_id):
     controllers = []
 
@@ -959,7 +961,9 @@ def test_start_keep_rejects_invalid_job_id_before_starting_controller(job_id):
     assert server.status()["active_jobs"] == []
 
 
-@pytest.mark.parametrize("job_id", ["", " ", 123, "job/123", "job?123", "job#123"])
+@pytest.mark.parametrize(
+    "job_id", ["", " ", 123, ".", "..", "job/123", "job?123", "job#123"]
+)
 def test_status_rejects_invalid_job_id_without_changing_sessions(job_id):
     server = make_server()
     active_job_id = server.start_keep(job_id="active-job")["job_id"]
@@ -970,7 +974,9 @@ def test_status_rejects_invalid_job_id_without_changing_sessions(job_id):
     assert server.status(active_job_id)["active"] is True
 
 
-@pytest.mark.parametrize("job_id", ["", " ", 123, "job/123", "job?123", "job#123"])
+@pytest.mark.parametrize(
+    "job_id", ["", " ", 123, ".", "..", "job/123", "job?123", "job#123"]
+)
 def test_stop_keep_rejects_invalid_job_id_without_stopping_sessions(job_id):
     server = make_server()
     active_job_id = server.start_keep(job_id="active-job")["job_id"]

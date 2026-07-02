@@ -192,6 +192,8 @@ def test_validate_job_id_accepts_omitted_and_url_path_safe_strings(value):
         123,
         True,
         ["job-123"],
+        ".",
+        "..",
         "job/123",
         "job?123",
         "job#123",
