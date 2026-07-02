@@ -110,7 +110,10 @@ Successful direct-method responses are KeepGPU JSON-RPC envelopes with
 `jsonrpc: "2.0"`, the matching request `id`, and an object `result`.
 
 For direct JSON-RPC calls, public validation failures and unknown parameters
-return JSON-RPC `-32602 Invalid params`. Expected startup-unavailable
+return JSON-RPC `-32602 Invalid params`. Omitted `params` are treated as an
+empty object for legacy direct calls; explicit `params: null` or any other
+non-object `params` value is invalid and does not call the target method.
+Expected startup-unavailable
 conditions, such as an unsupported controller platform, no usable visible GPUs,
 failed CUDA/ROCm visible-device enumeration during `start_keep` or `list_gpus`,
 or an unavailable PyTorch MPS backend during `start_keep`, return `-32000` with

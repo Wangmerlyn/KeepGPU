@@ -947,7 +947,7 @@ def _handle_request(server: KeepGPUServer, payload: Any) -> Optional[Dict[str, A
         if "id" in payload and _is_valid_jsonrpc_id(raw_id):
             req_id = raw_id
         method = payload.get("method")
-        params = payload.get("params", {})
+        params = payload["params"] if "params" in payload else {}
         if not isinstance(method, str) or not method:
             raise JSONRPCError(JSONRPC_INVALID_REQUEST, "Request method is required.")
         if "jsonrpc" in payload and payload["jsonrpc"] != "2.0":
@@ -960,8 +960,6 @@ def _handle_request(server: KeepGPUServer, payload: Any) -> Optional[Dict[str, A
             raise JSONRPCError(
                 JSONRPC_INVALID_REQUEST, "Notifications must not include an id."
             )
-        if params is None:
-            params = {}
         if not isinstance(params, dict):
             raise JSONRPCError(JSONRPC_INVALID_PARAMS, "params must be an object")
         if method == "initialize":

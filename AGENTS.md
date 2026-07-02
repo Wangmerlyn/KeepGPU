@@ -192,7 +192,11 @@ This file defines how coding agents should work in this repository.
 - Keep platform detection and environment probing centralized in `src/keep_gpu/utilities/platform_manager.py`.
 - Keep GPU telemetry helpers in `src/keep_gpu/utilities/gpu_info.py` and related utility modules.
 - Keep public session input validation centralized in `src/keep_gpu/utilities/session_config.py`; CLI, Python, REST, and JSON-RPC entry points must share the same contract.
-- JSON-RPC user parameter validation errors and unknown direct-method params must return `-32602 Invalid params`; reserve `-32603 Internal error` for unexpected server failures.
+- JSON-RPC user parameter validation errors and unknown direct-method params
+  must return `-32602 Invalid params`; reserve `-32603 Internal error` for
+  unexpected server failures. Omitted `params` remain a legacy/internal empty
+  object, but explicit `params: null` or other non-object `params` are invalid
+  and must not trigger method side effects such as stop-all.
 - Expected controller startup unavailability, such as no usable visible GPUs,
   failed CUDA/ROCm visible-device enumeration, unavailable or unprobeable
   PyTorch MPS backends, or unsupported platforms, must surface as explicit
