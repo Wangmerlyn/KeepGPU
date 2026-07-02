@@ -395,7 +395,7 @@ def test_start_command_rejects_non_integer_busy_threshold_before_auto_start(
         (["--vram", "not-a-size"], "invalid format"),
         (["--vram", ("9" * 500) + "GiB"], "vram must be no more than"),
         (["--interval", str(10**1000)], "interval must be no more than"),
-        (["--interval", f"+{10**1000}"], "interval must be no more than"),
+        (["--interval", f"+{10**1000}"], "interval must be finite and positive"),
         (["--interval", "NaN"], "interval must be finite and positive"),
         (["--interval", "Infinity"], "interval must be finite and positive"),
         (["--interval", "1_000"], "interval must be finite and positive"),
@@ -2251,13 +2251,23 @@ def test_blocking_mode_rejects_non_integer_busy_threshold_without_usage(monkeypa
     [
         (["--gpu-ids", "1_000"], "Invalid characters in --gpu-ids '1_000'"),
         (["--gpu-ids", "１２３"], "Invalid characters in --gpu-ids '１２３'"),
+        (["--gpu-ids", "+0"], "Invalid characters in --gpu-ids '+0'"),
         (["--interval", "1_000"], "interval must be finite and positive"),
+        (["--interval", "+1"], "interval must be finite and positive"),
         (
             ["--busy-threshold", "1_0"],
             "busy_threshold must be -1 or an integer between 0 and 100",
         ),
         (
+            ["--busy-threshold", "+25"],
+            "busy_threshold must be -1 or an integer between 0 and 100",
+        ),
+        (
             ["--threshold", "1_0"],
+            "threshold must be an integer utilization value or a VRAM size",
+        ),
+        (
+            ["--threshold", "+25"],
             "threshold must be an integer utilization value or a VRAM size",
         ),
         (

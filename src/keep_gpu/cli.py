@@ -55,9 +55,9 @@ ROOT_BLOCKING_OPTION_LABELS = {
     "busy_threshold": "--busy-threshold/--util-threshold",
     "interval": "--interval",
 }
-_CLI_INTEGER_TOKEN_RE = re.compile(r"[+-]?[0-9]+")
+_CLI_INTEGER_TOKEN_RE = re.compile(r"-?[0-9]+")
 _CLI_NUMBER_TOKEN_RE = re.compile(
-    r"[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?"
+    r"-?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?"
 )
 
 app = typer.Typer(
@@ -68,10 +68,18 @@ console = Console()
 logger = setup_logger(__name__)
 
 
+def _is_signed_zero_integer_token(token: str) -> bool:
+    return (
+        token.startswith("-")
+        and _CLI_INTEGER_TOKEN_RE.fullmatch(token) is not None
+        and int(token) == 0
+    )
+
+
 def _is_invalid_gpu_id_token(token: str) -> bool:
-    if token.startswith("+") or not _CLI_INTEGER_TOKEN_RE.fullmatch(token):
+    if not _CLI_INTEGER_TOKEN_RE.fullmatch(token):
         return True
-    return token.startswith("-") and int(token) == 0
+    return _is_signed_zero_integer_token(token)
 
 
 def _looks_like_numeric_cli_token(token: str) -> bool:
@@ -332,9 +340,9 @@ def _apply_legacy_threshold(
         return vram_value, busy_threshold, None
 
     normalized = legacy_threshold.strip()
-    if _CLI_INTEGER_TOKEN_RE.fullmatch(normalized) and not (
-        normalized.startswith("-") and int(normalized) == 0
-    ):
+    if _CLI_INTEGER_TOKEN_RE.fullmatch(
+        normalized
+    ) and not _is_signed_zero_integer_token(normalized):
         return vram_value, int(normalized), "busy"
     try:
         parse_vram_to_elements(normalized)
@@ -404,7 +412,11 @@ def _validate_cli_vram(vram: str) -> str:
 def _validate_cli_busy_threshold(busy_threshold: Any) -> int:
     if isinstance(busy_threshold, str):
         normalized = busy_threshold.strip()
-        if not normalized or not _CLI_INTEGER_TOKEN_RE.fullmatch(normalized):
+        if (
+            not normalized
+            or not _CLI_INTEGER_TOKEN_RE.fullmatch(normalized)
+            or _is_signed_zero_integer_token(normalized)
+        ):
             raise typer.BadParameter(
                 "busy_threshold must be -1 or an integer between 0 and 100"
             )

@@ -45,8 +45,9 @@ Local input validation runs before service auto-start. Invalid `--vram`,
 `--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, or `--port`
 values fail before daemon startup or RPC. Omit `--gpu-ids` to use all visible
 GPUs; explicit empty or whitespace-only values are invalid.
-CLI numeric tokens use plain ASCII spellings; typo-like forms such as `1_000` or
-full-width digits are rejected locally.
+CLI numeric tokens use plain ASCII spellings; typo-like forms such as leading
+plus signs, `1_000`, or full-width digits are rejected locally. Only documented
+negative sentinels such as `--busy-threshold -1` are accepted.
 If `start` auto-starts the service and the service then reports expected
 startup unavailability before creating a session, the CLI best-effort stops the
 just-created daemon instead of leaving it idle.

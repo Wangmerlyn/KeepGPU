@@ -36,7 +36,7 @@ def test_parse_gpu_ids_rejects_non_canonical_numeric_tokens(gpu_ids):
         cli._parse_gpu_ids(gpu_ids)
 
 
-@pytest.mark.parametrize("interval", ["1_000", "１２３"])
+@pytest.mark.parametrize("interval", ["1_000", "１２３", "+1"])
 def test_validate_cli_interval_rejects_non_canonical_numeric_tokens(interval):
     with pytest.raises(
         typer.BadParameter, match="interval must be finite and positive"
@@ -44,7 +44,11 @@ def test_validate_cli_interval_rejects_non_canonical_numeric_tokens(interval):
         cli._validate_cli_interval(interval)
 
 
-@pytest.mark.parametrize("busy_threshold", ["1_0", "１２"])
+def test_validate_cli_interval_preserves_exponent_plus_sign():
+    assert cli._validate_cli_interval("1e+3") == 1000
+
+
+@pytest.mark.parametrize("busy_threshold", ["1_0", "１２", "+25", "-0"])
 def test_validate_cli_busy_threshold_rejects_non_canonical_numeric_tokens(
     busy_threshold,
 ):
@@ -69,7 +73,7 @@ def test_apply_legacy_threshold_numeric():
     assert mode == "busy"
 
 
-@pytest.mark.parametrize("legacy_threshold", ["1_0", "１２", "-0"])
+@pytest.mark.parametrize("legacy_threshold", ["1_0", "１２", "+25", "-0"])
 def test_apply_legacy_threshold_rejects_non_canonical_numeric_tokens(
     legacy_threshold,
 ):

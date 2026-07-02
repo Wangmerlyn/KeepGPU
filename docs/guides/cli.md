@@ -48,8 +48,10 @@ value is invalid.
 limit; fractional seconds such as `0.5` are accepted. `--vram` keeps integer
 and digit-only values as bytes, accepts human units, and rejects
 byte-equivalent requests above 1 PiB.
-CLI numeric tokens use plain ASCII spellings; typo-like forms such as
-`1_000` or full-width digits are rejected before daemon auto-start or RPC.
+CLI numeric tokens use plain ASCII spellings; typo-like forms such as leading
+plus signs, `1_000`, or full-width digits are rejected before daemon auto-start
+or RPC. Only documented negative sentinels such as `--busy-threshold -1` are
+accepted.
 
 ### Check status
 
