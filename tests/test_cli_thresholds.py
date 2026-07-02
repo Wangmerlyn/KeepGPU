@@ -30,6 +30,31 @@ def test_parse_gpu_ids_rejects_duplicate_values():
         cli._parse_gpu_ids("0,1,0")
 
 
+@pytest.mark.parametrize("gpu_ids", ["1_000", "１２３", "+0", "-0", "-00"])
+def test_parse_gpu_ids_rejects_non_canonical_numeric_tokens(gpu_ids):
+    with pytest.raises(typer.BadParameter, match="Invalid characters in --gpu-ids"):
+        cli._parse_gpu_ids(gpu_ids)
+
+
+@pytest.mark.parametrize("interval", ["1_000", "１２３"])
+def test_validate_cli_interval_rejects_non_canonical_numeric_tokens(interval):
+    with pytest.raises(
+        typer.BadParameter, match="interval must be finite and positive"
+    ):
+        cli._validate_cli_interval(interval)
+
+
+@pytest.mark.parametrize("busy_threshold", ["1_0", "１２"])
+def test_validate_cli_busy_threshold_rejects_non_canonical_numeric_tokens(
+    busy_threshold,
+):
+    with pytest.raises(
+        typer.BadParameter,
+        match="busy_threshold must be -1 or an integer between 0 and 100",
+    ):
+        cli._validate_cli_busy_threshold(busy_threshold)
+
+
 def test_apply_legacy_threshold_none():
     vram, threshold, mode = cli._apply_legacy_threshold("1GiB", None, -1)
     assert vram == "1GiB"
@@ -42,6 +67,17 @@ def test_apply_legacy_threshold_numeric():
     assert vram == "1GiB"
     assert threshold == 25
     assert mode == "busy"
+
+
+@pytest.mark.parametrize("legacy_threshold", ["1_0", "１２", "-0"])
+def test_apply_legacy_threshold_rejects_non_canonical_numeric_tokens(
+    legacy_threshold,
+):
+    with pytest.raises(
+        typer.BadParameter,
+        match="threshold must be an integer utilization value or a VRAM size",
+    ):
+        cli._apply_legacy_threshold("1GiB", legacy_threshold, -1)
 
 
 def test_apply_legacy_threshold_memory_string():

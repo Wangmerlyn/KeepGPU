@@ -21,9 +21,9 @@ These options apply when you run `keep-gpu` without subcommands.
 | Option | Type | Description |
 | --- | --- | --- |
 | `--interval NUMBER` | seconds | Finite positive sleep duration, including fractional values, between utilization checks and keep-alive batches; values above the Python runtime wait limit are rejected. |
-| `--gpu-ids TEXT` | comma-separated unique non-negative ints | Subset of visible device ordinals to guard (for example, `0,2`). Omit to let the controller resolve all visible GPUs; explicit empty or whitespace-only values are invalid. Startup fails if all-visible resolution finds no GPUs or if an explicit ordinal is out of range. |
+| `--gpu-ids TEXT` | comma-separated unique non-negative ints | Subset of visible device ordinals to guard (for example, `0,2`) using plain ASCII digits. Omit to let the controller resolve all visible GPUs; explicit empty or whitespace-only values are invalid. Startup fails if all-visible resolution finds no GPUs or if an explicit ordinal is out of range. |
 | `--vram TEXT` | human size or bare bytes | Amount of memory each GPU controller allocates (`512MB`, `1GiB`, `1073741824`); byte-equivalent values above 1 PiB are rejected. |
-| `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | `0..100` backs off before allocation/compute when utilization is above this value or unavailable; `-1` disables utilization backoff. |
+| `--busy-threshold INTEGER` / `--util-threshold INTEGER` | percent | ASCII `0..100` backs off before allocation/compute when utilization is above this value or unavailable; `-1` disables utilization backoff. |
 | `--threshold TEXT` | deprecated | Legacy alias: numeric values map to busy-threshold, size strings map to vram. |
 
 ## Service mode
@@ -45,6 +45,8 @@ Local input validation runs before service auto-start. Invalid `--vram`,
 `--job-id`, `--interval`, `--busy-threshold`, `--gpu-ids`, `--host`, or `--port`
 values fail before daemon startup or RPC. Omit `--gpu-ids` to use all visible
 GPUs; explicit empty or whitespace-only values are invalid.
+CLI numeric tokens use plain ASCII spellings; typo-like forms such as `1_000` or
+full-width digits are rejected locally.
 If `start` auto-starts the service and the service then reports expected
 startup unavailability before creating a session, the CLI best-effort stops the
 just-created daemon instead of leaving it idle.
@@ -62,10 +64,10 @@ the service log at
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--gpu-ids` | all | Comma-separated unique visible device ordinals in the service process environment. Omit for all visible GPUs; empty or whitespace-only values are invalid. |
+| `--gpu-ids` | all | Comma-separated unique visible device ordinals using plain ASCII digits in the service process environment. Omit for all visible GPUs; empty or whitespace-only values are invalid. |
 | `--vram` | `1GiB` | Per-GPU keep memory target; byte-equivalent values above 1 PiB are rejected. |
 | `--interval` | `300` | Finite positive keep cycle interval in seconds, including fractional values, capped by the Python runtime wait limit. |
-| `--busy-threshold` / `--util-threshold` | `25` | `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
+| `--busy-threshold` / `--util-threshold` | `25` | ASCII `0..100` backs off when utilization is above this value or telemetry is unavailable; `-1` disables utilization backoff. |
 | `--job-id` | auto | Optional URL-path-safe custom id. Invalid IDs are rejected locally before service auto-start; valid IDs must be unique across active and starting sessions. |
 | `--host` | `127.0.0.1` | Service host to contact; invalid values are rejected before auto-start. |
 | `--port` | `8765` | Service port to contact; must be a plain ASCII decimal integer in `1..65535`. |
